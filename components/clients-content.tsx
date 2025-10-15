@@ -156,83 +156,23 @@ export function ClientsContent() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <CardTitle>Client Directory</CardTitle>
-              <CardDescription>Manage customer information and compliance documents</CardDescription>
-            </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Client
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Add New Client</DialogTitle>
-                  <DialogDescription>Create a new customer profile</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="clientName">Company Name</Label>
-                    <Input id="clientName" placeholder="Enter company name" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" placeholder="contact@company.com" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input id="phone" placeholder="+91 98765 43210" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="gst">GST Number</Label>
-                      <Input id="gst" placeholder="27AABCU9603R1ZM" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="pan">PAN Number</Label>
-                      <Input id="pan" placeholder="AABCU9603R" />
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea id="address" placeholder="Enter complete address" rows={3} />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline">Cancel</Button>
-                  <Button>Create Client</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by name, ID, code, or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search Bar Only */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by name, ID, code, or email..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
       {/* Clients Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
-              <TableRow>
+            <TableHeader className="bg-[#005180]">
+              <TableRow className="[&_th]:text-white [&_th]:font-semibold">
                 <TableHead>Client ID</TableHead>
                 <TableHead>Company Name</TableHead>
                 <TableHead>Customer Code</TableHead>

@@ -140,7 +140,7 @@ export function NotificationsPanel() {
         <SheetTrigger asChild>
           <TriggerButton />
         </SheetTrigger>
-        <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
+        <SheetContent side="right" className="w-[90vw] max-w-[420px] p-0">
           <SheetHeader className="sr-only">
             <SheetTitle>Notifications</SheetTitle>
           </SheetHeader>

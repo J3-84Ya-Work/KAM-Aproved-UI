@@ -24,7 +24,7 @@ const inquiries = [
   {
     id: "INQ-2024-001",
     customer: "Acme Corp",
-    product: "Custom Packaging Box",
+    job: "Custom Packaging Box",
     sku: "PKG-001",
     quantityRange: "5000-10000",
     status: "Costing",
@@ -36,7 +36,7 @@ const inquiries = [
   {
     id: "INQ-2024-002",
     customer: "TechStart Inc",
-    product: "Printed Labels",
+    job: "Printed Labels",
     sku: "LBL-045",
     quantityRange: "10000-15000",
     status: "Quoted",
@@ -48,7 +48,7 @@ const inquiries = [
   {
     id: "INQ-2024-003",
     customer: "Global Traders",
-    product: "Corrugated Sheets",
+    job: "Corrugated Sheets",
     sku: "COR-023",
     quantityRange: "2000-5000",
     status: "Draft",
@@ -59,8 +59,8 @@ const inquiries = [
   },
   {
     id: "INQ-2024-004",
-    customer: "Metro Supplies",
-    product: "Folding Cartons",
+    customer: "Metro Suppliers",
+    job: "Folding Cartons",
     sku: "FLD-012",
     quantityRange: "8000-12000",
     status: "Approved",
@@ -72,7 +72,7 @@ const inquiries = [
   {
     id: "INQ-2024-005",
     customer: "Prime Packaging",
-    product: "Die-Cut Boxes",
+    job: "Die-Cut Boxes",
     sku: "DCB-089",
     quantityRange: "3000-6000",
     status: "Pending",
@@ -128,7 +128,7 @@ export function InquiriesContent() {
       const matchesSearch =
         inquiry.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inquiry.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inquiry.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inquiry.job.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inquiry.quantityRange.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inquiry.sku.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter
@@ -161,7 +161,7 @@ export function InquiriesContent() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search inquiries (ID, Customer, Product, SKU, Quantity)..."
+            placeholder="Search inquiries (ID, Customer, Job Name, SKU, Quantity)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -198,20 +198,20 @@ export function InquiriesContent() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="w-[180px]">
+                <TableRow className="bg-[#005180] hover:bg-[#005180]">
+                  <TableHead className="w-[180px] text-white">
                     <div className="font-semibold">ID / Customer</div>
                   </TableHead>
-                  <TableHead className="w-[200px]">
-                    <div className="font-semibold">Product</div>
+                  <TableHead className="w-[200px] text-white">
+                    <div className="font-semibold">Job Name</div>
                   </TableHead>
-                  <TableHead className="w-[160px]">
+                  <TableHead className="w-[160px] text-white">
                     <div className="font-semibold">Quantity Range</div>
                   </TableHead>
-                  <TableHead className="w-[140px]">
+                  <TableHead className="w-[140px] text-white">
                     <div className="font-semibold">Status</div>
                   </TableHead>
-                  <TableHead className="w-[180px]">
+                  <TableHead className="w-[180px] text-white">
                     <div className="font-semibold">Priority / Due Date</div>
                   </TableHead>
                 </TableRow>
@@ -243,7 +243,7 @@ export function InquiriesContent() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-semibold text-sm">{inquiry.product}</p>
+                            <p className="font-semibold text-sm">{inquiry.job}</p>
                             <p className="text-xs text-muted-foreground">{inquiry.sku}</p>
                           </div>
                         </TableCell>
@@ -289,8 +289,8 @@ export function InquiriesContent() {
                           </div>
                         </div>
                         <div>
-                          <Label className="text-muted-foreground">Product</Label>
-                          <p className="mt-1 font-medium">{inquiry.product}</p>
+                          <Label className="text-muted-foreground">Job Name</Label>
+                          <p className="mt-1 font-medium">{inquiry.job}</p>
                           <p className="text-sm text-muted-foreground">SKU: {inquiry.sku}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-4">

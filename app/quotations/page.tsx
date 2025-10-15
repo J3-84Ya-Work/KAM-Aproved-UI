@@ -17,7 +17,6 @@ export default function QuotationsPage() {
   }
 
   const actions = [
-    { label: "New Quotation", onClick: () => router.push("/") },
     { label: "Refresh", onClick: () => window.location.reload() },
     { label: "Export", onClick: handleExport },
   ]

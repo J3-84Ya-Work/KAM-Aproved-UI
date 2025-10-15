@@ -1,5 +1,5 @@
 "use client"
-import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, FileBarChart, MessageSquare, User, Settings } from "lucide-react"
+import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, FileBarChart, User, Settings } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -116,10 +116,9 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
   }, [onMenuToggle])
 
   const sidePanelItems = [
-    { title: "Clients", url: "/clients", icon: Users },
+    { title: "Customer", url: "/clients", icon: Users },
     { title: "Approvals", url: "/approvals", icon: CheckCircle },
     { title: "Reports", url: "/reports", icon: FileBarChart },
-    { title: "Drafts", url: "/chats", icon: MessageSquare },
     { title: "Profile", url: "/profile", icon: User },
     { title: "Settings", url: "/settings", icon: Settings },
   ]

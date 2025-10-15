@@ -22,7 +22,7 @@ const quotations = [
     id: "QUO-2024-045",
     inquiryId: "INQ-2024-001",
     customer: "Metro Supplies",
-    product: "Folding Cartons",
+    job: "Folding Cartons",
     amount: 245000,
     margin: 12.5,
     validTill: "2024-01-18",
@@ -35,7 +35,7 @@ const quotations = [
     id: "QUO-2024-046",
     inquiryId: "INQ-2024-002",
     customer: "Prime Packaging",
-    product: "Die-Cut Boxes",
+    job: "Die-Cut Boxes",
     amount: 185000,
     margin: 8.2,
     validTill: "2024-01-20",
@@ -48,7 +48,7 @@ const quotations = [
     id: "QUO-2024-047",
     inquiryId: "INQ-2024-003",
     customer: "Swift Logistics",
-    product: "Corrugated Sheets",
+    job: "Corrugated Sheets",
     amount: 320000,
     margin: 15.8,
     validTill: "2024-01-22",
@@ -61,7 +61,7 @@ const quotations = [
     id: "QUO-2024-048",
     inquiryId: "INQ-2024-004",
     customer: "Acme Corp",
-    product: "Custom Packaging",
+    job: "Custom Packaging",
     amount: 425000,
     margin: 18.5,
     validTill: "2024-01-25",
@@ -74,7 +74,7 @@ const quotations = [
     id: "QUO-2024-049",
     inquiryId: "INQ-2024-005",
     customer: "Global Traders",
-    product: "Printed Labels",
+    job: "Printed Labels",
     amount: 95000,
     margin: 6.5,
     validTill: "2024-01-19",
@@ -123,7 +123,7 @@ export function QuotationsContent() {
       const matchesSearch =
         quotation.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quotation.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        quotation.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        quotation.job.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quotation.inquiryId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quotation.amount.toString().includes(searchQuery)
       const matchesStatus = statusFilter === "all" || quotation.status === statusFilter
@@ -156,7 +156,7 @@ export function QuotationsContent() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search quotations (ID, Customer, Product, Inquiry ID, Amount)..."
+            placeholder="Search quotations (ID, Customer, Job Name, Inquiry ID, Amount)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -182,18 +182,21 @@ export function QuotationsContent() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="w-[150px]">
+                <TableRow className="bg-[#005180] hover:bg-[#005180]">
+                  <TableHead className="text-white w-[150px]">
                     <div className="font-semibold">ID</div>
                   </TableHead>
-                  <TableHead className="w-[180px]">
+                  <TableHead className="text-white w-[180px]">
                     <div className="font-semibold">Customer</div>
                   </TableHead>
-                  <TableHead className="w-[250px]">
-                    <div className="font-semibold">Product</div>
+                  <TableHead className="text-white w-[250px]">
+                    <div className="font-semibold">Job Name</div>
                   </TableHead>
-                  <TableHead className="w-[160px]">
+                  <TableHead className="text-white w-[160px]">
                     <div className="font-semibold">Status</div>
+                  </TableHead>
+                  <TableHead className="text-white w-[200px]">
+                    <div className="font-semibold">Actions</div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -220,7 +223,7 @@ export function QuotationsContent() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{quotation.product}</p>
+                            <p className="font-medium">{quotation.job}</p>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                               <Calendar className="h-3 w-3" />
                               <span>Valid till: {quotation.validTill}</span>
@@ -234,6 +237,38 @@ export function QuotationsContent() {
                             </Badge>
                             {quotation.status === "Pending Approval" && (
                               <p className="text-xs text-muted-foreground">{quotation.approvalLevel}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {quotation.status === "Pending Approval" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  alert(`Sending ${quotation.id} for approval`)
+                                }}
+                                className="text-xs"
+                              >
+                                <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                Send for Approval
+                              </Button>
+                            )}
+                            {quotation.status === "Approved" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  alert(`Sharing ${quotation.id} with customer`)
+                                }}
+                                className="text-xs"
+                              >
+                                <Share2 className="h-3 w-3 mr-1" />
+                                Share
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -262,8 +297,8 @@ export function QuotationsContent() {
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                  <Label className="text-muted-foreground">Product</Label>
-                                  <p className="mt-1 font-medium">{selectedQuotation.product}</p>
+                                  <Label className="text-muted-foreground">Job Name</Label>
+                                  <p className="mt-1 font-medium">{selectedQuotation.job}</p>
                                 </div>
                                 <div>
                                   <Label className="text-muted-foreground">Inquiry ID</Label>

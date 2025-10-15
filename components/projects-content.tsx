@@ -23,7 +23,7 @@ const sdoProjects = [
   {
     id: "SDO-2024-001",
     customer: "Acme Corp",
-    product: "Custom Packaging Box",
+    job: "Custom Packaging Box",
     quoteId: "QUO-2024-048",
     status: "Sample Approved",
     progress: 100,
@@ -34,7 +34,7 @@ const sdoProjects = [
   {
     id: "SDO-2024-002",
     customer: "TechStart Inc",
-    product: "Printed Labels",
+    job: "Printed Labels",
     quoteId: "QUO-2024-047",
     status: "Awaiting Approval",
     progress: 75,
@@ -45,9 +45,9 @@ const sdoProjects = [
   {
     id: "SDO-2024-003",
     customer: "Metro Supplies",
-    product: "Folding Cartons",
+    job: "Folding Cartons",
     quoteId: "QUO-2024-045",
-    status: "In Production",
+    status: "In PDD",
     progress: 50,
     createdDate: "2024-01-14",
     approvedDate: null,
@@ -59,7 +59,7 @@ const jdoProjects = [
   {
     id: "JDO-2024-001",
     customer: "Acme Corp",
-    product: "Custom Packaging Box",
+    job: "Custom Packaging Box",
     sdoId: "SDO-2024-001",
     artworkStatus: "Approved",
     bomStatus: "Complete",
@@ -71,7 +71,7 @@ const jdoProjects = [
   {
     id: "JDO-2024-002",
     customer: "Swift Logistics",
-    product: "Corrugated Sheets",
+    job: "Corrugated Sheets",
     sdoId: "SDO-2024-004",
     artworkStatus: "In Review",
     bomStatus: "Complete",
@@ -86,11 +86,11 @@ const commercialOrders = [
   {
     id: "COM-2024-001",
     customer: "Prime Packaging",
-    product: "Die-Cut Boxes",
+    job: "Die-Cut Boxes",
     jdoId: "JDO-2024-003",
     amount: 425000,
     quantity: "8000 units",
-    status: "In Production",
+    status: "In PDD",
     orderDate: "2024-01-08",
     expectedDelivery: "2024-01-25",
     progress: 70,
@@ -99,7 +99,7 @@ const commercialOrders = [
   {
     id: "COM-2024-002",
     customer: "Global Traders",
-    product: "Printed Labels",
+    job: "Printed Labels",
     jdoId: "JDO-2024-004",
     amount: 185000,
     quantity: "10000 units",
@@ -112,7 +112,7 @@ const commercialOrders = [
   {
     id: "COM-2024-003",
     customer: "Acme Corp",
-    product: "Custom Packaging",
+    job: "Custom Packaging",
     jdoId: "JDO-2024-001",
     amount: 320000,
     quantity: "5000 units",
@@ -128,7 +128,7 @@ const pnOrders = [
   {
     id: "PN-2024-001",
     customer: "TechStart Inc",
-    product: "Corrugated Boxes",
+    job: "Corrugated Boxes",
     commercialId: "COM-2024-001",
     amount: 450000,
     quantity: "9000 units",
@@ -142,11 +142,11 @@ const pnOrders = [
   {
     id: "PN-2024-002",
     customer: "Metro Supplies",
-    product: "Folding Cartons",
+    job: "Folding Cartons",
     commercialId: "COM-2024-002",
     amount: 275000,
     quantity: "6500 units",
-    status: "In Production",
+    status: "In PDD",
     punchedDate: "2024-01-14",
     releasedDate: "2024-01-15",
     dispatchedDate: null,
@@ -156,7 +156,7 @@ const pnOrders = [
   {
     id: "PN-2024-003",
     customer: "Swift Logistics",
-    product: "Custom Labels",
+    job: "Custom Labels",
     commercialId: "COM-2024-003",
     amount: 195000,
     quantity: "12000 units",
@@ -180,7 +180,7 @@ function getStatusColor(status: string) {
     case "Pending":
       return "bg-burgundy-10 text-burgundy border-burgundy-40"
     case "In Review":
-    case "In Production":
+    case "In PDD":
       return "badge-blue-gradient"
     case "Released":
       return "bg-green-10 text-green border-green-40"
@@ -198,7 +198,7 @@ function getStatusIcon(status: string) {
       return CheckCircle2
     case "Awaiting Approval":
     case "In Review":
-    case "In Production":
+    case "In PDD":
     case "Released":
       return Clock
     case "Pending":
@@ -229,7 +229,7 @@ export function ProjectsContent() {
     const matchesSearch =
       p.id.toLowerCase().includes(sdoSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(sdoSearch.toLowerCase()) ||
-      p.product.toLowerCase().includes(sdoSearch.toLowerCase()) ||
+      p.job.toLowerCase().includes(sdoSearch.toLowerCase()) ||
       p.quoteId.toLowerCase().includes(sdoSearch.toLowerCase())
     return matchesSearch && (sdoStatusFilter === "all" || p.status === sdoStatusFilter)
   })
@@ -238,7 +238,7 @@ export function ProjectsContent() {
     const matchesSearch =
       p.id.toLowerCase().includes(jdoSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(jdoSearch.toLowerCase()) ||
-      p.product.toLowerCase().includes(jdoSearch.toLowerCase()) ||
+      p.job.toLowerCase().includes(jdoSearch.toLowerCase()) ||
       p.sdoId.toLowerCase().includes(jdoSearch.toLowerCase())
     return matchesSearch
   })
@@ -247,7 +247,7 @@ export function ProjectsContent() {
     const matchesSearch =
       p.id.toLowerCase().includes(comSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(comSearch.toLowerCase()) ||
-      p.product.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.job.toLowerCase().includes(comSearch.toLowerCase()) ||
       p.jdoId.toLowerCase().includes(comSearch.toLowerCase()) ||
       p.quantity.toLowerCase().includes(comSearch.toLowerCase())
     return matchesSearch && (comStatusFilter === "all" || p.status === comStatusFilter)
@@ -257,7 +257,7 @@ export function ProjectsContent() {
     const matchesSearch =
       p.id.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.product.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.job.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.commercialId.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.quantity.toLowerCase().includes(pnSearch.toLowerCase())
     return matchesSearch && (pnStatusFilter === "all" || p.status === pnStatusFilter)
@@ -304,7 +304,7 @@ export function ProjectsContent() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search SDO (ID, Customer, Product, Quote ID)..."
+                placeholder="Search SDO (ID, Customer, Job Name, Quote ID)..."
                 value={sdoSearch}
                 onChange={(e) => setSdoSearch(e.target.value)}
                 className="pl-10"
@@ -318,7 +318,7 @@ export function ProjectsContent() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="Sample Approved">Sample Approved</SelectItem>
                 <SelectItem value="Awaiting Approval">Awaiting Approval</SelectItem>
-                <SelectItem value="In Production">In Production</SelectItem>
+                <SelectItem value="In PDD">In PDD</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -328,17 +328,17 @@ export function ProjectsContent() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-[180px]">
+                    <TableRow className="bg-[#005180] hover:bg-[#005180]">
+                      <TableHead className="text-white w-[180px]">
                         <div className="font-semibold">ID / Customer</div>
                       </TableHead>
-                      <TableHead className="w-[200px]">
-                        <div className="font-semibold">Product</div>
+                      <TableHead className="text-white w-[200px]">
+                        <div className="font-semibold">Job Name</div>
                       </TableHead>
-                      <TableHead className="w-[140px]">
+                      <TableHead className="text-white w-[140px]">
                         <div className="font-semibold">Status</div>
                       </TableHead>
-                      <TableHead className="w-[150px]">
+                      <TableHead className="text-white w-[150px]">
                         <div className="font-semibold">Progress</div>
                       </TableHead>
                     </TableRow>
@@ -372,7 +372,7 @@ export function ProjectsContent() {
                               </TableCell>
                               <TableCell>
                                 <div>
-                                  <p className="font-semibold text-sm">{project.product}</p>
+                                  <p className="font-semibold text-sm">{project.job}</p>
                                   <p className="text-xs text-muted-foreground">Quote: {project.quoteId}</p>
                                 </div>
                               </TableCell>
@@ -405,8 +405,8 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{project.customer}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Product</Label>
-                                <p className="text-base font-medium">{project.product}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Job Name</Label>
+                                <p className="text-base font-medium">{project.job}</p>
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Quote ID</Label>
@@ -459,7 +459,7 @@ export function ProjectsContent() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search JDO (ID, Customer, Product, SDO ID)..."
+                placeholder="Search JDO (ID, Customer, Job Name, SDO ID)..."
                 value={jdoSearch}
                 onChange={(e) => setJdoSearch(e.target.value)}
                 className="pl-10"
@@ -472,17 +472,17 @@ export function ProjectsContent() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-[180px]">
+                    <TableRow className="bg-[#005180] hover:bg-[#005180]">
+                      <TableHead className="text-white w-[180px]">
                         <div className="font-semibold">ID / Customer</div>
                       </TableHead>
-                      <TableHead className="w-[180px]">
-                        <div className="font-semibold">Product</div>
+                      <TableHead className="text-white w-[180px]">
+                        <div className="font-semibold">Job Name</div>
                       </TableHead>
-                      <TableHead className="w-[240px]">
+                      <TableHead className="text-white w-[240px]">
                         <div className="font-semibold">Status (Artwork / BOM / Routing)</div>
                       </TableHead>
-                      <TableHead className="w-[150px]">
+                      <TableHead className="text-white w-[150px]">
                         <div className="font-semibold">Progress</div>
                       </TableHead>
                     </TableRow>
@@ -515,7 +515,7 @@ export function ProjectsContent() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <p className="font-semibold text-sm">{project.product}</p>
+                                <p className="font-semibold text-sm">{project.job}</p>
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-1">
@@ -562,8 +562,8 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{project.customer}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Product</Label>
-                                <p className="text-base font-medium">{project.product}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Job Name</Label>
+                                <p className="text-base font-medium">{project.job}</p>
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">SDO ID</Label>
@@ -623,7 +623,7 @@ export function ProjectsContent() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search Commercial (ID, Customer, Product, JDO ID, Quantity)..."
+                placeholder="Search Commercial (ID, Customer, Job Name, JDO ID, Quantity)..."
                 value={comSearch}
                 onChange={(e) => setComSearch(e.target.value)}
                 className="pl-10"
@@ -636,7 +636,7 @@ export function ProjectsContent() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="Approved">Approved</SelectItem>
-                <SelectItem value="In Production">In Production</SelectItem>
+                <SelectItem value="In PDD">In PDD</SelectItem>
                 <SelectItem value="In Review">In Review</SelectItem>
               </SelectContent>
             </Select>
@@ -647,20 +647,20 @@ export function ProjectsContent() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-[180px]">
+                    <TableRow className="bg-[#005180] hover:bg-[#005180]">
+                      <TableHead className="text-white w-[180px]">
                         <div className="font-semibold">ID / Customer</div>
                       </TableHead>
-                      <TableHead className="w-[200px]">
-                        <div className="font-semibold">Product</div>
+                      <TableHead className="text-white w-[200px]">
+                        <div className="font-semibold">Job Name</div>
                       </TableHead>
-                      <TableHead className="w-[180px]">
+                      <TableHead className="text-white w-[180px]">
                         <div className="font-semibold">Amount & Dates</div>
                       </TableHead>
-                      <TableHead className="w-[160px]">
+                      <TableHead className="text-white w-[160px]">
                         <div className="font-semibold">Status</div>
                       </TableHead>
-                      <TableHead className="w-[150px]">
+                      <TableHead className="text-white w-[150px]">
                         <div className="font-semibold">Progress</div>
                       </TableHead>
                     </TableRow>
@@ -695,7 +695,7 @@ export function ProjectsContent() {
                               </TableCell>
                               <TableCell>
                                 <div>
-                                  <p className="font-semibold text-sm">{order.product}</p>
+                                  <p className="font-semibold text-sm">{order.job}</p>
                                   <p className="text-xs text-muted-foreground">{order.quantity}</p>
                                 </div>
                               </TableCell>
@@ -735,8 +735,8 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{order.customer}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Product</Label>
-                                <p className="text-base font-medium">{order.product}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Job Name</Label>
+                                <p className="text-base font-medium">{order.job}</p>
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">JDO ID</Label>
@@ -797,7 +797,7 @@ export function ProjectsContent() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search PN (ID, Customer, Product, Commercial ID, Quantity)..."
+                placeholder="Search PN (ID, Customer, Job Name, Commercial ID, Quantity)..."
                 value={pnSearch}
                 onChange={(e) => setPnSearch(e.target.value)}
                 className="pl-10"
@@ -810,7 +810,7 @@ export function ProjectsContent() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="Dispatched">Dispatched</SelectItem>
-                <SelectItem value="In Production">In Production</SelectItem>
+                <SelectItem value="In PDD">In PDD</SelectItem>
                 <SelectItem value="Released">Released</SelectItem>
               </SelectContent>
             </Select>
@@ -821,20 +821,20 @@ export function ProjectsContent() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-[180px]">
+                    <TableRow className="bg-[#005180] hover:bg-[#005180]">
+                      <TableHead className="text-white w-[180px]">
                         <div className="font-semibold">ID / Customer</div>
                       </TableHead>
-                      <TableHead className="w-[180px]">
-                        <div className="font-semibold">Product</div>
+                      <TableHead className="text-white w-[180px]">
+                        <div className="font-semibold">Job Name</div>
                       </TableHead>
-                      <TableHead className="w-[160px]">
+                      <TableHead className="text-white w-[160px]">
                         <div className="font-semibold">Status</div>
                       </TableHead>
-                      <TableHead className="w-[240px]">
+                      <TableHead className="text-white w-[240px]">
                         <div className="font-semibold">Timeline</div>
                       </TableHead>
-                      <TableHead className="w-[150px]">
+                      <TableHead className="text-white w-[150px]">
                         <div className="font-semibold">Progress</div>
                       </TableHead>
                     </TableRow>
@@ -869,7 +869,7 @@ export function ProjectsContent() {
                               </TableCell>
                               <TableCell>
                                 <div>
-                                  <p className="font-semibold text-sm">{order.product}</p>
+                                  <p className="font-semibold text-sm">{order.job}</p>
                                   <p className="text-sm font-bold text-blue">₹{order.amount.toLocaleString("en-IN")}</p>
                                   <p className="text-[10px] text-muted-foreground">{order.quantity}</p>
                                 </div>
@@ -919,8 +919,8 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{order.customer}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Product</Label>
-                                <p className="text-base font-medium">{order.product}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Job Name</Label>
+                                <p className="text-base font-medium">{order.job}</p>
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Commercial ID</Label>

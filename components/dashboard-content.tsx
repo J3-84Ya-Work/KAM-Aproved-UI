@@ -5,46 +5,30 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import {
-  Bar,
-  BarChart,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-} from "recharts"
+import { Bar, BarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Cell } from "recharts"
 import { ArrowUpRight, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { CardSkeleton, TableSkeleton } from "@/components/loading-skeleton"
 import Image from "next/image"
 
-const salesData = [
-  { month: "Jan", sales: 45000, target: 50000 },
-  { month: "Feb", sales: 52000, target: 50000 },
-  { month: "Mar", sales: 48000, target: 55000 },
-  { month: "Apr", sales: 61000, target: 55000 },
-  { month: "May", sales: 55000, target: 60000 },
-  { month: "Jun", sales: 67000, target: 60000 },
+const enquiriesMonthlyData = [
+  { week: "Week 1", enquiries: 18, color: "rgba(0, 81, 128, 0.45)" },
+  { week: "Week 2", enquiries: 22, color: "rgba(0, 81, 128, 0.6)" },
+  { week: "Week 3", enquiries: 27, color: "rgba(0, 81, 128, 0.75)" },
+  { week: "Week 4", enquiries: 24, color: "rgba(0, 81, 128, 0.9)" },
 ]
 
-const pipelineData = [
-  { stage: "Draft", count: 15 },
-  { stage: "Costing", count: 12 },
-  { stage: "Approved", count: 8 },
-  { stage: "Quoted", count: 18 },
-  { stage: "Won", count: 10 },
+const enquiryConversionData = [
+  { week: "Week 1", enquiries: 18, pos: 6 },
+  { week: "Week 2", enquiries: 22, pos: 9 },
+  { week: "Week 3", enquiries: 27, pos: 11 },
+  { week: "Week 4", enquiries: 24, pos: 10 },
 ]
 
-const conversionData = [
-  { stage: "Inquiries", value: 100, percentage: 100 },
-  { stage: "Quotations", value: 65, percentage: 65 },
-  { stage: "Orders", value: 35, percentage: 35 },
+const projectsDistributionData = [
+  { type: "SDO", count: 24, color: "rgba(0, 81, 128, 0.8)" },
+  { type: "JDO", count: 18, color: "rgba(120, 190, 32, 0.8)" },
+  { type: "PO", count: 30, color: "rgba(185, 34, 33, 0.8)" },
 ]
 
 const recentInquiries = [
@@ -139,7 +123,7 @@ function getPriorityColor(priority: string) {
 export function DashboardContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [targetPeriod, setTargetPeriod] = useState("monthly")
-  const [selectedChart, setSelectedChart] = useState("sales")
+  const [selectedChart, setSelectedChart] = useState("monthlyEnquiries")
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 800)
@@ -182,6 +166,16 @@ export function DashboardContent() {
 
   const updatedStats = [
     {
+      title: "Approvals",
+      value: "42",
+      change: "+12%",
+      icon: "/icons/approved.png",
+      href: "/approvals",
+      gradient: "from-burgundy-10 to-burgundy-5",
+      iconBg: "bg-burgundy",
+      changeColor: "text-burgundy",
+    },
+    {
       title: "Completed",
       value: "142",
       change: "+18%",
@@ -192,7 +186,7 @@ export function DashboardContent() {
       changeColor: "text-green",
     },
     {
-      title: "No. Enquiries",
+      title: "Enquiries",
       value: "87",
       change: "+25%",
       icon: "/icons/icons8-enquiry-100.png",
@@ -202,7 +196,7 @@ export function DashboardContent() {
       changeColor: "text-blue",
     },
     {
-      title: "No. POs",
+      title: "POs",
       value: "56",
       change: "+15%",
       icon: "/icons/icons8-pos-terminal-80.png",
@@ -210,16 +204,6 @@ export function DashboardContent() {
       gradient: "from-blue-10 via-green-5 to-burgundy-5",
       iconBg: "gradient-blue-green",
       changeColor: "text-blue-80",
-    },
-    {
-      title: "Approvals",
-      value: "42",
-      change: "+12%",
-      icon: "/icons/approved.png",
-      href: "/approvals",
-      gradient: "from-burgundy-10 to-burgundy-5",
-      iconBg: "bg-burgundy",
-      changeColor: "text-burgundy",
     },
   ]
 
@@ -249,14 +233,16 @@ export function DashboardContent() {
                         priority
                       />
                     </div>
-                    <div className={`flex items-center gap-0.5 text-[10px] md:text-sm font-bold ${stat.changeColor}`}>
+                    <div className={`flex items-center gap-0.5 text-xs md:text-sm font-bold md:font-extrabold ${stat.changeColor}`}>
                       {stat.change}
-                      <TrendingUp className="h-2.5 w-2.5 md:h-3.5 md:w-3.5" />
+                      <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    <div className="text-xl md:text-3xl font-bold text-foreground">{stat.value}</div>
-                    <p className="text-[10px] md:text-sm font-bold text-muted-foreground leading-tight">{stat.title}</p>
+                    <div className="text-2xl md:text-4xl font-extrabold text-foreground">{stat.value}</div>
+                    <p className="text-xs md:text-base font-bold md:font-extrabold text-muted-foreground leading-tight">
+                      {stat.title}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -278,59 +264,35 @@ export function DashboardContent() {
                 <SelectValue placeholder="Select Chart" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sales">Sales vs Target</SelectItem>
-                <SelectItem value="pipeline">Inquiry Pipeline</SelectItem>
-                <SelectItem value="conversion">Conversion Funnel</SelectItem>
+                <SelectItem value="monthlyEnquiries">Monthly Enquiries</SelectItem>
+                <SelectItem value="conversion">Enquiries Converted to POs</SelectItem>
+                <SelectItem value="projects">Projects by Type</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardHeader>
         <CardContent className="p-3 md:p-4 pt-2">
-          {selectedChart === "sales" && (
+          {selectedChart === "monthlyEnquiries" && (
             <ChartContainer
               config={{
-                sales: {
-                  label: "Sales",
-                  color: "#78BE20",
-                },
-                target: {
-                  label: "Target",
-                  color: "#B92221",
-                },
-              }}
-              className="h-[200px] md:h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend wrapperStyle={{ fontSize: "10px" }} />
-                  <Bar dataKey="sales" fill="#78BE20" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="target" fill="#B92221" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          )}
-
-          {selectedChart === "pipeline" && (
-            <ChartContainer
-              config={{
-                count: {
-                  label: "Count",
+                enquiries: {
+                  label: "Enquiries",
                   color: "#005180",
                 },
               }}
-              className="h-[200px] md:h-[300px]"
+              className="h-[240px] md:h-[320px] w-full border-0 aspect-auto max-h-none"
             >
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={pipelineData} layout="vertical">
+                <BarChart data={enquiriesMonthlyData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" className="text-xs" />
-                  <YAxis dataKey="stage" type="category" width={60} className="text-xs" />
+                  <XAxis dataKey="week" className="text-xs" />
+                  <YAxis className="text-xs" />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" fill="#005180" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="enquiries" fill="#005180" radius={[4, 4, 0, 0]} stroke="#005180" strokeWidth={1.5}>
+                    {enquiriesMonthlyData.map((item) => (
+                      <Cell key={item.week} fill={item.color} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
@@ -339,28 +301,69 @@ export function DashboardContent() {
           {selectedChart === "conversion" && (
             <ChartContainer
               config={{
-                value: {
-                  label: "Conversion",
-                  color: "#005180",
+                enquiries: {
+                  label: "Enquiries",
+                  color: "#78BE20",
+                },
+                pos: {
+                  label: "POs",
+                  color: "#B92221",
                 },
               }}
-              className="h-[200px] md:h-[300px]"
+              className="h-[240px] md:h-[320px] w-full border-0 aspect-auto max-h-none"
             >
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={conversionData}>
+                <LineChart data={enquiryConversionData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="stage" className="text-xs" />
+                  <XAxis dataKey="week" className="text-xs" />
                   <YAxis className="text-xs" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend wrapperStyle={{ fontSize: "10px" }} />
                   <Line
                     type="monotone"
-                    dataKey="value"
-                    stroke="#005180"
-                    strokeWidth={3}
-                    dot={{ r: 6, fill: "#005180" }}
+                    dataKey="enquiries"
+                    stroke="rgba(120, 190, 32, 0.9)"
+                    strokeWidth={3.5}
+                    strokeOpacity={0.95}
+                    dot={{ r: 6, fill: "rgba(120, 190, 32, 0.9)", stroke: "#ffffff", strokeWidth: 2 }}
+                    activeDot={{ r: 7 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="pos"
+                    stroke="rgba(185, 34, 33, 0.85)"
+                    strokeWidth={3.5}
+                    strokeOpacity={0.9}
+                    dot={{ r: 6, fill: "rgba(185, 34, 33, 0.85)", stroke: "#ffffff", strokeWidth: 2 }}
+                    activeDot={{ r: 7 }}
                   />
                 </LineChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          )}
+
+          {selectedChart === "projects" && (
+            <ChartContainer
+              config={{
+                count: {
+                  label: "Projects",
+                  color: "#005180",
+                },
+              }}
+              className="h-[240px] md:h-[320px] w-full border-0 aspect-auto max-h-none"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={projectsDistributionData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="type" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="#005180" radius={[4, 4, 0, 0]} stroke="#02324f" strokeWidth={1.5}>
+                    {projectsDistributionData.map((item) => (
+                      <Cell key={item.type} fill={item.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
           )}
