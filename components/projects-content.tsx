@@ -63,7 +63,7 @@ const sdoProjects = [
     quoteId: "QUO-2024-045",
     executionLocation: "Navi Mumbai",
     productionPlant: "Plant C",
-    status: "Clarification",
+    status: "Clearification",
     progress: 50,
     createdDate: "2024-01-14",
     approvedDate: null,
@@ -192,7 +192,7 @@ const pnOrders = [
     fgMaterial: "FG-CORR-9081",
     amount: 450000,
     quantity: "9000 units",
-    status: "Arrived",
+    status: "Arraived",
     prePressStatus: "Complete",
     productionStatus: "Completed",
     dispatchStatus: "Dispatched",
@@ -200,8 +200,6 @@ const pnOrders = [
     releasedDate: "2024-01-12",
     dispatchedDate: "2024-01-18",
     initiateDate: "2024-01-08",
-    orderDate: "2024-01-05",
-    expectedDelivery: "2024-01-20",
     progress: 100,
     notes: "Successfully delivered to customer",
     description: "Printed corrugated shipping boxes",
@@ -218,7 +216,7 @@ const pnOrders = [
     fgMaterial: "FG-FOLD-5523",
     amount: 275000,
     quantity: "6500 units",
-    status: "Not Arrived",
+    status: "Not Arraived",
     prePressStatus: "Approved",
     productionStatus: "In PDD",
     dispatchStatus: "Pending",
@@ -226,8 +224,6 @@ const pnOrders = [
     releasedDate: "2024-01-15",
     dispatchedDate: null,
     initiateDate: "2024-01-12",
-    orderDate: "2024-01-10",
-    expectedDelivery: "2024-01-24",
     progress: 60,
     notes: "Production in progress, expected dispatch: 2024-01-22",
     description: "Premium folding cartons - matte finish",
@@ -244,7 +240,7 @@ const pnOrders = [
     fgMaterial: "FG-LBL-7720",
     amount: 195000,
     quantity: "12000 units",
-    status: "Not Arrived",
+    status: "Not Arraived",
     prePressStatus: "In Review",
     productionStatus: "Released",
     dispatchStatus: "Pending",
@@ -252,8 +248,6 @@ const pnOrders = [
     releasedDate: "2024-01-17",
     dispatchedDate: null,
     initiateDate: "2024-01-15",
-    orderDate: "2024-01-14",
-    expectedDelivery: "2024-01-28",
     progress: 35,
     notes: "Released to production floor",
     description: "Logistics barcode and brand labels",
@@ -269,7 +263,7 @@ function getStatusColor(status: string) {
     case "Approved":
     case "Complete":
     case "Dispatched":
-    case "Arrived":
+    case "Arraived":
       return "badge-green-gradient"
     case "Sales Approval":
     case "Pending":
@@ -277,11 +271,11 @@ function getStatusColor(status: string) {
     case "In Review":
     case "In PDD":
       return "badge-blue-gradient"
-    case "Clarification":
+    case "Clearification":
       return "bg-blue-10 text-blue border-blue-40"
     case "Released":
       return "bg-green-10 text-green border-green-40"
-    case "Not Arrived":
+    case "Not Arraived":
       return "bg-burgundy-10 text-burgundy border-burgundy-40"
     default:
       return "bg-neutral-gray-100 text-neutral-gray-600 border-neutral-gray-300"
@@ -300,7 +294,7 @@ function getStatusIcon(status: string) {
     case "In Review":
     case "In PDD":
     case "Released":
-    case "Clarification":
+    case "Clearification":
     case "Not Arrived":
       return Clock
     case "Pending":
@@ -411,7 +405,6 @@ export function ProjectsContent() {
       p.description.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.rmType.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.plant.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.status.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.initiateDate.toLowerCase().includes(pnSearch.toLowerCase())
     return matchesSearch && (pnStatusFilter === "all" || p.status === pnStatusFilter)
   })
@@ -471,7 +464,7 @@ export function ProjectsContent() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="Sample Approved">Sample Approved</SelectItem>
                 <SelectItem value="Sales Approval">Sales Approval</SelectItem>
-                <SelectItem value="Clarification">Clarification</SelectItem>
+                <SelectItem value="Clearification">Clearification</SelectItem>
                 <SelectItem value="In PDD">In PDD</SelectItem>
               </SelectContent>
             </Select>
@@ -508,7 +501,7 @@ export function ProjectsContent() {
                           ? "green"
                           : project.status === "Sales Approval"
                           ? "burgundy"
-                          : project.status === "Clarification"
+                          : project.status === "Clearification"
                           ? "blue"
                           : "blue"
                       const accentClass =
@@ -516,7 +509,7 @@ export function ProjectsContent() {
                           ? "bg-green"
                           : project.status === "Sales Approval"
                           ? "bg-burgundy"
-                          : project.status === "Clarification"
+                          : project.status === "Clearification"
                           ? "bg-blue"
                           : project.status === "In PDD"
                           ? "bg-blue"
@@ -666,7 +659,10 @@ export function ProjectsContent() {
                         <div className="font-semibold">Production Plant</div>
                       </TableHead>
                       <TableHead className="text-white w-[240px]">
-                        <div className="font-semibold">Status</div>
+                        <div className="font-semibold">Status (Artwork / BOM / Routing)</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[150px]">
+                        <div className="font-semibold">Progress</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -713,6 +709,14 @@ export function ProjectsContent() {
                                   <p>MF Released - {project.mfReleased ? "Yes" : "No"}</p>
                                 </div>
                               </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold">{project.progress}%</span>
+                                  </div>
+                                  <Progress value={project.progress} className="h-2" />
+                                </div>
+                              </TableCell>
                             </TableRow>
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl">
@@ -753,6 +757,15 @@ export function ProjectsContent() {
                                   <p>Artwork - {mapArtworkStage(project.artworkStatus)}</p>
                                   <p>BOM/Routing - {formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
                                   <p>MF Released - {project.mfReleased ? "Yes" : "No"}</p>
+                                </div>
+                              </div>
+                              <div className="space-y-2 col-span-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="font-semibold">{project.progress}%</span>
+                                  </div>
+                                  <Progress value={project.progress} className="h-3" />
                                 </div>
                               </div>
                               <div className="space-y-2 col-span-2">
@@ -816,7 +829,10 @@ export function ProjectsContent() {
                         <div className="font-semibold">Production Plant</div>
                       </TableHead>
                       <TableHead className="text-white w-[240px]">
-                        <div className="font-semibold">Status</div>
+                        <div className="font-semibold">Status (Pre-Press / Production / Dispatch)</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[150px]">
+                        <div className="font-semibold">Progress</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -848,7 +864,13 @@ export function ProjectsContent() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <p className="font-semibold text-sm">{order.job}</p>
+                                <div>
+                                  <p className="font-semibold text-sm">{order.job}</p>
+                                  <p className="text-xs text-muted-foreground">{order.quantity}</p>
+                                  <p className="text-xs text-muted-foreground">Order: {order.orderDate}</p>
+                                  <p className="text-xs text-muted-foreground">Delivery: {order.expectedDelivery}</p>
+                                  <p className="text-xs font-semibold text-blue">₹{order.amount.toLocaleString("en-IN")}</p>
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <p className="text-sm font-medium">{order.prePressPlant}</p>
@@ -861,6 +883,14 @@ export function ProjectsContent() {
                                   <p>Pre-Press - {order.prePressStatus}</p>
                                   <p>Production - {order.productionStatus}</p>
                                   <p>Dispatch - {order.dispatchStatus}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold">{order.progress}%</span>
+                                  </div>
+                                  <Progress value={order.progress} className="h-2" />
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -918,6 +948,15 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{order.expectedDelivery}</p>
                               </div>
                               <div className="space-y-2 col-span-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="font-semibold">{order.progress}%</span>
+                                  </div>
+                                  <Progress value={order.progress} className="h-3" />
+                                </div>
+                              </div>
+                              <div className="space-y-2 col-span-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Notes</Label>
                                 <p className="text-base">{order.notes}</p>
                               </div>
@@ -952,8 +991,8 @@ export function ProjectsContent() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Arrived">Arrived</SelectItem>
-                <SelectItem value="Not Arrived">Not Arrived</SelectItem>
+                <SelectItem value="Arraived">Arraived</SelectItem>
+                <SelectItem value="Not Arraived">Not Arraived</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -997,15 +1036,15 @@ export function ProjectsContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPN.map((order, index) => {
-                      const accentClass = order.status === 'Arrived' ? 'bg-green' : 'bg-burgundy'
+                    {filteredPN.map((order:any, index) => {
+                      const accentClass = order.status === 'Arraived' ? 'bg-green' : 'bg-burgundy'
                       const StatusIcon = getStatusIcon(order.status)
                       return (
                         <Dialog key={order.id}>
                           <DialogTrigger asChild>
                             <TableRow
                               className={`cursor-pointer animate-scale-in hover:bg-${
-                                order.status === 'Arrived' ? 'green' : 'burgundy'
+                                order.status === 'Arraived' ? 'green' : 'burgundy'
                               }-5 transition-colors`}
                               style={{ animationDelay: `${index * 30}ms` }}
                             >
@@ -1086,8 +1125,7 @@ export function ProjectsContent() {
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Initiate Date</Label>
-                                <p className="text-base font-medium">{order.initiateDate}</p>
-                              </div>
+                                <p className="text-base font-medium">{order.initiateDate}</p>                         </div>
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Order Date</Label>
                                 <p className="text-base font-medium">{order.orderDate}</p>
