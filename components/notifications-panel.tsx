@@ -1,10 +1,12 @@
 "use client"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Bell, Check, Package, FileText, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 interface Notification {
@@ -16,7 +18,7 @@ interface Notification {
   read: boolean
 }
 
-const mockNotifications: Notification[] = [
+export const notificationsData: Notification[] = [
   {
     id: "1",
     type: "inquiry",
@@ -66,59 +68,61 @@ const getNotificationIcon = (type: Notification["type"]) => {
   }
 }
 
-export function NotificationsPanel() {
-  const unreadCount = mockNotifications.filter((n) => !n.read).length
-  const isMobile = useIsMobile()
+export function NotificationsList({ notifications = notificationsData }: { notifications?: Notification[] }) {
+  return (
+    <div className="divide-y divide-gray-200">
+      {notifications.map((notification) => (
+        <button
+          key={notification.id}
+          className={`flex gap-3 p-4 transition-colors hover:bg-gray-50 cursor-pointer w-full text-left touch-manipulation active:bg-gray-100 ${
+            !notification.read ? "bg-[#005180]/5" : ""
+          }`}
+        >
+          <div className="flex-shrink-0 mt-0.5">{getNotificationIcon(notification.type)}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <h4 className="font-semibold text-sm leading-tight text-gray-900">{notification.title}</h4>
+              {!notification.read && <div className="h-2 w-2 rounded-full bg-[#B92221] flex-shrink-0 mt-1" />}
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed mb-1">{notification.message}</p>
+            <span className="text-xs text-gray-500">{notification.time}</span>
+          </div>
+        </button>
+      ))}
+    </div>
+  )
+}
 
-  const NotificationContent = () => (
+function NotificationContent({ onViewAll }: { onViewAll: () => void }) {
+  return (
     <>
       <div className="flex items-center justify-between border-b px-4 py-3 sticky top-0 z-10" style={{ backgroundColor: "#005180" }}>
         <h3 className="font-semibold text-base text-white">Notifications</h3>
-        {unreadCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-sm text-white hover:text-white hover:bg-white/20 touch-manipulation"
-          >
-            Mark all read
-          </Button>
-        )}
       </div>
       <ScrollArea className="h-[min(60vh,420px)]">
-        <div className="divide-y divide-gray-200">
-          {mockNotifications.map((notification) => (
-            <button
-              key={notification.id}
-              className={`flex gap-3 p-4 transition-colors hover:bg-gray-50 cursor-pointer w-full text-left touch-manipulation active:bg-gray-100 ${
-                !notification.read ? "bg-[#005180]/5" : ""
-              }`}
-            >
-              <div className="flex-shrink-0 mt-0.5">{getNotificationIcon(notification.type)}</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <h4 className="font-semibold text-sm leading-tight text-gray-900">{notification.title}</h4>
-                  {!notification.read && <div className="h-2 w-2 rounded-full bg-[#B92221] flex-shrink-0 mt-1" />}
-                </div>
-                <p className="text-sm text-gray-600 leading-relaxed mb-1">{notification.message}</p>
-                <span className="text-xs text-gray-500">{notification.time}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+        <NotificationsList notifications={notificationsData} />
       </ScrollArea>
       <div className="border-t p-3 bg-gray-50 sticky bottom-0">
         <Button
           variant="ghost"
           className="w-full text-sm hover:bg-[#005180]/10 touch-manipulation"
           style={{ color: "#005180" }}
+          onClick={onViewAll}
         >
           View all notifications
         </Button>
       </div>
     </>
   )
+}
 
-  const TriggerButton = () => (
+export function NotificationsPanel() {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const isMobile = useIsMobile()
+  const unreadCount = notificationsData.filter((n) => !n.read).length
+
+  const triggerButton = (
     <Button
       variant="ghost"
       size="icon"
@@ -134,30 +138,35 @@ export function NotificationsPanel() {
     </Button>
   )
 
+  const handleViewAll = () => {
+    setOpen(false)
+    router.push("/notifications")
+  }
+
   if (isMobile) {
     return (
-      <Sheet>
-        <SheetTrigger asChild>
-          <TriggerButton />
-        </SheetTrigger>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>{triggerButton}</SheetTrigger>
         <SheetContent side="right" className="w-[90vw] max-w-[420px] p-0">
           <SheetHeader className="sr-only">
             <SheetTitle>Notifications</SheetTitle>
           </SheetHeader>
-          <NotificationContent />
+          <NotificationContent onViewAll={handleViewAll} />
         </SheetContent>
       </Sheet>
     )
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <TriggerButton />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[min(calc(100vw-2rem),420px)] p-0" sideOffset={8} alignOffset={-8}>
-        <NotificationContent />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-[min(calc(100vw-2rem),420px)] p-0 rounded-3xl border border-border shadow-2xl"
+      >
+        <NotificationContent onViewAll={handleViewAll} />
+      </PopoverContent>
+    </Popover>
   )
 }

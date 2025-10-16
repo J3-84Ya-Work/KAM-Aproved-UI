@@ -1,22 +1,10 @@
 "use client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import {
-  Bar,
-  BarChart,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-} from "recharts"
+import { Bar, BarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from "recharts"
 import { TrendingUp, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // Monthly Sales vs Target data
 const salesData = [
@@ -28,15 +16,6 @@ const salesData = [
   { month: "Jun", sales: 67000, target: 60000 },
 ]
 
-// Pipeline of Inquiries (stage-wise)
-const pipelineData = [
-  { stage: "Draft", count: 15 },
-  { stage: "Costing", count: 12 },
-  { stage: "Approved", count: 8 },
-  { stage: "Quoted", count: 18 },
-  { stage: "Won", count: 10 },
-]
-
 // Conversion funnel data
 const conversionData = [
   { stage: "Inquiries", value: 100, percentage: 100 },
@@ -44,10 +23,11 @@ const conversionData = [
   { stage: "Orders", value: 35, percentage: 35 },
 ]
 
-// Export vs Domestic split
-const businessSplitData = [
-  { name: "Export", value: 62, color: "#8b5cf6" },
-  { name: "Domestic", value: 38, color: "#ec4899" },
+// Enquiry details status comparison
+const enquiryDetailsData = [
+  { status: "Quotation Converted", count: 45 },
+  { status: "Sent to Customer", count: 62 },
+  { status: "Approved", count: 28 },
 ]
 
 export function ReportsContent() {
@@ -80,14 +60,14 @@ export function ReportsContent() {
             config={{
               sales: {
                 label: "Sales",
-                color: "#10b981",
+                color: "rgba(0,81,128,0.8)",
               },
               target: {
                 label: "Target",
-                color: "#f59e0b",
+                color: "rgba(185,34,33,0.8)",
               },
             }}
-            className="h-[250px] md:h-[350px] min-w-[300px]"
+            className="h-[260px] md:h-[360px] min-w-[300px] aspect-auto max-h-none border-0"
           >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={salesData}>
@@ -96,25 +76,25 @@ export function ReportsContent() {
                 <YAxis className="text-xs md:text-sm" />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend wrapperStyle={{ fontSize: "12px" }} />
-                <Bar dataKey="sales" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="target" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="sales" fill="rgba(0,81,128,0.8)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="target" fill="rgba(185,34,33,0.8)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
           <div className="mt-4 flex items-center gap-2 text-sm">
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <TrendingUp className="h-4 w-4" style={{ color: "rgba(0,81,128,0.8)" }} />
             <span className="text-sm md:text-base text-muted-foreground">Sales up 12% compared to last quarter</span>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2 max-w-full">
-        {/* Pipeline of Inquiries */}
+        {/* Enquiry Details */}
         <Card className="max-w-full overflow-hidden">
           <CardHeader>
-            <CardTitle className="text-base md:text-lg">Inquiry Pipeline</CardTitle>
+            <CardTitle className="text-base md:text-lg">Enquiry Details</CardTitle>
             <CardDescription className="text-sm md:text-base">
-              Stage-wise breakdown of current inquiries
+              Quotation converted vs sent to customer vs approved
             </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
@@ -122,80 +102,21 @@ export function ReportsContent() {
               config={{
                 count: {
                   label: "Count",
-                  color: "#3b82f6",
+                  color: "rgba(0,81,128,0.65)",
                 },
               }}
-              className="h-[250px] md:h-[300px] min-w-[280px]"
+              className="h-[240px] md:h-[320px] min-w-[280px] aspect-auto max-h-none border-0"
             >
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={pipelineData} layout="vertical">
+                <BarChart data={enquiryDetailsData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" className="text-xs md:text-sm" />
-                  <YAxis dataKey="stage" type="category" width={60} className="text-xs md:text-sm" />
+                  <XAxis dataKey="status" className="text-xs md:text-sm" interval={0} angle={-20} textAnchor="end" height={70} />
+                  <YAxis className="text-xs md:text-sm" />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="count" fill="rgba(0,81,128,0.65)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Export vs Domestic Split */}
-        <Card className="max-w-full overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-base md:text-lg">Business Split</CardTitle>
-            <CardDescription className="text-sm md:text-base">Export vs Domestic revenue distribution</CardDescription>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <ChartContainer
-              config={{
-                export: {
-                  label: "Export",
-                  color: "#8b5cf6",
-                },
-                domestic: {
-                  label: "Domestic",
-                  color: "#ec4899",
-                },
-              }}
-              className="h-[250px] md:h-[300px] min-w-[280px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: "Export", value: 62, color: "#8b5cf6" },
-                      { name: "Domestic", value: 38, color: "#ec4899" },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    <Cell fill="#8b5cf6" />
-                    <Cell fill="#ec4899" />
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-            <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-              <div>
-                <p className="text-xl md:text-2xl font-bold" style={{ color: "#8b5cf6" }}>
-                  62%
-                </p>
-                <p className="text-xs md:text-sm text-muted-foreground">Export</p>
-              </div>
-              <div>
-                <p className="text-xl md:text-2xl font-bold" style={{ color: "#ec4899" }}>
-                  38%
-                </p>
-                <p className="text-xs md:text-sm text-muted-foreground">Domestic</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -213,10 +134,10 @@ export function ReportsContent() {
             config={{
               value: {
                 label: "Conversion",
-                color: "#06b6d4",
+                color: "rgba(185,34,33,0.85)",
               },
             }}
-            className="h-[250px] md:h-[300px] min-w-[300px]"
+            className="h-[240px] md:h-[320px] min-w-[300px] aspect-auto max-h-none border-0"
           >
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={conversionData}>
@@ -228,24 +149,24 @@ export function ReportsContent() {
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#06b6d4"
+                  stroke="rgba(185,34,33,0.85)"
                   strokeWidth={3}
-                  dot={{ r: 6, fill: "#06b6d4" }}
+                  dot={{ r: 6, fill: "rgba(185,34,33,0.85)" }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </ChartContainer>
           <div className="mt-4 grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-xl md:text-2xl font-bold text-blue-600">100%</p>
+              <p className="text-xl md:text-2xl font-bold" style={{ color: "rgba(0,81,128,0.9)" }}>100%</p>
               <p className="text-xs md:text-sm text-muted-foreground">Inquiries</p>
             </div>
             <div>
-              <p className="text-xl md:text-2xl font-bold text-orange-600">65%</p>
+              <p className="text-xl md:text-2xl font-bold" style={{ color: "rgba(0,81,128,0.6)" }}>65%</p>
               <p className="text-xs md:text-sm text-muted-foreground">Quoted</p>
             </div>
             <div>
-              <p className="text-xl md:text-2xl font-bold text-green-600">35%</p>
+              <p className="text-xl md:text-2xl font-bold" style={{ color: "rgba(185,34,33,0.85)" }}>35%</p>
               <p className="text-xs md:text-sm text-muted-foreground">Converted</p>
             </div>
           </div>

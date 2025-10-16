@@ -135,7 +135,7 @@ export default function Page() {
         <AppSidebar />
       </div>
       <SidebarInset>
-        <AppHeader onMenuClick={handleMenuClick} />
+        <AppHeader onMenuClick={handleMenuClick} showBackButton />
         <div className="h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)] relative overflow-hidden">
           <div
             className={`absolute inset-0 transition-all duration-500 ease-in-out ${

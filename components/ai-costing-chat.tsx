@@ -1,5 +1,5 @@
 "use client"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import type React from "react"
 import { useRouter } from "next/navigation"
 import { Send, Loader2, Mic, ArrowLeft } from "lucide-react"
@@ -85,36 +85,82 @@ export function AICostingChat({
     }
   }, [])
 
+  const sendChatMessage = useCallback(
+    async (messageText: string, { showUserMessage = true }: { showUserMessage?: boolean } = {}) => {
+      const content = messageText.trim()
+      if (!content) return
+
+      const timestamp = new Date()
+
+      if (showUserMessage) {
+        const userMessage: Message = {
+          id: `${Date.now()}-user`,
+          content,
+          sender: "user",
+          timestamp,
+        }
+        setMessages((prev) => [...prev, userMessage])
+      }
+
+      setIsTyping(true)
+
+      try {
+        const response = await sendMessage(content)
+
+        if (response.success && response.data) {
+          const aiResponseText =
+            response.data.reply ||
+            response.data.message ||
+            response.data.response ||
+            response.data.text ||
+            (typeof response.data === "string" ? response.data : null) ||
+            JSON.stringify(response.data)
+
+          const { cleanText, options } = parseOptions(aiResponseText)
+
+          const aiMessage: Message = {
+            id: `${Date.now()}-ai`,
+            content: options.length > 0 ? cleanText : aiResponseText,
+            sender: "ai",
+            timestamp: new Date(),
+            options: options.length > 0 ? options : undefined,
+          }
+          setMessages((prev) => [...prev, aiMessage])
+        } else {
+          const errorMessage: Message = {
+            id: `${Date.now()}-error`,
+            content: `Error: ${response.error || "Failed to connect to chat engine"}`,
+            sender: "ai",
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, errorMessage])
+        }
+      } catch (error) {
+        const errorMessage: Message = {
+          id: `${Date.now()}-exception`,
+          content: "An unexpected error occurred. Please try again.",
+          sender: "ai",
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, errorMessage])
+      } finally {
+        setIsTyping(false)
+      }
+    },
+    []
+  )
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsInitialLoading(false)
 
       if (initialMessage) {
-        const userMessage: Message = {
-          id: Date.now().toString(),
-          content: initialMessage,
-          sender: "user",
-          timestamp: new Date(),
-        }
-        setMessages([userMessage])
-        setIsTyping(true)
-
-        setTimeout(() => {
-          const aiMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            content:
-              "I'm processing your costing request. This is where your AI costing engine will provide detailed analysis and pricing information.",
-            sender: "ai",
-            timestamp: new Date(),
-          }
-          setMessages((prev) => [...prev, aiMessage])
-          setIsTyping(false)
-        }, 1500)
+        sendChatMessage(initialMessage)
       }
-    }, 1500)
+    }, 800)
 
     return () => clearTimeout(timer)
-  }, [initialMessage])
+  }, [initialMessage, sendChatMessage])
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -131,69 +177,12 @@ export function AICostingChat({
     }
   }, [messages, isTyping])
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (!inputValue.trim()) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      sender: "user",
-      timestamp: new Date(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
     const messageText = inputValue
     setInputValue("")
-    setIsTyping(true)
-
-    // Send message to the chat engine API
-    try {
-      const response = await sendMessage(messageText)
-
-      if (response.success && response.data) {
-        // API call successful - extract the actual response
-        // The API might return the response in different formats, so we'll check multiple possible fields
-        const aiResponseText =
-          response.data.reply ||
-          response.data.message ||
-          response.data.response ||
-          response.data.text ||
-          (typeof response.data === 'string' ? response.data : null) ||
-          JSON.stringify(response.data)
-
-        // Parse options from the response
-        const { cleanText, options } = parseOptions(aiResponseText)
-
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: options.length > 0 ? cleanText : aiResponseText,
-          sender: "ai",
-          timestamp: new Date(),
-          options: options.length > 0 ? options : undefined,
-        }
-        setMessages((prev) => [...prev, aiMessage])
-      } else {
-        // API call failed - show error message
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: `Error: ${response.error || "Failed to connect to chat engine"}`,
-          sender: "ai",
-          timestamp: new Date(),
-        }
-        setMessages((prev) => [...prev, errorMessage])
-      }
-    } catch (error) {
-      // Unexpected error
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: "An unexpected error occurred. Please try again.",
-        sender: "ai",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsTyping(false)
-    }
+    sendChatMessage(messageText)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -222,61 +211,8 @@ export function AICostingChat({
     }
   }
 
-  const handleOptionSelect = async (option: string) => {
-    // Create user message with the selected option
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: option,
-      sender: "user",
-      timestamp: new Date(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setIsTyping(true)
-
-    // Send the selected option to the API
-    try {
-      const response = await sendMessage(option)
-
-      if (response.success && response.data) {
-        const aiResponseText =
-          response.data.reply ||
-          response.data.message ||
-          response.data.response ||
-          response.data.text ||
-          (typeof response.data === 'string' ? response.data : null) ||
-          JSON.stringify(response.data)
-
-        const { cleanText, options } = parseOptions(aiResponseText)
-
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: options.length > 0 ? cleanText : aiResponseText,
-          sender: "ai",
-          timestamp: new Date(),
-          options: options.length > 0 ? options : undefined,
-        }
-        setMessages((prev) => [...prev, aiMessage])
-      } else {
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: `Error: ${response.error || "Failed to connect to chat engine"}`,
-          sender: "ai",
-          timestamp: new Date(),
-        }
-        setMessages((prev) => [...prev, errorMessage])
-      }
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: "An unexpected error occurred. Please try again.",
-        sender: "ai",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsTyping(false)
-    }
+  const handleOptionSelect = (option: string) => {
+    sendChatMessage(option)
   }
 
   if (isInitialLoading) {

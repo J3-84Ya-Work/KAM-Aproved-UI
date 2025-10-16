@@ -1,6 +1,7 @@
 "use client"
 import { useState } from "react"
 import type React from "react"
+import { useRouter } from "next/navigation"
 import { Send, Mic } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,11 +14,32 @@ interface NewChatWelcomeProps {
 
 export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: NewChatWelcomeProps) {
   const [inputValue, setInputValue] = useState("")
+  const router = useRouter()
 
   const handleStartChat = () => {
-    if (inputValue.trim() && onStartChat) {
-      onStartChat(inputValue.trim())
+    const value = inputValue.trim()
+    if (!value) return
+
+    const normalized = value.toLowerCase()
+
+    if (normalized.includes("chat")) {
+      if (onStartChat) {
+        onStartChat("I want costing")
+      }
+      setInputValue("")
+      return
     }
+
+    if (normalized.includes("form") || normalized.includes("manual")) {
+      router.push("/new-inquiry")
+      setInputValue("")
+      return
+    }
+
+    if (onStartChat) {
+      onStartChat(value)
+    }
+    setInputValue("")
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -27,8 +49,17 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
     }
   }
 
-  const handleSuggestionClick = () => {
-    setInputValue("Cost estimation for a new product")
+  const handleQuickSelect = (type: "chat" | "form") => {
+    if (type === "chat") {
+      if (onStartChat) {
+        onStartChat("I want costing")
+      }
+      setInputValue("")
+      return
+    }
+
+    router.push("/new-inquiry")
+    setInputValue("")
   }
 
   return (
@@ -46,7 +77,7 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Type your request..."
+                placeholder="How do you want to start? AI chat or Manual form"
                 className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               {inputValue.trim() && (
@@ -62,14 +93,23 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
           </div>
 
           <div className="space-y-3 message-fade-in" style={{ animationDelay: "200ms" }}>
-            <p className="text-xs md:text-xs text-muted-foreground">Try:</p>
-            <Button
-              variant="outline"
-              onClick={handleSuggestionClick}
-              className="rounded-xl border-border px-5 py-3.5 md:py-3 text-sm button-hover-lift bg-transparent min-h-[44px]"
-            >
-              "Cost estimation for a new product"
-            </Button>
+            <p className="text-xs md:text-xs text-muted-foreground">Choose an option:</p>
+            <div className="flex flex-col gap-2 md:flex-row md:gap-3 justify-center">
+              <Button
+                variant="outline"
+                onClick={() => handleQuickSelect("chat")}
+                className="rounded-xl border-border px-5 py-3.5 md:py-3 text-sm button-hover-lift bg-transparent min-h-[44px]"
+              >
+                Start AI Chat
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleQuickSelect("form")}
+                className="rounded-xl border-border px-5 py-3.5 md:py-3 text-sm button-hover-lift bg-transparent min-h-[44px]"
+              >
+                Open Manual Form
+              </Button>
+            </div>
           </div>
         </div>
       </div>

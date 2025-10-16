@@ -3,7 +3,6 @@ import {
   FileText,
   FileCheck,
   FolderKanban,
-  CheckCircle,
   Users,
   BarChart3,
   MessageSquare,
@@ -55,12 +54,6 @@ const navItems = [
     url: "/projects",
     icon: FolderKanban,
     badge: 5,
-  },
-  {
-    title: "Approvals",
-    url: "/approvals",
-    icon: CheckCircle,
-    badge: 3,
   },
   {
     title: "Reports",

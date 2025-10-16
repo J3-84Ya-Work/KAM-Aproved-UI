@@ -25,33 +25,70 @@ const sdoProjects = [
     customer: "Acme Corp",
     job: "Custom Packaging Box",
     quoteId: "QUO-2024-048",
+    executionLocation: "Mumbai",
+    productionPlant: "Plant A",
     status: "Sample Approved",
     progress: 100,
     createdDate: "2024-01-10",
     approvedDate: "2024-01-14",
     notes: "Customer approved sample with minor color adjustment",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-06" },
+      { stage: "Sample Initiated", date: "2024-01-08" },
+      { stage: "Sample Approved", date: "2024-01-14" },
+    ],
   },
   {
     id: "SDO-2024-002",
     customer: "TechStart Inc",
     job: "Printed Labels",
     quoteId: "QUO-2024-047",
-    status: "Awaiting Approval",
+    executionLocation: "Pune",
+    productionPlant: "Plant B",
+    status: "Sales Approval",
     progress: 75,
     createdDate: "2024-01-12",
     approvedDate: null,
-    notes: "Sample sent to customer on 2024-01-15",
+    notes: "Sent for sales approval on 2024-01-15",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-09" },
+      { stage: "Sample Prepared", date: "2024-01-12" },
+      { stage: "Sales Approval", date: "2024-01-15" },
+    ],
   },
   {
     id: "SDO-2024-003",
     customer: "Metro Supplies",
     job: "Folding Cartons",
     quoteId: "QUO-2024-045",
-    status: "In PDD",
+    executionLocation: "Navi Mumbai",
+    productionPlant: "Plant C",
+    status: "Clarification",
     progress: 50,
     createdDate: "2024-01-14",
     approvedDate: null,
-    notes: "Sample production in progress",
+    notes: "Awaiting clarification on material finish",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-11" },
+      { stage: "Clarification Requested", date: "2024-01-14" },
+    ],
+  },
+  {
+    id: "SDO-2024-004",
+    customer: "Prime Packaging",
+    job: "Rigid Box",
+    quoteId: "QUO-2024-050",
+    executionLocation: "Delhi",
+    productionPlant: "Plant D",
+    status: "In PDD",
+    progress: 40,
+    createdDate: "2024-01-16",
+    approvedDate: null,
+    notes: "Prototype build in progress",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-12" },
+      { stage: "Sample Fabrication", date: "2024-01-16" },
+    ],
   },
 ]
 
@@ -61,24 +98,30 @@ const jdoProjects = [
     customer: "Acme Corp",
     job: "Custom Packaging Box",
     sdoId: "SDO-2024-001",
+    prePressPlant: "Prepress Hub 1",
+    productionPlant: "Plant A",
     artworkStatus: "Approved",
     bomStatus: "Complete",
     routingStatus: "Complete",
     progress: 100,
     createdDate: "2024-01-15",
     notes: "Ready for commercial PO",
+    mfReleased: true,
   },
   {
     id: "JDO-2024-002",
     customer: "Swift Logistics",
     job: "Corrugated Sheets",
     sdoId: "SDO-2024-004",
+    prePressPlant: "Prepress Hub 2",
+    productionPlant: "Plant C",
     artworkStatus: "In Review",
     bomStatus: "Complete",
     routingStatus: "Pending",
     progress: 60,
     createdDate: "2024-01-13",
     notes: "Awaiting artwork approval from customer",
+    mfReleased: false,
   },
 ]
 
@@ -88,6 +131,11 @@ const commercialOrders = [
     customer: "Prime Packaging",
     job: "Die-Cut Boxes",
     jdoId: "JDO-2024-003",
+    prePressPlant: "Prepress Hub 1",
+    productionPlant: "Plant B",
+    prePressStatus: "Complete",
+    productionStatus: "In PDD",
+    dispatchStatus: "Pending",
     amount: 425000,
     quantity: "8000 units",
     status: "In PDD",
@@ -101,6 +149,11 @@ const commercialOrders = [
     customer: "Global Traders",
     job: "Printed Labels",
     jdoId: "JDO-2024-004",
+    prePressPlant: "Prepress Hub 3",
+    productionPlant: "Plant A",
+    prePressStatus: "Approved",
+    productionStatus: "Approved",
+    dispatchStatus: "Scheduled",
     amount: 185000,
     quantity: "10000 units",
     status: "Approved",
@@ -114,6 +167,11 @@ const commercialOrders = [
     customer: "Acme Corp",
     job: "Custom Packaging",
     jdoId: "JDO-2024-001",
+    prePressPlant: "Prepress Hub 2",
+    productionPlant: "Plant D",
+    prePressStatus: "In Progress",
+    productionStatus: "Pending",
+    dispatchStatus: "Pending",
     amount: 320000,
     quantity: "5000 units",
     status: "In Review",
@@ -127,45 +185,81 @@ const commercialOrders = [
 const pnOrders = [
   {
     id: "PN-2024-001",
+    pnReqNo: "REQ-2024-1001",
     customer: "TechStart Inc",
     job: "Corrugated Boxes",
     commercialId: "COM-2024-001",
+    fgMaterial: "FG-CORR-9081",
     amount: 450000,
     quantity: "9000 units",
-    status: "Dispatched",
+    status: "Arrived",
+    prePressStatus: "Complete",
+    productionStatus: "Completed",
+    dispatchStatus: "Dispatched",
     punchedDate: "2024-01-10",
     releasedDate: "2024-01-12",
     dispatchedDate: "2024-01-18",
+    initiateDate: "2024-01-08",
+    orderDate: "2024-01-05",
+    expectedDelivery: "2024-01-20",
     progress: 100,
     notes: "Successfully delivered to customer",
+    description: "Printed corrugated shipping boxes",
+    rmType: "Paperboard",
+    procurementQty: "9,000 units",
+    plant: "Plant B",
   },
   {
     id: "PN-2024-002",
+    pnReqNo: "REQ-2024-1005",
     customer: "Metro Supplies",
     job: "Folding Cartons",
     commercialId: "COM-2024-002",
+    fgMaterial: "FG-FOLD-5523",
     amount: 275000,
     quantity: "6500 units",
-    status: "In PDD",
+    status: "Not Arrived",
+    prePressStatus: "Approved",
+    productionStatus: "In PDD",
+    dispatchStatus: "Pending",
     punchedDate: "2024-01-14",
     releasedDate: "2024-01-15",
     dispatchedDate: null,
+    initiateDate: "2024-01-12",
+    orderDate: "2024-01-10",
+    expectedDelivery: "2024-01-24",
     progress: 60,
     notes: "Production in progress, expected dispatch: 2024-01-22",
+    description: "Premium folding cartons - matte finish",
+    rmType: "Coated Board",
+    procurementQty: "6,500 units",
+    plant: "Plant A",
   },
   {
     id: "PN-2024-003",
+    pnReqNo: "REQ-2024-1010",
     customer: "Swift Logistics",
     job: "Custom Labels",
     commercialId: "COM-2024-003",
+    fgMaterial: "FG-LBL-7720",
     amount: 195000,
     quantity: "12000 units",
-    status: "Released",
+    status: "Not Arrived",
+    prePressStatus: "In Review",
+    productionStatus: "Released",
+    dispatchStatus: "Pending",
     punchedDate: "2024-01-16",
     releasedDate: "2024-01-17",
     dispatchedDate: null,
+    initiateDate: "2024-01-15",
+    orderDate: "2024-01-14",
+    expectedDelivery: "2024-01-28",
     progress: 35,
     notes: "Released to production floor",
+    description: "Logistics barcode and brand labels",
+    rmType: "Vinyl",
+    procurementQty: "12,000 units",
+    plant: "Plant D",
   },
 ]
 
@@ -175,15 +269,20 @@ function getStatusColor(status: string) {
     case "Approved":
     case "Complete":
     case "Dispatched":
+    case "Arrived":
       return "badge-green-gradient"
-    case "Awaiting Approval":
+    case "Sales Approval":
     case "Pending":
       return "bg-burgundy-10 text-burgundy border-burgundy-40"
     case "In Review":
     case "In PDD":
       return "badge-blue-gradient"
+    case "Clarification":
+      return "bg-blue-10 text-blue border-blue-40"
     case "Released":
       return "bg-green-10 text-green border-green-40"
+    case "Not Arrived":
+      return "bg-burgundy-10 text-burgundy border-burgundy-40"
     default:
       return "bg-neutral-gray-100 text-neutral-gray-600 border-neutral-gray-300"
   }
@@ -195,17 +294,58 @@ function getStatusIcon(status: string) {
     case "Approved":
     case "Complete":
     case "Dispatched":
+    case "Arrived":
       return CheckCircle2
-    case "Awaiting Approval":
+    case "Sales Approval":
     case "In Review":
     case "In PDD":
     case "Released":
+    case "Clarification":
+    case "Not Arrived":
       return Clock
     case "Pending":
       return AlertCircle
     default:
       return Clock
   }
+}
+
+function mapArtworkStage(status: string) {
+  switch (status) {
+    case "Approved":
+      return "Approved"
+    case "In Review":
+      return "Awaiting Approval"
+    case "Pending":
+      return "In Prepress"
+    case "Clarification":
+      return "Clarification"
+    default:
+      return status
+  }
+}
+
+function mapBomRoutingStage(status: string) {
+  switch (status) {
+    case "Complete":
+    case "Completed":
+      return "Completed"
+    case "Pending":
+      return "In MDGT"
+    case "Clarification":
+      return "Clarification"
+    default:
+      return status
+  }
+}
+
+function formatBomRoutingStatus(bomStatus: string, routingStatus: string) {
+  const bomStage = mapBomRoutingStage(bomStatus)
+  const routingStage = mapBomRoutingStage(routingStatus)
+  if (bomStage === routingStage) {
+    return bomStage
+  }
+  return `${bomStage} / ${routingStage}`
 }
 
 export function ProjectsContent() {
@@ -230,7 +370,9 @@ export function ProjectsContent() {
       p.id.toLowerCase().includes(sdoSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(sdoSearch.toLowerCase()) ||
       p.job.toLowerCase().includes(sdoSearch.toLowerCase()) ||
-      p.quoteId.toLowerCase().includes(sdoSearch.toLowerCase())
+      p.quoteId.toLowerCase().includes(sdoSearch.toLowerCase()) ||
+      p.executionLocation.toLowerCase().includes(sdoSearch.toLowerCase()) ||
+      p.productionPlant.toLowerCase().includes(sdoSearch.toLowerCase())
     return matchesSearch && (sdoStatusFilter === "all" || p.status === sdoStatusFilter)
   })
 
@@ -239,7 +381,9 @@ export function ProjectsContent() {
       p.id.toLowerCase().includes(jdoSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(jdoSearch.toLowerCase()) ||
       p.job.toLowerCase().includes(jdoSearch.toLowerCase()) ||
-      p.sdoId.toLowerCase().includes(jdoSearch.toLowerCase())
+      p.sdoId.toLowerCase().includes(jdoSearch.toLowerCase()) ||
+      p.prePressPlant.toLowerCase().includes(jdoSearch.toLowerCase()) ||
+      p.productionPlant.toLowerCase().includes(jdoSearch.toLowerCase())
     return matchesSearch
   })
 
@@ -249,7 +393,9 @@ export function ProjectsContent() {
       p.customer.toLowerCase().includes(comSearch.toLowerCase()) ||
       p.job.toLowerCase().includes(comSearch.toLowerCase()) ||
       p.jdoId.toLowerCase().includes(comSearch.toLowerCase()) ||
-      p.quantity.toLowerCase().includes(comSearch.toLowerCase())
+      p.quantity.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.prePressPlant.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.productionPlant.toLowerCase().includes(comSearch.toLowerCase())
     return matchesSearch && (comStatusFilter === "all" || p.status === comStatusFilter)
   })
 
@@ -259,7 +405,14 @@ export function ProjectsContent() {
       p.customer.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.job.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.commercialId.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.quantity.toLowerCase().includes(pnSearch.toLowerCase())
+      p.quantity.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.pnReqNo.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.fgMaterial.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.description.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.rmType.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.plant.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.status.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.initiateDate.toLowerCase().includes(pnSearch.toLowerCase())
     return matchesSearch && (pnStatusFilter === "all" || p.status === pnStatusFilter)
   })
 
@@ -317,7 +470,8 @@ export function ProjectsContent() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="Sample Approved">Sample Approved</SelectItem>
-                <SelectItem value="Awaiting Approval">Awaiting Approval</SelectItem>
+                <SelectItem value="Sales Approval">Sales Approval</SelectItem>
+                <SelectItem value="Clarification">Clarification</SelectItem>
                 <SelectItem value="In PDD">In PDD</SelectItem>
               </SelectContent>
             </Select>
@@ -335,35 +489,48 @@ export function ProjectsContent() {
                       <TableHead className="text-white w-[200px]">
                         <div className="font-semibold">Job Name</div>
                       </TableHead>
+                      <TableHead className="text-white w-[170px]">
+                        <div className="font-semibold">Execution Location</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[170px]">
+                        <div className="font-semibold">Production Plant</div>
+                      </TableHead>
                       <TableHead className="text-white w-[140px]">
                         <div className="font-semibold">Status</div>
-                      </TableHead>
-                      <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">Progress</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredSDO.map((project, index) => {
                       const StatusIcon = getStatusIcon(project.status)
+                      const tone =
+                        project.status === "Sample Approved"
+                          ? "green"
+                          : project.status === "Sales Approval"
+                          ? "burgundy"
+                          : project.status === "Clarification"
+                          ? "blue"
+                          : "blue"
+                      const accentClass =
+                        project.status === "Sample Approved"
+                          ? "bg-green"
+                          : project.status === "Sales Approval"
+                          ? "bg-burgundy"
+                          : project.status === "Clarification"
+                          ? "bg-blue"
+                          : project.status === "In PDD"
+                          ? "bg-blue"
+                          : "bg-blue"
                       return (
                         <Dialog key={project.id}>
                           <DialogTrigger asChild>
                             <TableRow
-                              className={`cursor-pointer animate-scale-in hover:bg-${
-                                project.status === 'Sample Approved' ? 'green' :
-                                project.status === 'Awaiting Approval' ? 'burgundy' :
-                                'blue'
-                              }-5 transition-colors`}
+                              className={`cursor-pointer animate-scale-in hover:bg-${tone}-5 transition-colors`}
                               style={{ animationDelay: `${index * 30}ms` }}
                             >
                               <TableCell>
                                 <div className="flex items-center gap-2">
-                                  <div className={`w-1 h-12 rounded-full ${
-                                    project.status === 'Sample Approved' ? 'bg-green' :
-                                    project.status === 'Awaiting Approval' ? 'bg-burgundy' :
-                                    'bg-blue'
-                                  }`} />
+                                  <div className={`w-1 h-12 rounded-full ${accentClass}`} />
                                   <div>
                                     <p className="font-bold text-sm text-blue">{project.id}</p>
                                     <p className="text-sm font-medium">{project.customer}</p>
@@ -377,18 +544,16 @@ export function ProjectsContent() {
                                 </div>
                               </TableCell>
                               <TableCell>
+                                <p className="text-sm font-medium">{project.executionLocation}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm font-medium">{project.productionPlant}</p>
+                              </TableCell>
+                              <TableCell>
                                 <Badge className={`${getStatusColor(project.status)} gap-1 border`}>
                                   <StatusIcon className="h-3 w-3" />
                                   {project.status}
                                 </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">{project.progress}%</span>
-                                  </div>
-                                  <Progress value={project.progress} className="h-2" />
-                                </div>
                               </TableCell>
                             </TableRow>
                           </DialogTrigger>
@@ -413,6 +578,14 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{project.quoteId}</p>
                               </div>
                               <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Execution Location</Label>
+                                <p className="text-base font-medium">{project.executionLocation}</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Production Plant</Label>
+                                <p className="text-base font-medium">{project.productionPlant}</p>
+                              </div>
+                              <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Status</Label>
                                 <Badge className={`${getStatusColor(project.status)} gap-1 border w-fit`}>
                                   <StatusIcon className="h-3 w-3" />
@@ -428,18 +601,25 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{project.approvedDate || "Pending"}</p>
                               </div>
                               <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="font-semibold">{project.progress}%</span>
-                                  </div>
-                                  <Progress value={project.progress} className="h-3" />
-                                </div>
-                              </div>
-                              <div className="space-y-2 col-span-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Notes</Label>
                                 <p className="text-base">{project.notes}</p>
                               </div>
+                              {project.history && project.history.length > 0 && (
+                                <div className="space-y-2 col-span-2">
+                                  <Label className="text-sm font-semibold text-muted-foreground">Journey</Label>
+                                  <div className="mt-2 pl-3 border-l border-muted space-y-3">
+                                    {project.history.map((step: any, stepIndex: number) => (
+                                      <div key={`${project.id}-history-${stepIndex}`} className="flex items-start gap-3">
+                                        <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-blue" />
+                                        <div>
+                                          <p className="text-sm font-semibold text-foreground">{step.stage}</p>
+                                          <p className="text-xs text-muted-foreground">{step.date}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </DialogContent>
                         </Dialog>
@@ -479,11 +659,14 @@ export function ProjectsContent() {
                       <TableHead className="text-white w-[180px]">
                         <div className="font-semibold">Job Name</div>
                       </TableHead>
-                      <TableHead className="text-white w-[240px]">
-                        <div className="font-semibold">Status (Artwork / BOM / Routing)</div>
+                      <TableHead className="text-white w-[170px]">
+                        <div className="font-semibold">Pre-Press Plant</div>
                       </TableHead>
-                      <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">Progress</div>
+                      <TableHead className="text-white w-[170px]">
+                        <div className="font-semibold">Production Plant</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[240px]">
+                        <div className="font-semibold">Status</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -518,33 +701,16 @@ export function ProjectsContent() {
                                 <p className="font-semibold text-sm">{project.job}</p>
                               </TableCell>
                               <TableCell>
-                                <div className="flex gap-1">
-                                  <div className="flex-1 text-center">
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">Artwork</p>
-                                    <Badge className={`${getStatusColor(project.artworkStatus)} border text-[10px]`}>
-                                      {project.artworkStatus}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex-1 text-center">
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">BOM</p>
-                                    <Badge className={`${getStatusColor(project.bomStatus)} border text-[10px]`}>
-                                      {project.bomStatus}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex-1 text-center">
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">Routing</p>
-                                    <Badge className={`${getStatusColor(project.routingStatus)} border text-[10px]`}>
-                                      {project.routingStatus}
-                                    </Badge>
-                                  </div>
-                                </div>
+                                <p className="text-sm font-medium">{project.prePressPlant}</p>
                               </TableCell>
                               <TableCell>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">{project.progress}%</span>
-                                  </div>
-                                  <Progress value={project.progress} className="h-2" />
+                                <p className="text-sm font-medium">{project.productionPlant}</p>
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1 text-xs font-semibold text-foreground">
+                                  <p>Artwork - {mapArtworkStage(project.artworkStatus)}</p>
+                                  <p>BOM/Routing - {formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
+                                  <p>MF Released - {project.mfReleased ? "Yes" : "No"}</p>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -570,34 +736,23 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{project.sdoId}</p>
                               </div>
                               <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Pre-Press Plant</Label>
+                                <p className="text-base font-medium">{project.prePressPlant}</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Production Plant</Label>
+                                <p className="text-base font-medium">{project.productionPlant}</p>
+                              </div>
+                              <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Created Date</Label>
                                 <p className="text-base font-medium">{project.createdDate}</p>
                               </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Artwork Status</Label>
-                                <Badge className={`${getStatusColor(project.artworkStatus)} gap-1 border w-fit`}>
-                                  {project.artworkStatus}
-                                </Badge>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">BOM Status</Label>
-                                <Badge className={`${getStatusColor(project.bomStatus)} gap-1 border w-fit`}>
-                                  {project.bomStatus}
-                                </Badge>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Routing Status</Label>
-                                <Badge className={`${getStatusColor(project.routingStatus)} gap-1 border w-fit`}>
-                                  {project.routingStatus}
-                                </Badge>
-                              </div>
                               <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="font-semibold">{project.progress}%</span>
-                                  </div>
-                                  <Progress value={project.progress} className="h-3" />
+                                <Label className="text-sm font-semibold text-muted-foreground">Stage Status</Label>
+                                <div className="space-y-1 text-sm font-semibold text-foreground">
+                                  <p>Artwork - {mapArtworkStage(project.artworkStatus)}</p>
+                                  <p>BOM/Routing - {formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
+                                  <p>MF Released - {project.mfReleased ? "Yes" : "No"}</p>
                                 </div>
                               </div>
                               <div className="space-y-2 col-span-2">
@@ -654,20 +809,19 @@ export function ProjectsContent() {
                       <TableHead className="text-white w-[200px]">
                         <div className="font-semibold">Job Name</div>
                       </TableHead>
-                      <TableHead className="text-white w-[180px]">
-                        <div className="font-semibold">Amount & Dates</div>
+                      <TableHead className="text-white w-[170px]">
+                        <div className="font-semibold">Pre-Press Plant</div>
                       </TableHead>
-                      <TableHead className="text-white w-[160px]">
+                      <TableHead className="text-white w-[170px]">
+                        <div className="font-semibold">Production Plant</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[240px]">
                         <div className="font-semibold">Status</div>
-                      </TableHead>
-                      <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">Progress</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredCommercial.map((order, index) => {
-                      const StatusIcon = getStatusIcon(order.status)
                       return (
                         <Dialog key={order.id}>
                           <DialogTrigger asChild>
@@ -694,30 +848,19 @@ export function ProjectsContent() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div>
-                                  <p className="font-semibold text-sm">{order.job}</p>
-                                  <p className="text-xs text-muted-foreground">{order.quantity}</p>
-                                </div>
+                                <p className="font-semibold text-sm">{order.job}</p>
                               </TableCell>
                               <TableCell>
-                                <div>
-                                  <p className="text-lg font-bold text-blue">₹{order.amount.toLocaleString("en-IN")}</p>
-                                  <p className="text-[10px] text-muted-foreground">Order: {order.orderDate}</p>
-                                  <p className="text-[10px] text-muted-foreground">Delivery: {order.expectedDelivery}</p>
-                                </div>
+                                <p className="text-sm font-medium">{order.prePressPlant}</p>
                               </TableCell>
                               <TableCell>
-                                <Badge className={`${getStatusColor(order.status)} gap-1 border`}>
-                                  <StatusIcon className="h-3 w-3" />
-                                  {order.status}
-                                </Badge>
+                                <p className="text-sm font-medium">{order.productionPlant}</p>
                               </TableCell>
                               <TableCell>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">{order.progress}%</span>
-                                  </div>
-                                  <Progress value={order.progress} className="h-2" />
+                                <div className="space-y-1 text-xs font-semibold text-foreground">
+                                  <p>Pre-Press - {order.prePressStatus}</p>
+                                  <p>Production - {order.productionStatus}</p>
+                                  <p>Dispatch - {order.dispatchStatus}</p>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -743,6 +886,14 @@ export function ProjectsContent() {
                                 <p className="text-base font-medium">{order.jdoId}</p>
                               </div>
                               <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Pre-Press Plant</Label>
+                                <p className="text-base font-medium">{order.prePressPlant}</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Production Plant</Label>
+                                <p className="text-base font-medium">{order.productionPlant}</p>
+                              </div>
+                              <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Amount</Label>
                                 <p className="text-lg font-bold text-blue">₹{order.amount.toLocaleString("en-IN")}</p>
                               </div>
@@ -750,12 +901,13 @@ export function ProjectsContent() {
                                 <Label className="text-sm font-semibold text-muted-foreground">Quantity</Label>
                                 <p className="text-base font-medium">{order.quantity}</p>
                               </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Status</Label>
-                                <Badge className={`${getStatusColor(order.status)} gap-1 border w-fit`}>
-                                  <StatusIcon className="h-3 w-3" />
-                                  {order.status}
-                                </Badge>
+                              <div className="space-y-2 col-span-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Stage Status</Label>
+                                <div className="space-y-1 text-sm font-semibold text-foreground">
+                                  <p>Pre-Press - {order.prePressStatus}</p>
+                                  <p>Production - {order.productionStatus}</p>
+                                  <p>Dispatch - {order.dispatchStatus}</p>
+                                </div>
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Order Date</Label>
@@ -764,15 +916,6 @@ export function ProjectsContent() {
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Expected Delivery</Label>
                                 <p className="text-base font-medium">{order.expectedDelivery}</p>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="font-semibold">{order.progress}%</span>
-                                  </div>
-                                  <Progress value={order.progress} className="h-3" />
-                                </div>
                               </div>
                               <div className="space-y-2 col-span-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Notes</Label>
@@ -797,7 +940,7 @@ export function ProjectsContent() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search PN (ID, Customer, Job Name, Commercial ID, Quantity)..."
+                placeholder="Search PN (PN, Req No., FG Material, Customer, Initiate Date)..."
                 value={pnSearch}
                 onChange={(e) => setPnSearch(e.target.value)}
                 className="pl-10"
@@ -809,9 +952,8 @@ export function ProjectsContent() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Dispatched">Dispatched</SelectItem>
-                <SelectItem value="In PDD">In PDD</SelectItem>
-                <SelectItem value="Released">Released</SelectItem>
+                <SelectItem value="Arrived">Arrived</SelectItem>
+                <SelectItem value="Not Arrived">Not Arrived</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -822,57 +964,83 @@ export function ProjectsContent() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-[#005180] hover:bg-[#005180]">
-                      <TableHead className="text-white w-[180px]">
-                        <div className="font-semibold">ID / Customer</div>
-                      </TableHead>
-                      <TableHead className="text-white w-[180px]">
-                        <div className="font-semibold">Job Name</div>
-                      </TableHead>
-                      <TableHead className="text-white w-[160px]">
-                        <div className="font-semibold">Status</div>
-                      </TableHead>
-                      <TableHead className="text-white w-[240px]">
-                        <div className="font-semibold">Timeline</div>
+                      <TableHead className="text-white w-[130px]">
+                        <div className="font-semibold">PN</div>
                       </TableHead>
                       <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">Progress</div>
+                        <div className="font-semibold">PN Req No.</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[160px]">
+                        <div className="font-semibold">FG Material</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[170px]">
+                        <div className="font-semibold">Customer Name</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[220px]">
+                        <div className="font-semibold">Description</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[150px]">
+                        <div className="font-semibold">RM Type</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[150px]">
+                        <div className="font-semibold">Procurement Qty</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[120px]">
+                        <div className="font-semibold">Plant</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[140px]">
+                        <div className="font-semibold">Initiate Date</div>
+                      </TableHead>
+                      <TableHead className="text-white w-[120px]">
+                        <div className="font-semibold">Status</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPN.map((order, index) => {
+                      const accentClass = order.status === 'Arrived' ? 'bg-green' : 'bg-burgundy'
                       const StatusIcon = getStatusIcon(order.status)
                       return (
                         <Dialog key={order.id}>
                           <DialogTrigger asChild>
                             <TableRow
                               className={`cursor-pointer animate-scale-in hover:bg-${
-                                order.status === 'Dispatched' ? 'green' :
-                                order.status === 'Released' ? 'blue' :
-                                'burgundy'
+                                order.status === 'Arrived' ? 'green' : 'burgundy'
                               }-5 transition-colors`}
                               style={{ animationDelay: `${index * 30}ms` }}
                             >
                               <TableCell>
                                 <div className="flex items-center gap-2">
-                                  <div className={`w-1 h-12 rounded-full ${
-                                    order.status === 'Dispatched' ? 'bg-green' :
-                                    order.status === 'Released' ? 'bg-blue' :
-                                    'bg-burgundy'
-                                  }`} />
+                                  <div className={`w-1 h-12 rounded-full ${accentClass}`} />
                                   <div>
                                     <p className="font-bold text-sm text-blue">{order.id}</p>
-                                    <p className="text-sm font-medium">{order.customer}</p>
                                     <p className="text-xs text-muted-foreground">Comm: {order.commercialId}</p>
                                   </div>
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div>
-                                  <p className="font-semibold text-sm">{order.job}</p>
-                                  <p className="text-sm font-bold text-blue">₹{order.amount.toLocaleString("en-IN")}</p>
-                                  <p className="text-[10px] text-muted-foreground">{order.quantity}</p>
-                                </div>
+                                <p className="text-sm font-medium">{order.pnReqNo}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm font-medium">{order.fgMaterial}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm font-medium">{order.customer}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm text-muted-foreground line-clamp-2">{order.description}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm font-medium">{order.rmType}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm font-medium">{order.procurementQty}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm font-medium">{order.plant}</p>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm font-medium">{order.initiateDate}</p>
                               </TableCell>
                               <TableCell>
                                 <Badge className={`${getStatusColor(order.status)} gap-1 border`}>
@@ -880,86 +1048,77 @@ export function ProjectsContent() {
                                   {order.status}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
-                                <div className="grid grid-cols-3 gap-1 text-[10px]">
-                                  <div>
-                                    <p className="text-muted-foreground">Punched</p>
-                                    <p className="font-semibold">{order.punchedDate}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Released</p>
-                                    <p className="font-semibold">{order.releasedDate || "Pending"}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Dispatched</p>
-                                    <p className="font-semibold">{order.dispatchedDate || "Pending"}</p>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">{order.progress}%</span>
-                                  </div>
-                                  <Progress value={order.progress} className="h-2" />
-                                </div>
-                              </TableCell>
                             </TableRow>
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl">
                             <DialogHeader>
                               <DialogTitle className="text-2xl font-bold text-blue">{order.id}</DialogTitle>
-                              <DialogDescription>
-                                Production Order Details
-                              </DialogDescription>
+                              <DialogDescription>Production Order Details</DialogDescription>
                             </DialogHeader>
                             <div className="grid grid-cols-2 gap-4 py-4">
+                              <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">PN Req No.</Label>
+                                <p className="text-base font-medium">{order.pnReqNo}</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">FG Material</Label>
+                                <p className="text-base font-medium">{order.fgMaterial}</p>
+                              </div>
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Customer</Label>
                                 <p className="text-base font-medium">{order.customer}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Job Name</Label>
-                                <p className="text-base font-medium">{order.job}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Description</Label>
+                                <p className="text-base font-medium">{order.description}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Commercial ID</Label>
-                                <p className="text-base font-medium">{order.commercialId}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">RM Type</Label>
+                                <p className="text-base font-medium">{order.rmType}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Amount</Label>
-                                <p className="text-lg font-bold text-blue">₹{order.amount.toLocaleString("en-IN")}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Procurement Qty</Label>
+                                <p className="text-base font-medium">{order.procurementQty}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Quantity</Label>
-                                <p className="text-base font-medium">{order.quantity}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Plant</Label>
+                                <p className="text-base font-medium">{order.plant}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Status</Label>
-                                <Badge className={`${getStatusColor(order.status)} gap-1 border w-fit`}>
-                                  <StatusIcon className="h-3 w-3" />
-                                  {order.status}
-                                </Badge>
+                                <Label className="text-sm font-semibold text-muted-foreground">Initiate Date</Label>
+                                <p className="text-base font-medium">{order.initiateDate}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Punched Date</Label>
-                                <p className="text-base font-medium">{order.punchedDate}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Order Date</Label>
+                                <p className="text-base font-medium">{order.orderDate}</p>
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Released Date</Label>
-                                <p className="text-base font-medium">{order.releasedDate || "Pending"}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Dispatched Date</Label>
-                                <p className="text-base font-medium">{order.dispatchedDate || "Pending"}</p>
+                                <Label className="text-sm font-semibold text-muted-foreground">Expected Delivery</Label>
+                                <p className="text-base font-medium">{order.expectedDelivery}</p>
                               </div>
                               <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="font-semibold">{order.progress}%</span>
+                                <Label className="text-sm font-semibold text-muted-foreground">Stage Status</Label>
+                                <div className="space-y-1 text-sm font-semibold text-foreground">
+                                  <p>Pre-Press - {order.prePressStatus}</p>
+                                  <p>Production - {order.productionStatus}</p>
+                                  <p>Dispatch - {order.dispatchStatus}</p>
+                                </div>
+                              </div>
+                              <div className="space-y-2 col-span-2">
+                                <Label className="text-sm font-semibold text-muted-foreground">Timeline</Label>
+                                <div className="grid grid-cols-3 gap-3 text-sm">
+                                  <div>
+                                    <p className="text-muted-foreground text-xs">Punched</p>
+                                    <p className="font-semibold">{order.punchedDate}</p>
                                   </div>
-                                  <Progress value={order.progress} className="h-3" />
+                                  <div>
+                                    <p className="text-muted-foreground text-xs">Released</p>
+                                    <p className="font-semibold">{order.releasedDate || "Pending"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs">Dispatched</p>
+                                    <p className="font-semibold">{order.dispatchedDate || "Pending"}</p>
+                                  </div>
                                 </div>
                               </div>
                               <div className="space-y-2 col-span-2">

@@ -117,7 +117,6 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
 
   const sidePanelItems = [
     { title: "Customer", url: "/clients", icon: Users },
-    { title: "Approvals", url: "/approvals", icon: CheckCircle },
     { title: "Reports", url: "/reports", icon: FileBarChart },
     { title: "Profile", url: "/profile", icon: User },
     { title: "Settings", url: "/settings", icon: Settings },

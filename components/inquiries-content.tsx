@@ -1,3 +1,4 @@
+
 "use client"
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,11 +27,13 @@ const inquiries = [
     customer: "Acme Corp",
     job: "Custom Packaging Box",
     sku: "PKG-001",
+    jobType: "Monocarton",
     quantityRange: "5000-10000",
     status: "Costing",
     priority: "high",
     date: "2024-01-15",
     dueDate: "2024-01-18",
+    clarificationStatus: "Pending Clarification",
     notes: "Urgent requirement for Q1 launch",
   },
   {
@@ -38,11 +41,13 @@ const inquiries = [
     customer: "TechStart Inc",
     job: "Printed Labels",
     sku: "LBL-045",
+    jobType: "Fluted Box",
     quantityRange: "10000-15000",
     status: "Quoted",
     priority: "medium",
     date: "2024-01-14",
     dueDate: "2024-01-20",
+    clarificationStatus: "Clarified",
     notes: "Repeat order with minor modifications",
   },
   {
@@ -50,11 +55,13 @@ const inquiries = [
     customer: "Global Traders",
     job: "Corrugated Sheets",
     sku: "COR-023",
+    jobType: "Rigid Box",
     quantityRange: "2000-5000",
-    status: "Draft",
+    status: "Pending",
     priority: "low",
     date: "2024-01-13",
     dueDate: "2024-01-25",
+    clarificationStatus: "Awaiting Customer",
     notes: "New customer inquiry",
   },
   {
@@ -62,11 +69,13 @@ const inquiries = [
     customer: "Metro Suppliers",
     job: "Folding Cartons",
     sku: "FLD-012",
+    jobType: "Gable Top",
     quantityRange: "8000-12000",
     status: "Approved",
     priority: "high",
     date: "2024-01-12",
     dueDate: "2024-01-17",
+    clarificationStatus: "Not Required",
     notes: "Ready for quotation",
   },
   {
@@ -74,12 +83,42 @@ const inquiries = [
     customer: "Prime Packaging",
     job: "Die-Cut Boxes",
     sku: "DCB-089",
+    jobType: "Paper Pod",
     quantityRange: "3000-6000",
     status: "Pending",
     priority: "medium",
     date: "2024-01-11",
     dueDate: "2024-01-22",
+    clarificationStatus: "Pending Clarification",
     notes: "Awaiting customer specifications",
+  },
+  {
+    id: "INQ-2024-006",
+    customer: "Vista Retail",
+    job: "Luxury Gift Hampers",
+    sku: "LGH-034",
+    jobType: "Burgo Pack",
+    quantityRange: "1500-3000",
+    status: "Costing",
+    priority: "medium",
+    date: "2024-01-10",
+    dueDate: "2024-01-19",
+    clarificationStatus: "Awaiting Customer",
+    notes: "Need final artwork approval",
+  },
+  {
+    id: "INQ-2024-007",
+    customer: "Evergreen Foods",
+    job: "Premium Tea Boxes",
+    sku: "PTB-210",
+    jobType: "Speciality Pack",
+    quantityRange: "4000-7000",
+    status: "Quoted",
+    priority: "high",
+    date: "2024-01-09",
+    dueDate: "2024-01-21",
+    clarificationStatus: "Clarified",
+    notes: "All specs confirmed, awaiting PO",
   },
 ]
 
@@ -95,6 +134,14 @@ function getStatusColor(status: string) {
       return "bg-neutral-gray-100 text-neutral-gray-600 border-neutral-gray-300"
     case "Pending":
       return "bg-burgundy-10 text-burgundy border-burgundy-40"
+    case "Clarified":
+      return "badge-green-gradient"
+    case "Pending Clarification":
+      return "bg-burgundy-10 text-burgundy border-burgundy-40"
+    case "Awaiting Customer":
+      return "bg-blue-10 text-blue border-blue-40"
+    case "Not Required":
+      return "bg-neutral-gray-100 text-neutral-gray-600 border-neutral-gray-300"
     default:
       return "outline"
   }
@@ -130,7 +177,9 @@ export function InquiriesContent() {
         inquiry.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inquiry.job.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inquiry.quantityRange.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inquiry.sku.toLowerCase().includes(searchQuery.toLowerCase())
+        inquiry.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inquiry.jobType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inquiry.clarificationStatus.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter
       const matchesPriority = priorityFilter === "all" || inquiry.priority === priorityFilter
 
@@ -202,16 +251,16 @@ export function InquiriesContent() {
                   <TableHead className="w-[180px] text-white">
                     <div className="font-semibold">ID / Customer</div>
                   </TableHead>
-                  <TableHead className="w-[200px] text-white">
+                  <TableHead className="w-[220px] text-white">
                     <div className="font-semibold">Job Name</div>
                   </TableHead>
                   <TableHead className="w-[160px] text-white">
-                    <div className="font-semibold">Quantity Range</div>
+                    <div className="font-semibold">Job Type</div>
                   </TableHead>
-                  <TableHead className="w-[140px] text-white">
+                  <TableHead className="w-[200px] text-white">
                     <div className="font-semibold">Status</div>
                   </TableHead>
-                  <TableHead className="w-[180px] text-white">
+                  <TableHead className="w-[200px] text-white">
                     <div className="font-semibold">Priority / Due Date</div>
                   </TableHead>
                 </TableRow>
@@ -248,12 +297,19 @@ export function InquiriesContent() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <p className="font-medium">{inquiry.quantityRange}</p>
+                          <p className="text-sm font-semibold text-blue tracking-wide uppercase">
+                            {inquiry.jobType}
+                          </p>
                         </TableCell>
                         <TableCell>
-                          <Badge className={`${getStatusColor(inquiry.status)} border`}>
-                            {inquiry.status}
-                          </Badge>
+                          <div className="space-y-1">
+                            <Badge className={`${getStatusColor(inquiry.status)} border`}>
+                              {inquiry.status}
+                            </Badge>
+                            <Badge className={`${getStatusColor(inquiry.clarificationStatus)} border text-[10px] font-semibold uppercase tracking-wide`}>
+                              {inquiry.clarificationStatus}
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
@@ -274,7 +330,7 @@ export function InquiriesContent() {
                         <DialogDescription>{inquiry.id}</DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           <div>
                             <Label className="text-muted-foreground">Customer</Label>
                             <p className="mt-1 font-medium">{inquiry.customer}</p>
@@ -287,13 +343,27 @@ export function InquiriesContent() {
                               </Badge>
                             </div>
                           </div>
+                          <div>
+                            <Label className="text-muted-foreground">Clarification Status</Label>
+                            <div className="mt-1">
+                              <Badge className={`${getStatusColor(inquiry.clarificationStatus)} border uppercase tracking-wide text-[10px] font-semibold`}>
+                                {inquiry.clarificationStatus}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
                         <div>
                           <Label className="text-muted-foreground">Job Name</Label>
                           <p className="mt-1 font-medium">{inquiry.job}</p>
                           <p className="text-sm text-muted-foreground">SKU: {inquiry.sku}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label className="text-muted-foreground">Job Type</Label>
+                            <p className="mt-1 text-sm font-semibold text-blue tracking-wide uppercase">
+                              {inquiry.jobType}
+                            </p>
+                          </div>
                           <div>
                             <Label className="text-muted-foreground">Quantity Range</Label>
                             <p className="mt-1">{inquiry.quantityRange}</p>

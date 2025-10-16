@@ -26,10 +26,15 @@ const quotations = [
     amount: 245000,
     margin: 12.5,
     validTill: "2024-01-18",
-    status: "Pending Approval",
+    status: "Quoted",
     approvalLevel: "L1",
     createdDate: "2024-01-15",
     notes: "Standard pricing applied",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-10" },
+      { stage: "Costing Completed", date: "2024-01-13" },
+      { stage: "Quoted", date: "2024-01-15" },
+    ],
   },
   {
     id: "QUO-2024-046",
@@ -39,10 +44,16 @@ const quotations = [
     amount: 185000,
     margin: 8.2,
     validTill: "2024-01-20",
-    status: "Pending Approval",
+    status: "Sent to HOD",
     approvalLevel: "L2",
     createdDate: "2024-01-14",
     notes: "Low margin - requires L2 approval",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-09" },
+      { stage: "Costing Completed", date: "2024-01-11" },
+      { stage: "Quotation Drafted", date: "2024-01-13" },
+      { stage: "Sent to HOD", date: "2024-01-14" },
+    ],
   },
   {
     id: "QUO-2024-047",
@@ -56,6 +67,12 @@ const quotations = [
     approvalLevel: "L1",
     createdDate: "2024-01-13",
     notes: "Good margin - approved",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-08" },
+      { stage: "Quotation Drafted", date: "2024-01-11" },
+      { stage: "Sent to HOD", date: "2024-01-12" },
+      { stage: "Approved", date: "2024-01-13" },
+    ],
   },
   {
     id: "QUO-2024-048",
@@ -69,6 +86,13 @@ const quotations = [
     approvalLevel: "L1",
     createdDate: "2024-01-12",
     notes: "Premium pricing - customer accepted",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-06" },
+      { stage: "Quotation Drafted", date: "2024-01-08" },
+      { stage: "Sent to HOD", date: "2024-01-09" },
+      { stage: "Approved", date: "2024-01-10" },
+      { stage: "Sent to Customer", date: "2024-01-12" },
+    ],
   },
   {
     id: "QUO-2024-049",
@@ -82,6 +106,12 @@ const quotations = [
     approvalLevel: "L2",
     createdDate: "2024-01-11",
     notes: "Margin too low - rejected by L2",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-05" },
+      { stage: "Quotation Drafted", date: "2024-01-07" },
+      { stage: "Sent to HOD", date: "2024-01-08" },
+      { stage: "Rejected", date: "2024-01-09" },
+    ],
   },
 ]
 
@@ -101,10 +131,12 @@ function getStatusColor(status: string) {
   switch (status) {
     case "Approved":
       return "badge-green-gradient"
+    case "Quoted":
+      return "bg-blue-10 text-blue border-blue-40"
+    case "Sent to HOD":
+      return "bg-burgundy-10 text-burgundy border-burgundy-40"
     case "Sent to Customer":
       return "badge-blue-gradient"
-    case "Pending Approval":
-      return "bg-burgundy-10 text-burgundy border-burgundy-40"
     case "Rejected":
       return "bg-neutral-gray-100 text-neutral-gray-600 border-neutral-gray-300"
     default:
@@ -168,7 +200,8 @@ export function QuotationsContent() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="Pending Approval">Pending</SelectItem>
+            <SelectItem value="Quoted">Quoted</SelectItem>
+            <SelectItem value="Sent to HOD">Sent to HOD</SelectItem>
             <SelectItem value="Approved">Approved</SelectItem>
             <SelectItem value="Sent to Customer">Sent</SelectItem>
             <SelectItem value="Rejected">Rejected</SelectItem>
@@ -235,39 +268,39 @@ export function QuotationsContent() {
                             <Badge className={`${getStatusColor(quotation.status)} border`}>
                               {quotation.status}
                             </Badge>
-                            {quotation.status === "Pending Approval" && (
+                            {quotation.status === "Quoted" && (
                               <p className="text-xs text-muted-foreground">{quotation.approvalLevel}</p>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            {quotation.status === "Pending Approval" && (
+                            {quotation.status === "Quoted" && (
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="outline"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  alert(`Sending ${quotation.id} for approval`)
+                                  alert(`Sending ${quotation.id} to HOD`)
                                 }}
-                                className="text-xs"
+                                className="h-9 w-9 p-0 flex items-center justify-center"
+                                title="Send to HOD"
                               >
-                                <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                Send for Approval
+                                <ArrowUpCircle className="h-4 w-4" />
                               </Button>
                             )}
                             {quotation.status === "Approved" && (
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="outline"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   alert(`Sharing ${quotation.id} with customer`)
                                 }}
-                                className="text-xs"
+                                className="h-9 w-9 p-0 flex items-center justify-center"
+                                title="Share with Customer"
                               >
-                                <Share2 className="h-3 w-3 mr-1" />
-                                Share
+                                <Share2 className="h-4 w-4" />
                               </Button>
                             )}
                           </div>
@@ -337,6 +370,31 @@ export function QuotationsContent() {
                                   <p className="mt-1 font-medium">{selectedQuotation.validTill}</p>
                                 </div>
                               </div>
+                              {selectedQuotation.history && selectedQuotation.history.length > 0 && (
+                                <div>
+                                  <Label className="text-muted-foreground">Journey</Label>
+                                  <div className="mt-2 pl-3 border-l border-muted space-y-3">
+                                    {selectedQuotation.history.map((step, stepIndex) => {
+                                      const isCurrent =
+                                        stepIndex === selectedQuotation.history.length - 1 &&
+                                        step.stage === selectedQuotation.status
+                                      return (
+                                        <div key={`${selectedQuotation.id}-step-${stepIndex}`} className="flex items-start gap-3">
+                                          <span
+                                            className={`mt-1 inline-flex h-2.5 w-2.5 rounded-full ${
+                                              isCurrent ? "bg-blue" : "bg-muted-foreground/50"
+                                            }`}
+                                          />
+                                          <div>
+                                            <p className="text-sm font-semibold text-foreground">{step.stage}</p>
+                                            <p className="text-xs text-muted-foreground">{step.date}</p>
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                               <div>
                                 <Label className="text-muted-foreground">Notes</Label>
                                 <p className="mt-1">{selectedQuotation.notes}</p>
@@ -344,19 +402,19 @@ export function QuotationsContent() {
                             </div>
                           )}
                           <div className="flex justify-end gap-2">
-                            {selectedQuotation?.status === "Pending Approval" && (
-                              <>
-                                <Button variant="outline">
-                                  <ArrowUpCircle className="mr-2 h-4 w-4" />
-                                  Forward
-                                </Button>
-                                <Button>Approve</Button>
-                              </>
+                            {selectedQuotation?.status === "Quoted" && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10"
+                                title="Send to HOD"
+                              >
+                                <ArrowUpCircle className="h-5 w-5" />
+                              </Button>
                             )}
                             {selectedQuotation?.status === "Approved" && (
-                              <Button>
-                                <Share2 className="mr-2 h-4 w-4" />
-                                Share
+                              <Button size="icon" className="h-10 w-10" title="Share with Customer">
+                                <Share2 className="h-5 w-5" />
                               </Button>
                             )}
                           </div>
