@@ -1,5 +1,5 @@
 "use client"
-import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, FileBarChart, User, Settings } from "lucide-react"
+import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, User, Settings } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -23,7 +23,7 @@ const roleBasedNavItems = {
       icon: Package,
     },
     {
-      title: "Dashboard",
+      title: "Analytics",
       url: "/dashboard",
       icon: LayoutDashboard,
     },
@@ -45,7 +45,7 @@ const roleBasedNavItems = {
       icon: Package,
     },
     {
-      title: "Dashboard",
+      title: "Analytics",
       url: "/dashboard",
       icon: LayoutDashboard,
     },
@@ -67,7 +67,7 @@ const roleBasedNavItems = {
       icon: Package,
     },
     {
-      title: "Dashboard",
+      title: "Analytics",
       url: "/dashboard",
       icon: LayoutDashboard,
     },
@@ -117,24 +117,23 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
 
   const sidePanelItems = [
     { title: "Customer", url: "/clients", icon: Users },
-    { title: "Reports", url: "/reports", icon: FileBarChart },
     { title: "Profile", url: "/profile", icon: User },
     { title: "Settings", url: "/settings", icon: Settings },
   ]
 
   return (
     <>
-      {/* Side Panel */}
+      {/* Side Panel - Hidden on Desktop (lg and above) */}
       {showSidePanel && (
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50 z-[60] transition-opacity duration-300"
+            className="fixed inset-0 bg-black/50 z-[60] transition-opacity duration-300 lg:hidden"
             onClick={() => setShowSidePanel(false)}
             aria-hidden="true"
           />
           {/* Side Panel */}
-          <div className="fixed top-0 left-0 bottom-0 w-[280px] bg-white shadow-2xl z-[70] transform transition-transform duration-300 ease-out">
+          <div className="fixed top-0 left-0 bottom-0 w-[280px] bg-white shadow-2xl z-[70] transform transition-transform duration-300 ease-out lg:hidden">
             <div className="flex flex-col h-full">
               {/* Panel Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200" style={{ backgroundColor: "#005180" }}>
@@ -183,8 +182,8 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
         </>
       )}
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg safe-area-bottom">
+      {/* Bottom Navigation - Hidden on Desktop (lg and above) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg safe-area-bottom lg:hidden">
         <div className="flex items-center justify-around h-16 px-1">
           {navItems.map((item) => {
             const isActive = pathname === item.url || pathname.startsWith(item.url || "")

@@ -1,13 +1,12 @@
 "use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Check, Package, FileText, AlertCircle } from "lucide-react"
+import { Bell, Check, Package, FileText, AlertCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { useIsMobile } from "@/hooks/use-mobile"
 
 interface Notification {
   id: string
@@ -93,80 +92,118 @@ export function NotificationsList({ notifications = notificationsData }: { notif
   )
 }
 
-function NotificationContent({ onViewAll }: { onViewAll: () => void }) {
+function NotificationContent({ onViewAll, onClose }: { onViewAll: () => void; onClose?: () => void }) {
   return (
-    <>
-      <div className="flex items-center justify-between border-b px-4 py-3 sticky top-0 z-10" style={{ backgroundColor: "#005180" }}>
-        <h3 className="font-semibold text-base text-white">Notifications</h3>
+    <div className="flex flex-col max-h-[600px]">
+      <div className="flex items-center justify-between px-5 py-4 sticky top-0 z-10 bg-gradient-to-r from-[#005180] to-[#0066a1]">
+        <div className="flex items-center gap-3">
+          <h3 className="font-semibold text-lg text-white">Notifications</h3>
+          <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+            {notificationsData.filter((n) => !n.read).length} new
+          </Badge>
+        </div>
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full hover:bg-white/20 text-white"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
-      <ScrollArea className="h-[min(60vh,420px)]">
+      <ScrollArea className="flex-1 max-h-[440px]">
         <NotificationsList notifications={notificationsData} />
       </ScrollArea>
-      <div className="border-t p-3 bg-gray-50 sticky bottom-0">
+      <div className="border-t border-gray-200 p-3 bg-white sticky bottom-0">
         <Button
           variant="ghost"
-          className="w-full text-sm hover:bg-[#005180]/10 touch-manipulation"
+          className="w-full text-sm font-medium hover:bg-[#005180]/10 transition-colors"
           style={{ color: "#005180" }}
           onClick={onViewAll}
         >
           View all notifications
         </Button>
       </div>
-    </>
+    </div>
   )
 }
 
 export function NotificationsPanel() {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const isMobile = useIsMobile()
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [desktopOpen, setDesktopOpen] = useState(false)
   const unreadCount = notificationsData.filter((n) => !n.read).length
 
-  const triggerButton = (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="relative h-11 w-11 rounded-full hover:bg-accent touch-manipulation active:scale-95 transition-transform"
-      aria-label="Notifications"
-    >
-      <Bell className="h-5 w-5 text-[#005180]" />
-      {unreadCount > 0 && (
-        <Badge className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full bg-[#B92221] px-1.5 text-xs font-bold text-white flex items-center justify-center border-2 border-white shadow-sm pointer-events-none">
-          {unreadCount}
-        </Badge>
-      )}
-    </Button>
-  )
-
-  const handleViewAll = () => {
-    setOpen(false)
+  const handleViewAllMobile = () => {
+    setMobileOpen(false)
     router.push("/notifications")
   }
 
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>{triggerButton}</SheetTrigger>
-        <SheetContent side="right" className="w-[90vw] max-w-[420px] p-0">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Notifications</SheetTitle>
-          </SheetHeader>
-          <NotificationContent onViewAll={handleViewAll} />
-        </SheetContent>
-      </Sheet>
-    )
+  const handleViewAllDesktop = () => {
+    setDesktopOpen(false)
+    router.push("/notifications")
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="w-[min(calc(100vw-2rem),420px)] p-0 rounded-3xl border border-border shadow-2xl"
-      >
-        <NotificationContent onViewAll={handleViewAll} />
-      </PopoverContent>
-    </Popover>
+    <>
+      {/* Mobile - Sheet */}
+      <div className="md:hidden">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-11 w-11 rounded-full hover:bg-accent active:scale-95 transition-transform"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5 text-[#005180]" />
+              {unreadCount > 0 && (
+                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full bg-[#B92221] px-1.5 text-xs font-bold text-white flex items-center justify-center border-2 border-white shadow-sm pointer-events-none">
+                  {unreadCount}
+                </Badge>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[90vw] max-w-[420px] p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Notifications</SheetTitle>
+            </SheetHeader>
+            <NotificationContent onViewAll={handleViewAllMobile} onClose={() => setMobileOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Desktop - Popover */}
+      <div className="hidden md:block">
+        <Popover open={desktopOpen} onOpenChange={setDesktopOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-11 w-11 rounded-full hover:bg-accent active:scale-95 transition-transform"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5 text-[#005180]" />
+              {unreadCount > 0 && (
+                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full bg-[#B92221] px-1.5 text-xs font-bold text-white flex items-center justify-center border-2 border-white shadow-sm pointer-events-none">
+                  {unreadCount}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            side="bottom"
+            sideOffset={12}
+            collisionPadding={8}
+            className="w-[420px] max-w-[calc(100vw-16px)] p-0 rounded-xl shadow-2xl overflow-hidden border"
+          >
+            <NotificationContent onViewAll={handleViewAllDesktop} onClose={() => setDesktopOpen(false)} />
+          </PopoverContent>
+        </Popover>
+      </div>
+    </>
   )
 }

@@ -9,6 +9,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/.well-known/appspecific/com.chrome.devtools.json",
+        destination: "/chrome-devtools.json",
+      },
+    ]
+  },
 }
 
 export default nextConfig

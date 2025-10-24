@@ -20,7 +20,6 @@ export default function InquiriesPage() {
   const actions = [
     { label: "New Inquiry", onClick: () => router.push("/") },
     { label: "Draft", onClick: () => router.push("/chats") },
-    { label: "Refresh", onClick: () => window.location.reload() },
     { label: "Export", onClick: handleExport },
   ]
 

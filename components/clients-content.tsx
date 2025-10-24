@@ -1,11 +1,11 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Plus, Eye, Upload, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { Search, Plus, Eye, Upload, CheckCircle2, XCircle, AlertCircle, RefreshCw } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { TruncatedText } from "@/components/truncated-text"
 
 const clients = [
   {
@@ -144,6 +145,8 @@ function getComplianceColor(status: string) {
 export function ClientsContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedClient, setSelectedClient] = useState<(typeof clients)[0] | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch =
@@ -154,25 +157,45 @@ export function ClientsContent() {
     return matchesSearch
   })
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredClients.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedClients = filteredClients.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
+
   return (
     <div className="space-y-4">
       {/* Search Bar Only */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by name, ID, code, or email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
+      <div className="relative flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, ID, code, or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button
+          onClick={() => window.location.reload()}
+          className="px-4 rounded-lg bg-[#005180] hover:bg-[#004875] text-white shadow-lg transition-all"
+          title="Refresh page"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Clients Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
-            <TableHeader className="bg-[#005180]">
-              <TableRow className="[&_th]:text-white [&_th]:font-semibold">
+            <TableHeader>
+              <TableRow className="bg-gradient-to-r from-[#004875] to-[#003d63] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#003d63] [&_th]:text-white [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs">
                 <TableHead>Client ID</TableHead>
                 <TableHead>Company Name</TableHead>
                 <TableHead>Customer Code</TableHead>
@@ -184,12 +207,12 @@ export function ClientsContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredClients.map((client) => (
-                <TableRow key={client.id}>
-                  <TableCell className="font-medium">{client.id}</TableCell>
+              {paginatedClients.map((client, index) => (
+                <TableRow key={client.id} className="border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
+                  <TableCell className="font-medium text-primary">{client.id}</TableCell>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{client.name}</p>
+                      <TruncatedText text={client.name} limit={25} className="font-medium block" />
                       <p className="text-xs text-muted-foreground">{client.email}</p>
                     </div>
                   </TableCell>
@@ -394,6 +417,46 @@ export function ClientsContent() {
             </TableBody>
           </Table>
         </CardContent>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-8 px-3"
+              >
+                Previous
+              </Button>
+              <div className="hidden md:flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className={`h-8 w-8 ${currentPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+              <div className="md:hidden text-sm text-muted-foreground">
+                {currentPage} / {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="h-8 px-3"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   )

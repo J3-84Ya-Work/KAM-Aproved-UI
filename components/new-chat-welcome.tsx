@@ -14,32 +14,38 @@ interface NewChatWelcomeProps {
 
 export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: NewChatWelcomeProps) {
   const [inputValue, setInputValue] = useState("")
+  const [step, setStep] = useState<"initial" | "jobName" | "clientName">("initial")
+  const [jobName, setJobName] = useState("")
+  const [clientName, setClientName] = useState("")
   const router = useRouter()
 
   const handleStartChat = () => {
     const value = inputValue.trim()
     if (!value) return
 
-    const normalized = value.toLowerCase()
-
-    if (normalized.includes("chat")) {
+    if (step === "initial") {
+      // First input - move to job name step
+      setStep("jobName")
+      setInputValue("")
+    } else if (step === "jobName") {
+      // Second input - save job name and move to client name
+      setJobName(value)
+      setStep("clientName")
+      setInputValue("")
+    } else if (step === "clientName") {
+      // Third input - save client name and start chat
+      setClientName(value)
       if (onStartChat) {
-        onStartChat("I want costing")
+        // Start chat with all collected information
+        const initialMessage = `I want costing for job: ${jobName}, client: ${value}`
+        onStartChat(initialMessage)
       }
+      // Reset states
       setInputValue("")
-      return
+      setStep("initial")
+      setJobName("")
+      setClientName("")
     }
-
-    if (normalized.includes("form") || normalized.includes("manual")) {
-      router.push("/new-inquiry")
-      setInputValue("")
-      return
-    }
-
-    if (onStartChat) {
-      onStartChat(value)
-    }
-    setInputValue("")
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -49,17 +55,9 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
     }
   }
 
-  const handleQuickSelect = (type: "chat" | "form") => {
-    if (type === "chat") {
-      if (onStartChat) {
-        onStartChat("I want costing")
-      }
-      setInputValue("")
-      return
-    }
-
-    router.push("/new-inquiry")
-    setInputValue("")
+  const handleQuickSelect = () => {
+    // Start the job name collection flow
+    setStep("jobName")
   }
 
   return (
@@ -67,7 +65,11 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
       <div className="relative flex flex-1 max-w-[600px] mx-auto flex-col items-center justify-center bg-background px-4 md:px-6 pb-24 md:pb-6">
         <div className="w-full max-w-2xl space-y-6 md:space-y-8 text-center">
           <div className="space-y-2 md:space-y-3 message-fade-in">
-            <h1 className="text-xl md:text-3xl font-semibold text-foreground">How can I help you?</h1>
+            <h1 className="text-xl md:text-3xl font-semibold text-foreground">
+              {step === "initial" && "How can I help you?"}
+              {step === "jobName" && "What is the Job Name?"}
+              {step === "clientName" && "What is the Client Name?"}
+            </h1>
           </div>
 
           <div className="relative mx-auto w-full message-fade-in" style={{ animationDelay: "100ms" }}>
@@ -77,7 +79,13 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="How do you want to start? AI chat or Manual form"
+                placeholder={
+                  step === "initial"
+                    ? "Start your AI chat here..."
+                    : step === "jobName"
+                    ? "Enter job name..."
+                    : "Enter client name..."
+                }
                 className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               {inputValue.trim() && (
@@ -92,25 +100,24 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
             </div>
           </div>
 
-          <div className="space-y-3 message-fade-in" style={{ animationDelay: "200ms" }}>
-            <p className="text-xs md:text-xs text-muted-foreground">Choose an option:</p>
-            <div className="flex flex-col gap-2 md:flex-row md:gap-3 justify-center">
-              <Button
-                variant="outline"
-                onClick={() => handleQuickSelect("chat")}
-                className="rounded-xl border-border px-5 py-3.5 md:py-3 text-sm button-hover-lift bg-transparent min-h-[44px]"
-              >
-                Start AI Chat
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleQuickSelect("form")}
-                className="rounded-xl border-border px-5 py-3.5 md:py-3 text-sm button-hover-lift bg-transparent min-h-[44px]"
-              >
-                Open Manual Form
-              </Button>
+          {step === "initial" && (
+            <div className="space-y-3 message-fade-in" style={{ animationDelay: "200ms" }}>
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={handleQuickSelect}
+                  className="rounded-xl border-border px-5 py-3.5 md:py-3 text-sm button-hover-lift bg-transparent min-h-[44px]"
+                >
+                  Start AI Chat
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
+          {step !== "initial" && jobName && (
+            <div className="text-sm text-muted-foreground message-fade-in">
+              Job Name: <span className="font-semibold text-foreground">{jobName}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

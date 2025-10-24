@@ -26,7 +26,7 @@ export default function NotificationsPage() {
         <AppSidebar />
       </div>
       <SidebarInset>
-        <AppHeader pageName="Notifications" onMenuClick={handleMenuClick} />
+        <AppHeader pageName="Notifications" onMenuClick={handleMenuClick} showBackButton={true} />
         <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 max-w-full overflow-x-hidden">
           <Card className="border border-border/60">
             <CardHeader className="space-y-1">

@@ -22,7 +22,6 @@ export default function ClientsPage() {
 
   const actions = [
     { label: "New Client", onClick: handleNewClient },
-    { label: "Refresh", onClick: () => window.location.reload() },
     { label: "Export", onClick: handleExport },
   ]
 

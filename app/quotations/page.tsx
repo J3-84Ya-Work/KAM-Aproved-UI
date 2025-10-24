@@ -17,7 +17,6 @@ export default function QuotationsPage() {
   }
 
   const actions = [
-    { label: "Refresh", onClick: () => window.location.reload() },
     { label: "Export", onClick: handleExport },
   ]
 

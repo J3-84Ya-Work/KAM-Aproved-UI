@@ -1,4 +1,5 @@
 "use client"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircle2, Clock, AlertCircle, Package, FileText, Truck, Eye, FileCheck, Package2, Search } from "lucide-react"
+import { CheckCircle2, Clock, AlertCircle, Package, FileText, Truck, Eye, FileCheck, Package2, Search, Filter, RefreshCw } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -16,8 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
-import { useState } from "react"
+import { TruncatedText } from "@/components/truncated-text"
 
 const sdoProjects = [
   {
@@ -63,7 +63,7 @@ const sdoProjects = [
     quoteId: "QUO-2024-045",
     executionLocation: "Navi Mumbai",
     productionPlant: "Plant C",
-    status: "Clearification",
+    status: "Clarification",
     progress: 50,
     createdDate: "2024-01-14",
     approvedDate: null,
@@ -192,7 +192,7 @@ const pnOrders = [
     fgMaterial: "FG-CORR-9081",
     amount: 450000,
     quantity: "9000 units",
-    status: "Arraived",
+    status: "Arrived",
     prePressStatus: "Complete",
     productionStatus: "Completed",
     dispatchStatus: "Dispatched",
@@ -206,6 +206,8 @@ const pnOrders = [
     rmType: "Paperboard",
     procurementQty: "9,000 units",
     plant: "Plant B",
+    orderDate: "2024-01-05",
+    expectedDelivery: "2024-01-18",
   },
   {
     id: "PN-2024-002",
@@ -216,7 +218,7 @@ const pnOrders = [
     fgMaterial: "FG-FOLD-5523",
     amount: 275000,
     quantity: "6500 units",
-    status: "Not Arraived",
+    status: "Not Arrived",
     prePressStatus: "Approved",
     productionStatus: "In PDD",
     dispatchStatus: "Pending",
@@ -230,6 +232,8 @@ const pnOrders = [
     rmType: "Coated Board",
     procurementQty: "6,500 units",
     plant: "Plant A",
+    orderDate: "2024-01-10",
+    expectedDelivery: "2024-01-24",
   },
   {
     id: "PN-2024-003",
@@ -240,7 +244,7 @@ const pnOrders = [
     fgMaterial: "FG-LBL-7720",
     amount: 195000,
     quantity: "12000 units",
-    status: "Not Arraived",
+    status: "Not Arrived",
     prePressStatus: "In Review",
     productionStatus: "Released",
     dispatchStatus: "Pending",
@@ -254,32 +258,80 @@ const pnOrders = [
     rmType: "Vinyl",
     procurementQty: "12,000 units",
     plant: "Plant D",
+    orderDate: "2024-01-14",
+    expectedDelivery: "2024-01-29",
   },
 ]
 
-function getStatusColor(status: string) {
-  switch (status) {
-    case "Sample Approved":
-    case "Approved":
-    case "Complete":
-    case "Dispatched":
-    case "Arraived":
-      return "badge-green-gradient"
-    case "Sales Approval":
-    case "Pending":
-      return "bg-burgundy-10 text-burgundy border-burgundy-40"
-    case "In Review":
-    case "In PDD":
-      return "badge-blue-gradient"
-    case "Clearification":
-      return "bg-blue-10 text-blue border-blue-40"
-    case "Released":
-      return "bg-green-10 text-green border-green-40"
-    case "Not Arraived":
-      return "bg-burgundy-10 text-burgundy border-burgundy-40"
-    default:
-      return "bg-neutral-gray-100 text-neutral-gray-600 border-neutral-gray-300"
-  }
+const STATUS_THEME: Record<string, { badge: string; accent: string }> = {
+  "Sample Approved": {
+    badge: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+    accent: "bg-emerald-500",
+  },
+  "Sales Approval": {
+    badge: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30",
+    accent: "bg-indigo-500",
+  },
+  Clarification: {
+    badge: "bg-amber-400/20 text-amber-700 border-amber-400/30",
+    accent: "bg-amber-500",
+  },
+  "In PDD": {
+    badge: "bg-sky-500/15 text-sky-700 border-sky-500/30",
+    accent: "bg-sky-500",
+  },
+  Approved: {
+    badge: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+    accent: "bg-emerald-500",
+  },
+  "In Review": {
+    badge: "bg-cyan-500/15 text-cyan-700 border-cyan-500/30",
+    accent: "bg-cyan-500",
+  },
+  Complete: {
+    badge: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+    accent: "bg-emerald-500",
+  },
+  Completed: {
+    badge: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+    accent: "bg-emerald-500",
+  },
+  Pending: {
+    badge: "bg-amber-400/20 text-amber-700 border-amber-400/30",
+    accent: "bg-amber-500",
+  },
+  Released: {
+    badge: "bg-violet-500/15 text-violet-700 border-violet-500/30",
+    accent: "bg-violet-500",
+  },
+  Scheduled: {
+    badge: "bg-sky-500/15 text-sky-700 border-sky-500/30",
+    accent: "bg-sky-500",
+  },
+  Dispatched: {
+    badge: "bg-teal-500/15 text-teal-700 border-teal-500/30",
+    accent: "bg-teal-500",
+  },
+  Arrived: {
+    badge: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+    accent: "bg-emerald-500",
+  },
+  "Not Arrived": {
+    badge: "bg-rose-500/15 text-rose-700 border-rose-500/30",
+    accent: "bg-rose-500",
+  },
+  "In Progress": {
+    badge: "bg-amber-400/20 text-amber-700 border-amber-400/30",
+    accent: "bg-amber-500",
+  },
+}
+
+function getStatusBadge(status: string) {
+  return STATUS_THEME[status]?.badge ?? "bg-slate-200 text-slate-600 border-slate-300"
+}
+
+function getStatusAccent(status: string) {
+  return STATUS_THEME[status]?.accent ?? "bg-slate-300"
 }
 
 function getStatusIcon(status: string) {
@@ -287,6 +339,7 @@ function getStatusIcon(status: string) {
     case "Sample Approved":
     case "Approved":
     case "Complete":
+    case "Completed":
     case "Dispatched":
     case "Arrived":
       return CheckCircle2
@@ -294,10 +347,12 @@ function getStatusIcon(status: string) {
     case "In Review":
     case "In PDD":
     case "Released":
-    case "Clearification":
-    case "Not Arrived":
+    case "Clarification":
+    case "Scheduled":
+    case "In Progress":
       return Clock
     case "Pending":
+    case "Not Arrived":
       return AlertCircle
     default:
       return Clock
@@ -342,21 +397,27 @@ function formatBomRoutingStatus(bomStatus: string, routingStatus: string) {
   return `${bomStage} / ${routingStage}`
 }
 
-export function ProjectsContent() {
-  const [selectedProject, setSelectedProject] = useState<any>(null)
-  const [projectType, setProjectType] = useState<"sdo" | "jdo" | "commercial" | "pn">("sdo")
+interface ProjectsContentProps {
+  activeTab?: string
+  onTabChange?: (tab: string) => void
+}
 
-  // Search filters
+export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsContentProps) {
   const [sdoSearch, setSdoSearch] = useState("")
   const [sdoStatusFilter, setSdoStatusFilter] = useState("all")
-
   const [jdoSearch, setJdoSearch] = useState("")
-
+  const [jdoStatusFilter, setJdoStatusFilter] = useState("all")
   const [comSearch, setComSearch] = useState("")
   const [comStatusFilter, setComStatusFilter] = useState("all")
-
   const [pnSearch, setPnSearch] = useState("")
   const [pnStatusFilter, setPnStatusFilter] = useState("all")
+
+  // Pagination states
+  const [sdoPage, setSdoPage] = useState(1)
+  const [jdoPage, setJdoPage] = useState(1)
+  const [comPage, setComPage] = useState(1)
+  const [pnPage, setPnPage] = useState(1)
+  const itemsPerPage = 20
 
   // Filtered data
   const filteredSDO = sdoProjects.filter(p => {
@@ -367,7 +428,8 @@ export function ProjectsContent() {
       p.quoteId.toLowerCase().includes(sdoSearch.toLowerCase()) ||
       p.executionLocation.toLowerCase().includes(sdoSearch.toLowerCase()) ||
       p.productionPlant.toLowerCase().includes(sdoSearch.toLowerCase())
-    return matchesSearch && (sdoStatusFilter === "all" || p.status === sdoStatusFilter)
+    const matchesStatus = sdoStatusFilter === "all" || p.status === sdoStatusFilter
+    return matchesSearch && matchesStatus
   })
 
   const filteredJDO = jdoProjects.filter(p => {
@@ -378,7 +440,11 @@ export function ProjectsContent() {
       p.sdoId.toLowerCase().includes(jdoSearch.toLowerCase()) ||
       p.prePressPlant.toLowerCase().includes(jdoSearch.toLowerCase()) ||
       p.productionPlant.toLowerCase().includes(jdoSearch.toLowerCase())
-    return matchesSearch
+    const overallStatus =
+      p.artworkStatus === "Approved" && p.bomStatus === "Complete" && p.routingStatus === "Complete"
+        ? "Approved"
+        : "In Review"
+    return matchesSearch && (jdoStatusFilter === "all" || overallStatus === jdoStatusFilter)
   })
 
   const filteredCommercial = commercialOrders.filter(p => {
@@ -409,201 +475,201 @@ export function ProjectsContent() {
     return matchesSearch && (pnStatusFilter === "all" || p.status === pnStatusFilter)
   })
 
+  // Pagination calculations for SDO
+  const sdoTotalPages = Math.ceil(filteredSDO.length / itemsPerPage)
+  const sdoStartIndex = (sdoPage - 1) * itemsPerPage
+  const sdoEndIndex = sdoStartIndex + itemsPerPage
+  const paginatedSDO = filteredSDO.slice(sdoStartIndex, sdoEndIndex)
+
+  // Pagination calculations for JDO
+  const jdoTotalPages = Math.ceil(filteredJDO.length / itemsPerPage)
+  const jdoStartIndex = (jdoPage - 1) * itemsPerPage
+  const jdoEndIndex = jdoStartIndex + itemsPerPage
+  const paginatedJDO = filteredJDO.slice(jdoStartIndex, jdoEndIndex)
+
+  // Pagination calculations for Commercial
+  const comTotalPages = Math.ceil(filteredCommercial.length / itemsPerPage)
+  const comStartIndex = (comPage - 1) * itemsPerPage
+  const comEndIndex = comStartIndex + itemsPerPage
+  const paginatedCommercial = filteredCommercial.slice(comStartIndex, comEndIndex)
+
+  // Pagination calculations for PN
+  const pnTotalPages = Math.ceil(filteredPN.length / itemsPerPage)
+  const pnStartIndex = (pnPage - 1) * itemsPerPage
+  const pnEndIndex = pnStartIndex + itemsPerPage
+  const paginatedPN = filteredPN.slice(pnStartIndex, pnEndIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setSdoPage(1)
+  }, [sdoSearch, sdoStatusFilter])
+
+  useEffect(() => {
+    setJdoPage(1)
+  }, [jdoSearch, jdoStatusFilter])
+
+  useEffect(() => {
+    setComPage(1)
+  }, [comSearch, comStatusFilter])
+
+  useEffect(() => {
+    setPnPage(1)
+  }, [pnSearch, pnStatusFilter])
+
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="sdo" className="w-full" onValueChange={(value) => setProjectType(value as any)}>
-        <TabsList className="grid w-full grid-cols-4 h-auto">
-          <TabsTrigger value="sdo" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5">
-            <Package className="h-4 w-4" />
-            <span className="text-xs sm:text-sm">SDO</span>
-            <Badge variant="secondary" className="h-4 sm:h-5 px-1 sm:px-1.5 text-[10px] sm:text-xs">
-              {sdoProjects.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="jdo" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5">
-            <FileText className="h-4 w-4" />
-            <span className="text-xs sm:text-sm">JDO</span>
-            <Badge variant="secondary" className="h-4 sm:h-5 px-1 sm:px-1.5 text-[10px] sm:text-xs">
-              {jdoProjects.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="commercial" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5">
-            <FileCheck className="h-4 w-4" />
-            <span className="text-xs sm:text-sm">Commercial</span>
-            <Badge variant="secondary" className="h-4 sm:h-5 px-1 sm:px-1.5 text-[10px] sm:text-xs">
-              {commercialOrders.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="pn" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5">
-            <Truck className="h-4 w-4" />
-            <span className="text-xs sm:text-sm">PN</span>
-            <Badge variant="secondary" className="h-4 sm:h-5 px-1 sm:px-1.5 text-[10px] sm:text-xs">
-              {pnOrders.length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-
+      <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
         {/* SDO Tab */}
         <TabsContent value="sdo">
-          {/* SDO Search Bar */}
-          <div className="flex gap-2 items-center mb-4">
+          <div className="relative mb-4 w-full flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search SDO (ID, Customer, Job Name, Quote ID)..."
+                placeholder="Search SDO records by ID, customer, job, location, or quote"
                 value={sdoSearch}
                 onChange={(e) => setSdoSearch(e.target.value)}
-                className="pl-10"
+                className="h-11 rounded-2xl border border-border/50 bg-white/90 pl-12 text-sm font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40"
               />
             </div>
-            <Select value={sdoStatusFilter} onValueChange={setSdoStatusFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Sample Approved">Sample Approved</SelectItem>
-                <SelectItem value="Sales Approval">Sales Approval</SelectItem>
-                <SelectItem value="Clearification">Clearification</SelectItem>
-                <SelectItem value="In PDD">In PDD</SelectItem>
-              </SelectContent>
-            </Select>
+            <Button
+              onClick={() => window.location.reload()}
+              className="h-11 px-4 rounded-2xl bg-[#005180] hover:bg-[#004875] text-white shadow-lg transition-all"
+              title="Refresh page"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
 
-          <Card className="overflow-hidden">
+          <Card className="surface-elevated overflow-hidden">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#005180] hover:bg-[#005180]">
-                      <TableHead className="text-white w-[180px]">
-                        <div className="font-semibold">ID / Customer</div>
+                    <TableRow className="bg-gradient-to-r from-[#005180] to-[#0066a1] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#0066a1]">
+                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        ID / Customer
                       </TableHead>
-                      <TableHead className="text-white w-[200px]">
-                        <div className="font-semibold">Job Name</div>
+                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Job Details
                       </TableHead>
-                      <TableHead className="text-white w-[170px]">
-                        <div className="font-semibold">Execution Location</div>
+                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Execution Location
                       </TableHead>
-                      <TableHead className="text-white w-[170px]">
-                        <div className="font-semibold">Production Plant</div>
+                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Production Plant
                       </TableHead>
-                      <TableHead className="text-white w-[140px]">
-                        <div className="font-semibold">Status</div>
+                      <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>Status</span>
+                          <Select value={sdoStatusFilter} onValueChange={setSdoStatusFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[160px]">
+                              <SelectItem value="all">All Status</SelectItem>
+                              <SelectItem value="Sample Approved">Sample Approved</SelectItem>
+                              <SelectItem value="Sales Approval">Sales Approval</SelectItem>
+                              <SelectItem value="Clarification">Clarification</SelectItem>
+                              <SelectItem value="In PDD">In PDD</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSDO.map((project, index) => {
+                    {paginatedSDO.map((project, index) => {
                       const StatusIcon = getStatusIcon(project.status)
-                      const tone =
-                        project.status === "Sample Approved"
-                          ? "green"
-                          : project.status === "Sales Approval"
-                          ? "burgundy"
-                          : project.status === "Clearification"
-                          ? "blue"
-                          : "blue"
-                      const accentClass =
-                        project.status === "Sample Approved"
-                          ? "bg-green"
-                          : project.status === "Sales Approval"
-                          ? "bg-burgundy"
-                          : project.status === "Clearification"
-                          ? "bg-blue"
-                          : project.status === "In PDD"
-                          ? "bg-blue"
-                          : "bg-blue"
                       return (
                         <Dialog key={project.id}>
                           <DialogTrigger asChild>
                             <TableRow
-                              className={`cursor-pointer animate-scale-in hover:bg-${tone}-5 transition-colors`}
-                              style={{ animationDelay: `${index * 30}ms` }}
+                              className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
+                              style={{ animationDelay: `${index * 25}ms` }}
                             >
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-1 h-12 rounded-full ${accentClass}`} />
-                                  <div>
-                                    <p className="font-bold text-sm text-blue">{project.id}</p>
-                                    <p className="text-sm font-medium">{project.customer}</p>
+                              <TableCell className="py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className={`h-10 w-1 rounded-full ${getStatusAccent(project.status)}`} />
+                                  <div className="space-y-0.5">
+                                    <p className="text-sm font-semibold text-primary">{project.id}</p>
+                                    <TruncatedText text={project.customer} limit={25} className="text-sm text-muted-foreground" />
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <div>
-                                  <p className="font-semibold text-sm">{project.job}</p>
-                                  <p className="text-xs text-muted-foreground">Quote: {project.quoteId}</p>
+                              <TableCell className="py-4">
+                                <div className="space-y-0.5">
+                                  <TruncatedText text={project.job} limit={30} className="text-sm font-semibold text-foreground" />
+                                  <p className="text-xs text-muted-foreground">Quote {project.quoteId}</p>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{project.executionLocation}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{project.executionLocation}</p>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{project.productionPlant}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{project.productionPlant}</p>
                               </TableCell>
-                              <TableCell>
-                                <Badge className={`${getStatusColor(project.status)} gap-1 border`}>
-                                  <StatusIcon className="h-3 w-3" />
+                              <TableCell className="py-4">
+                                <Badge className={`${getStatusBadge(project.status)} border gap-1 px-3 py-1 text-xs font-semibold` }>
+                                  <StatusIcon className="h-3.5 w-3.5" />
                                   {project.status}
                                 </Badge>
                               </TableCell>
                             </TableRow>
                           </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle className="text-2xl font-bold text-blue">{project.id}</DialogTitle>
-                              <DialogDescription>
-                                Sample Development Order Details
-                              </DialogDescription>
+                          <DialogContent className="surface-elevated max-w-2xl p-0">
+                            <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5">
+                              <DialogTitle className="text-lg font-semibold text-foreground">{project.job}</DialogTitle>
+                              <DialogDescription className="text-sm text-muted-foreground">{project.id}</DialogDescription>
                             </DialogHeader>
-                            <div className="grid grid-cols-2 gap-4 py-4">
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Customer</Label>
-                                <p className="text-base font-medium">{project.customer}</p>
+                            <div className="space-y-5 px-6 py-6">
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
+                                  <p className="mt-1 text-sm font-medium text-foreground">{project.customer}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Quote</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.quoteId}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Execution Location</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.executionLocation}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Production Plant</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.productionPlant}</p>
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Job Name</Label>
-                                <p className="text-base font-medium">{project.job}</p>
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Created</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.createdDate}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Approved</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.approvedDate ?? "Pending"}</p>
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Quote ID</Label>
-                                <p className="text-base font-medium">{project.quoteId}</p>
+                              <div>
+                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</Label>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <Badge className={`${getStatusBadge(project.status)} border px-3 py-1 text-sm font-semibold`}>
+                                    <StatusIcon className="h-3.5 w-3.5" />
+                                    {project.status}
+                                  </Badge>
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Execution Location</Label>
-                                <p className="text-base font-medium">{project.executionLocation}</p>
+                              <div>
+                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Notes</Label>
+                                <p className="mt-1 text-sm leading-relaxed text-foreground/80">{project.notes}</p>
                               </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Production Plant</Label>
-                                <p className="text-base font-medium">{project.productionPlant}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Status</Label>
-                                <Badge className={`${getStatusColor(project.status)} gap-1 border w-fit`}>
-                                  <StatusIcon className="h-3 w-3" />
-                                  {project.status}
-                                </Badge>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Created Date</Label>
-                                <p className="text-base font-medium">{project.createdDate}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Approved Date</Label>
-                                <p className="text-base font-medium">{project.approvedDate || "Pending"}</p>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Notes</Label>
-                                <p className="text-base">{project.notes}</p>
-                              </div>
-                              {project.history && project.history.length > 0 && (
-                                <div className="space-y-2 col-span-2">
-                                  <Label className="text-sm font-semibold text-muted-foreground">Journey</Label>
-                                  <div className="mt-2 pl-3 border-l border-muted space-y-3">
-                                    {project.history.map((step: any, stepIndex: number) => (
-                                      <div key={`${project.id}-history-${stepIndex}`} className="flex items-start gap-3">
-                                        <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-blue" />
+                              {project.history?.length ? (
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Journey</Label>
+                                  <div className="mt-2 space-y-3 border-l border-border/60 pl-4">
+                                    {project.history.map((step, stepIndex) => (
+                                      <div key={`${project.id}-history-${step.stage}-${stepIndex}`} className="flex items-start gap-3">
+                                        <span className={`mt-1 inline-flex h-2.5 w-2.5 rounded-full ${getStatusAccent(project.status)}`} />
                                         <div>
                                           <p className="text-sm font-semibold text-foreground">{step.stage}</p>
                                           <p className="text-xs text-muted-foreground">{step.date}</p>
@@ -612,7 +678,7 @@ export function ProjectsContent() {
                                     ))}
                                   </div>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           </DialogContent>
                         </Dialog>
@@ -622,155 +688,233 @@ export function ProjectsContent() {
                 </Table>
               </div>
             </CardContent>
+            {sdoTotalPages > 1 && (
+              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSdoPage(sdoPage - 1)}
+                    disabled={sdoPage === 1}
+                    className="h-8 px-3"
+                  >
+                    Previous
+                  </Button>
+                  <div className="hidden md:flex items-center gap-1">
+                    {Array.from({ length: sdoTotalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={sdoPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSdoPage(page)}
+                        className={`h-8 w-8 ${sdoPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="md:hidden text-sm text-muted-foreground">
+                    {sdoPage} / {sdoTotalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSdoPage(sdoPage + 1)}
+                    disabled={sdoPage === sdoTotalPages}
+                    className="h-8 px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
 
         {/* JDO Tab */}
         <TabsContent value="jdo">
-          {/* JDO Search Bar */}
-          <div className="flex gap-2 items-center mb-4">
+          <div className="relative mb-4 w-full flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search JDO (ID, Customer, Job Name, SDO ID)..."
+                placeholder="Search JDO records by ID, customer, job, SDO, or plant"
                 value={jdoSearch}
                 onChange={(e) => setJdoSearch(e.target.value)}
-                className="pl-10"
+                className="h-11 rounded-2xl border border-border/50 bg-white/90 pl-12 text-sm font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40"
               />
             </div>
+            <Button
+              onClick={() => window.location.reload()}
+              className="h-11 px-4 rounded-2xl bg-[#005180] hover:bg-[#004875] text-white shadow-lg transition-all"
+              title="Refresh page"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
 
-          <Card className="overflow-hidden">
+          <Card className="surface-elevated overflow-hidden">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#005180] hover:bg-[#005180]">
-                      <TableHead className="text-white w-[180px]">
-                        <div className="font-semibold">ID / Customer</div>
+                    <TableRow className="bg-gradient-to-r from-[#004875] to-[#005180] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#005180]">
+                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        ID / Customer
                       </TableHead>
-                      <TableHead className="text-white w-[180px]">
-                        <div className="font-semibold">Job Name</div>
+                      <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Job Details
                       </TableHead>
-                      <TableHead className="text-white w-[170px]">
-                        <div className="font-semibold">Pre-Press Plant</div>
+                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Pre-Press Plant
                       </TableHead>
-                      <TableHead className="text-white w-[170px]">
-                        <div className="font-semibold">Production Plant</div>
+                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Production Plant
                       </TableHead>
-                      <TableHead className="text-white w-[240px]">
-                        <div className="font-semibold">Status (Artwork / BOM / Routing)</div>
+                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Stage Status
                       </TableHead>
-                      <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">Progress</div>
+                      <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>Progress</span>
+                          <Select value={jdoStatusFilter} onValueChange={setJdoStatusFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[140px]">
+                              <SelectItem value="all">All Status</SelectItem>
+                              <SelectItem value="Approved">Approved</SelectItem>
+                              <SelectItem value="In Review">In Review</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredJDO.map((project, index) => {
+                    {paginatedJDO.map((project, index) => {
                       const overallStatus =
-                        project.artworkStatus === 'Approved' && project.bomStatus === 'Complete' && project.routingStatus === 'Complete'
-                          ? 'Approved'
-                          : 'In Review'
+                        project.artworkStatus === "Approved" && project.bomStatus === "Complete" && project.routingStatus === "Complete"
+                          ? "Approved"
+                          : "In Review"
+                      const StatusIcon = getStatusIcon(overallStatus)
                       return (
                         <Dialog key={project.id}>
                           <DialogTrigger asChild>
                             <TableRow
-                              className={`cursor-pointer animate-scale-in hover:bg-${
-                                overallStatus === 'Approved' ? 'green' : 'blue'
-                              }-5 transition-colors`}
-                              style={{ animationDelay: `${index * 30}ms` }}
+                              className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
+                              style={{ animationDelay: `${index * 25}ms` }}
                             >
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-1 h-12 rounded-full ${
-                                    overallStatus === 'Approved' ? 'bg-green' : 'bg-blue'
-                                  }`} />
-                                  <div>
-                                    <p className="font-bold text-sm text-blue">{project.id}</p>
-                                    <p className="text-sm font-medium">{project.customer}</p>
-                                    <p className="text-xs text-muted-foreground">SDO: {project.sdoId}</p>
+                              <TableCell className="py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className={`h-10 w-1 rounded-full ${getStatusAccent(overallStatus)}`} />
+                                  <div className="space-y-0.5">
+                                    <p className="text-sm font-semibold text-primary">{project.id}</p>
+                                    <TruncatedText text={project.customer} limit={25} className="text-sm text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground">SDO {project.sdoId}</p>
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <p className="font-semibold text-sm">{project.job}</p>
+                              <TableCell className="py-4">
+                                <TruncatedText text={project.job} limit={30} className="text-sm font-semibold text-foreground" />
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{project.prePressPlant}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{project.prePressPlant}</p>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{project.productionPlant}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{project.productionPlant}</p>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-4">
                                 <div className="space-y-1 text-xs font-semibold text-foreground">
-                                  <p>Artwork - {mapArtworkStage(project.artworkStatus)}</p>
-                                  <p>BOM/Routing - {formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
-                                  <p>MF Released - {project.mfReleased ? "Yes" : "No"}</p>
+                                  <p>Artwork – {mapArtworkStage(project.artworkStatus)}</p>
+                                  <p>BOM/Routing – {formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
+                                  <p>MF Released – {project.mfReleased ? "Yes" : "No"}</p>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">{project.progress}%</span>
+                              <TableCell className="py-4">
+                                <div className="space-y-2">
+                                  <Badge className={`${getStatusBadge(overallStatus)} border gap-1 px-3 py-1 text-xs font-semibold`}>
+                                    <StatusIcon className="h-3.5 w-3.5" />
+                                    {overallStatus}
+                                  </Badge>
+                                  <p className="text-xs font-semibold text-muted-foreground">Progress {project.progress}%</p>
+                                  <div className="h-2 w-full overflow-hidden rounded-full bg-border/80">
+                                    <div
+                                      className={`${getStatusAccent(overallStatus)} h-full transition-all`}
+                                      style={{ width: `${project.progress}%` }}
+                                    />
                                   </div>
-                                  <Progress value={project.progress} className="h-2" />
                                 </div>
                               </TableCell>
                             </TableRow>
                           </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle className="text-2xl font-bold text-blue">{project.id}</DialogTitle>
-                              <DialogDescription>
-                                Job Development Order Details
-                              </DialogDescription>
+                          <DialogContent className="surface-elevated max-w-2xl p-0">
+                            <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5">
+                              <DialogTitle className="text-lg font-semibold text-foreground">{project.job}</DialogTitle>
+                              <DialogDescription className="text-sm text-muted-foreground">{project.id}</DialogDescription>
                             </DialogHeader>
-                            <div className="grid grid-cols-2 gap-4 py-4">
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Customer</Label>
-                                <p className="text-base font-medium">{project.customer}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Job Name</Label>
-                                <p className="text-base font-medium">{project.job}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">SDO ID</Label>
-                                <p className="text-base font-medium">{project.sdoId}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Pre-Press Plant</Label>
-                                <p className="text-base font-medium">{project.prePressPlant}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Production Plant</Label>
-                                <p className="text-base font-medium">{project.productionPlant}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Created Date</Label>
-                                <p className="text-base font-medium">{project.createdDate}</p>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Stage Status</Label>
-                                <div className="space-y-1 text-sm font-semibold text-foreground">
-                                  <p>Artwork - {mapArtworkStage(project.artworkStatus)}</p>
-                                  <p>BOM/Routing - {formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
-                                  <p>MF Released - {project.mfReleased ? "Yes" : "No"}</p>
+                            <div className="space-y-5 px-6 py-6">
+                              <div className="grid gap-4 sm:grid-cols-3">
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
+                                  <p className="mt-1 text-sm font-medium text-foreground">{project.customer}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">SDO</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.sdoId}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Created</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.createdDate}</p>
                                 </div>
                               </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="font-semibold">{project.progress}%</span>
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Pre-Press Plant</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.prePressPlant}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Production Plant</Label>
+                                  <p className="mt-1 text-sm text-foreground/80">{project.productionPlant}</p>
+                                </div>
+                              </div>
+                              <div className="grid gap-4 sm:grid-cols-3">
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Artwork</Label>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">{mapArtworkStage(project.artworkStatus)}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">BOM/Routing</Label>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">{formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">MF Released</Label>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">{project.mfReleased ? "Yes" : "No"}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Overall Status</Label>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <Badge className={`${getStatusBadge(overallStatus)} border px-3 py-1 text-sm font-semibold`}>
+                                    <StatusIcon className="h-3.5 w-3.5" />
+                                    {overallStatus}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Progress</Label>
+                                <div className="mt-1 space-y-2">
+                                  <p className="text-sm font-semibold text-muted-foreground">{project.progress}%</p>
+                                  <div className="h-3 w-full overflow-hidden rounded-full bg-border/80">
+                                    <div
+                                      className={`${getStatusAccent(overallStatus)} h-full transition-all`}
+                                      style={{ width: `${project.progress}%` }}
+                                    />
                                   </div>
-                                  <Progress value={project.progress} className="h-3" />
                                 </div>
                               </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Notes</Label>
-                                <p className="text-base">{project.notes}</p>
+                              <div>
+                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Notes</Label>
+                                <p className="mt-1 text-sm leading-relaxed text-foreground/80">{project.notes}</p>
                               </div>
                             </div>
                           </DialogContent>
@@ -781,116 +925,163 @@ export function ProjectsContent() {
                 </Table>
               </div>
             </CardContent>
+            {jdoTotalPages > 1 && (
+              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setJdoPage(jdoPage - 1)}
+                    disabled={jdoPage === 1}
+                    className="h-8 px-3"
+                  >
+                    Previous
+                  </Button>
+                  <div className="hidden md:flex items-center gap-1">
+                    {Array.from({ length: jdoTotalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={jdoPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setJdoPage(page)}
+                        className={`h-8 w-8 ${jdoPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="md:hidden text-sm text-muted-foreground">
+                    {jdoPage} / {jdoTotalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setJdoPage(jdoPage + 1)}
+                    disabled={jdoPage === jdoTotalPages}
+                    className="h-8 px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
 
         {/* Commercial Tab */}
         <TabsContent value="commercial">
           {/* Commercial Search Bar */}
-          <div className="flex gap-2 items-center mb-4">
+          <div className="relative mb-4 w-full flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search Commercial (ID, Customer, Job Name, JDO ID, Quantity)..."
+                placeholder="Search commercial orders by ID, customer, job, quantity, or plant"
                 value={comSearch}
                 onChange={(e) => setComSearch(e.target.value)}
-                className="pl-10"
+                className="h-11 rounded-2xl border border-border/50 bg-white/90 pl-12 text-sm font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40"
               />
             </div>
-            <Select value={comStatusFilter} onValueChange={setComStatusFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Approved">Approved</SelectItem>
-                <SelectItem value="In PDD">In PDD</SelectItem>
-                <SelectItem value="In Review">In Review</SelectItem>
-              </SelectContent>
-            </Select>
+            <Button
+              onClick={() => window.location.reload()}
+              className="h-11 px-4 rounded-2xl bg-[#005180] hover:bg-[#004875] text-white shadow-lg transition-all"
+              title="Refresh page"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
 
-          <Card className="overflow-hidden">
+          <Card className="surface-elevated overflow-hidden">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#005180] hover:bg-[#005180]">
-                      <TableHead className="text-white w-[180px]">
-                        <div className="font-semibold">ID / Customer</div>
+                    <TableRow className="bg-gradient-to-r from-[#003d63] to-[#005180] hover:bg-gradient-to-r hover:from-[#003d63] hover:to-[#005180]">
+                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        ID / Customer
                       </TableHead>
-                      <TableHead className="text-white w-[200px]">
-                        <div className="font-semibold">Job Name</div>
+                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Job Details
                       </TableHead>
-                      <TableHead className="text-white w-[170px]">
-                        <div className="font-semibold">Pre-Press Plant</div>
+                      <TableHead className="w-[170px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Pre-Press Plant
                       </TableHead>
-                      <TableHead className="text-white w-[170px]">
-                        <div className="font-semibold">Production Plant</div>
+                      <TableHead className="w-[170px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Production Plant
                       </TableHead>
-                      <TableHead className="text-white w-[240px]">
-                        <div className="font-semibold">Status (Pre-Press / Production / Dispatch)</div>
+                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Stage Status
                       </TableHead>
-                      <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">Progress</div>
+                      <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>Status</span>
+                          <Select value={comStatusFilter} onValueChange={setComStatusFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[140px]">
+                              <SelectItem value="all">All Status</SelectItem>
+                              <SelectItem value="Approved">Approved</SelectItem>
+                              <SelectItem value="In PDD">In PDD</SelectItem>
+                              <SelectItem value="In Review">In Review</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[170px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Financials
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCommercial.map((order, index) => {
+                    {paginatedCommercial.map((order, index) => {
                       return (
                         <Dialog key={order.id}>
                           <DialogTrigger asChild>
                             <TableRow
-                              className={`cursor-pointer animate-scale-in hover:bg-${
-                                order.status === 'Approved' ? 'green' :
-                                order.status === 'In Review' ? 'burgundy' :
-                                'blue'
-                              }-5 transition-colors`}
-                              style={{ animationDelay: `${index * 30}ms` }}
+                              className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
+                              style={{ animationDelay: `${index * 25}ms` }}
                             >
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-1 h-12 rounded-full ${
-                                    order.status === 'Approved' ? 'bg-green' :
-                                    order.status === 'In Review' ? 'bg-burgundy' :
-                                    'bg-blue'
-                                  }`} />
-                                  <div>
-                                    <p className="font-bold text-sm text-blue">{order.id}</p>
-                                    <p className="text-sm font-medium">{order.customer}</p>
-                                    <p className="text-xs text-muted-foreground">JDO: {order.jdoId}</p>
+                              <TableCell className="py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className={`h-10 w-1 rounded-full ${getStatusAccent(order.status)}`} />
+                                  <div className="space-y-0.5">
+                                    <p className="text-sm font-semibold text-primary">{order.id}</p>
+                                    <TruncatedText text={order.customer} limit={25} className="text-sm text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground">JDO {order.jdoId}</p>
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <div>
-                                  <p className="font-semibold text-sm">{order.job}</p>
+                              <TableCell className="py-4">
+                                <div className="space-y-0.5">
+                                  <TruncatedText text={order.job} limit={30} className="text-sm font-semibold text-foreground" />
                                   <p className="text-xs text-muted-foreground">{order.quantity}</p>
-                                  <p className="text-xs text-muted-foreground">Order: {order.orderDate}</p>
-                                  <p className="text-xs text-muted-foreground">Delivery: {order.expectedDelivery}</p>
-                                  <p className="text-xs font-semibold text-blue">₹{order.amount.toLocaleString("en-IN")}</p>
+                                  <p className="text-xs text-muted-foreground">Order {order.orderDate}</p>
+                                  <p className="text-xs text-muted-foreground">Delivery {order.expectedDelivery}</p>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.prePressPlant}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{order.prePressPlant}</p>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.productionPlant}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{order.productionPlant}</p>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-4">
                                 <div className="space-y-1 text-xs font-semibold text-foreground">
-                                  <p>Pre-Press - {order.prePressStatus}</p>
-                                  <p>Production - {order.productionStatus}</p>
-                                  <p>Dispatch - {order.dispatchStatus}</p>
+                                  <p>Pre-Press – {order.prePressStatus}</p>
+                                  <p>Production – {order.productionStatus}</p>
+                                  <p>Dispatch – {order.dispatchStatus}</p>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">{order.progress}%</span>
+                              <TableCell className="py-4">
+                                <div className="space-y-2">
+                                  <Badge className={`${getStatusBadge(order.status)} border gap-1 px-3 py-1 text-xs font-semibold`}>
+                                    {order.status}
+                                  </Badge>
+                                  <p className="text-xs font-semibold text-muted-foreground">Progress {order.progress}%</p>
+                                  <div className="h-2 w-full overflow-hidden rounded-full bg-border/80">
+                                    <div className={`${getStatusAccent(order.status)} h-full transition-all`} style={{ width: `${order.progress}%` }} />
                                   </div>
-                                  <Progress value={order.progress} className="h-2" />
+                                  <p className="text-xs font-semibold text-foreground">₹{order.amount.toLocaleString("en-IN")}</p>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -949,11 +1140,11 @@ export function ProjectsContent() {
                               </div>
                               <div className="space-y-2 col-span-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="font-semibold">{order.progress}%</span>
+                                <div className="space-y-2">
+                                  <div className="text-sm font-semibold text-muted-foreground">{order.progress}%</div>
+                                  <div className="h-3 w-full overflow-hidden rounded-full bg-border/80">
+                                    <div className={`${getStatusAccent(order.status)} h-full transition-all`} style={{ width: `${order.progress}%` }} />
                                   </div>
-                                  <Progress value={order.progress} className="h-3" />
                                 </div>
                               </div>
                               <div className="space-y-2 col-span-2">
@@ -969,121 +1160,167 @@ export function ProjectsContent() {
                 </Table>
               </div>
             </CardContent>
+            {comTotalPages > 1 && (
+              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setComPage(comPage - 1)}
+                    disabled={comPage === 1}
+                    className="h-8 px-3"
+                  >
+                    Previous
+                  </Button>
+                  <div className="hidden md:flex items-center gap-1">
+                    {Array.from({ length: comTotalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={comPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setComPage(page)}
+                        className={`h-8 w-8 ${comPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="md:hidden text-sm text-muted-foreground">
+                    {comPage} / {comTotalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setComPage(comPage + 1)}
+                    disabled={comPage === comTotalPages}
+                    className="h-8 px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
 
         {/* PN Tab */}
         <TabsContent value="pn">
           {/* PN Search Bar */}
-          <div className="flex gap-2 items-center mb-4">
+          <div className="relative mb-4 w-full flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search PN (PN, Req No., FG Material, Customer, Initiate Date)..."
+                placeholder="Search PN records by PN, request number, FG material, customer, or plant"
                 value={pnSearch}
                 onChange={(e) => setPnSearch(e.target.value)}
-                className="pl-10"
+                className="h-11 rounded-2xl border border-border/50 bg-white/90 pl-12 text-sm font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40"
               />
             </div>
-            <Select value={pnStatusFilter} onValueChange={setPnStatusFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Arraived">Arraived</SelectItem>
-                <SelectItem value="Not Arraived">Not Arraived</SelectItem>
-              </SelectContent>
-            </Select>
+            <Button
+              onClick={() => window.location.reload()}
+              className="h-11 px-4 rounded-2xl bg-[#005180] hover:bg-[#004875] text-white shadow-lg transition-all"
+              title="Refresh page"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
 
-          <Card className="overflow-hidden">
+          <Card className="surface-elevated overflow-hidden">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#005180] hover:bg-[#005180]">
-                      <TableHead className="text-white w-[130px]">
-                        <div className="font-semibold">PN</div>
+                    <TableRow className="bg-gradient-to-r from-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#004875]">
+                      <TableHead className="w-[130px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        PN
                       </TableHead>
-                      <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">PN Req No.</div>
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        PN Req No.
                       </TableHead>
-                      <TableHead className="text-white w-[160px]">
-                        <div className="font-semibold">FG Material</div>
+                      <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        FG Material
                       </TableHead>
-                      <TableHead className="text-white w-[170px]">
-                        <div className="font-semibold">Customer Name</div>
+                      <TableHead className="w-[170px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Customer
                       </TableHead>
-                      <TableHead className="text-white w-[220px]">
-                        <div className="font-semibold">Description</div>
+                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Description
                       </TableHead>
-                      <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">RM Type</div>
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        RM Type
                       </TableHead>
-                      <TableHead className="text-white w-[150px]">
-                        <div className="font-semibold">Procurement Qty</div>
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Procurement Qty
                       </TableHead>
-                      <TableHead className="text-white w-[120px]">
-                        <div className="font-semibold">Plant</div>
+                      <TableHead className="w-[120px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Plant
                       </TableHead>
-                      <TableHead className="text-white w-[140px]">
-                        <div className="font-semibold">Initiate Date</div>
+                      <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        Initiate Date
                       </TableHead>
-                      <TableHead className="text-white w-[120px]">
-                        <div className="font-semibold">Status</div>
+                      <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>Status</span>
+                          <Select value={pnStatusFilter} onValueChange={setPnStatusFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[140px]">
+                              <SelectItem value="all">All Status</SelectItem>
+                              <SelectItem value="Arrived">Arrived</SelectItem>
+                              <SelectItem value="Not Arrived">Not Arrived</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPN.map((order:any, index) => {
-                      const accentClass = order.status === 'Arraived' ? 'bg-green' : 'bg-burgundy'
+                    {paginatedPN.map((order, index) => {
                       const StatusIcon = getStatusIcon(order.status)
                       return (
                         <Dialog key={order.id}>
                           <DialogTrigger asChild>
                             <TableRow
-                              className={`cursor-pointer animate-scale-in hover:bg-${
-                                order.status === 'Arraived' ? 'green' : 'burgundy'
-                              }-5 transition-colors`}
-                              style={{ animationDelay: `${index * 30}ms` }}
+                              className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
+                              style={{ animationDelay: `${index * 25}ms` }}
                             >
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-1 h-12 rounded-full ${accentClass}`} />
-                                  <div>
-                                    <p className="font-bold text-sm text-blue">{order.id}</p>
-                                    <p className="text-xs text-muted-foreground">Comm: {order.commercialId}</p>
+                              <TableCell className="py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className={`h-10 w-1 rounded-full ${getStatusAccent(order.status)}`} />
+                                  <div className="space-y-0.5">
+                                    <p className="text-sm font-semibold text-primary">{order.id}</p>
+                                    <p className="text-xs text-muted-foreground">Commercial {order.commercialId}</p>
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.pnReqNo}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{order.pnReqNo}</p>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.fgMaterial}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{order.fgMaterial}</p>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.customer}</p>
+                              <TableCell className="py-4">
+                                <TruncatedText text={order.customer} limit={25} className="text-sm font-medium text-foreground/80" />
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm text-muted-foreground line-clamp-2">{order.description}</p>
+                              <TableCell className="py-4">
+                                <TruncatedText text={order.description} limit={40} className="text-sm text-muted-foreground" />
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.rmType}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{order.rmType}</p>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.procurementQty}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{order.procurementQty}</p>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.plant}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{order.plant}</p>
                               </TableCell>
-                              <TableCell>
-                                <p className="text-sm font-medium">{order.initiateDate}</p>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground/80">{order.initiateDate}</p>
                               </TableCell>
-                              <TableCell>
-                                <Badge className={`${getStatusColor(order.status)} gap-1 border`}>
-                                  <StatusIcon className="h-3 w-3" />
+                              <TableCell className="py-4">
+                                <Badge className={`${getStatusBadge(order.status)} border gap-1 px-3 py-1 text-xs font-semibold`}>
+                                  <StatusIcon className="h-3.5 w-3.5" />
                                   {order.status}
                                 </Badge>
                               </TableCell>
@@ -1172,6 +1409,46 @@ export function ProjectsContent() {
                 </Table>
               </div>
             </CardContent>
+            {pnTotalPages > 1 && (
+              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPnPage(pnPage - 1)}
+                    disabled={pnPage === 1}
+                    className="h-8 px-3"
+                  >
+                    Previous
+                  </Button>
+                  <div className="hidden md:flex items-center gap-1">
+                    {Array.from({ length: pnTotalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={pnPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setPnPage(page)}
+                        className={`h-8 w-8 ${pnPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="md:hidden text-sm text-muted-foreground">
+                    {pnPage} / {pnTotalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPnPage(pnPage + 1)}
+                    disabled={pnPage === pnTotalPages}
+                    className="h-8 px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
       </Tabs>

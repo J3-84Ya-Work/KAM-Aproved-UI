@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { TruncatedText } from "@/components/truncated-text"
 
 const pendingApprovals = [
   {
@@ -109,6 +110,9 @@ export function ApprovalsContent() {
   const [historySearch, setHistorySearch] = useState("")
   const [selectedApproval, setSelectedApproval] = useState<(typeof pendingApprovals)[0] | null>(null)
   const [selectedHistory, setSelectedHistory] = useState<(typeof approvalHistory)[0] | null>(null)
+  const [pendingPage, setPendingPage] = useState(1)
+  const [historyPage, setHistoryPage] = useState(1)
+  const itemsPerPage = 20
 
   const filteredPending = pendingApprovals.filter((approval) => {
     const matchesSearch =
@@ -126,6 +130,27 @@ export function ApprovalsContent() {
       item.job.toLowerCase().includes(historySearch.toLowerCase())
     return matchesSearch
   })
+
+  // Pagination calculations for pending
+  const pendingTotalPages = Math.ceil(filteredPending.length / itemsPerPage)
+  const pendingStartIndex = (pendingPage - 1) * itemsPerPage
+  const pendingEndIndex = pendingStartIndex + itemsPerPage
+  const paginatedPending = filteredPending.slice(pendingStartIndex, pendingEndIndex)
+
+  // Pagination calculations for history
+  const historyTotalPages = Math.ceil(filteredHistory.length / itemsPerPage)
+  const historyStartIndex = (historyPage - 1) * itemsPerPage
+  const historyEndIndex = historyStartIndex + itemsPerPage
+  const paginatedHistory = filteredHistory.slice(historyStartIndex, historyEndIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPendingPage(1)
+  }, [pendingSearch])
+
+  useEffect(() => {
+    setHistoryPage(1)
+  }, [historySearch])
 
   return (
     <div className="space-y-4">
@@ -157,45 +182,45 @@ export function ApprovalsContent() {
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-[#005180] hover:bg-[#005180]">
-                    <TableHead className="text-white w-[180px]">
-                      <div className="font-semibold">ID / Customer</div>
+                  <TableRow className="bg-gradient-to-r from-[#003d63] via-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#003d63] hover:via-[#005180] hover:to-[#004875]">
+                    <TableHead className="text-white w-[180px] text-xs font-bold uppercase tracking-wider">
+                      ID / Customer
                     </TableHead>
-                    <TableHead className="text-white w-[200px]">
-                      <div className="font-semibold">Job Name</div>
+                    <TableHead className="text-white w-[200px] text-xs font-bold uppercase tracking-wider">
+                      Job Name
                     </TableHead>
-                    <TableHead className="text-white w-[140px]">
-                      <div className="font-semibold">Amount / Margin</div>
+                    <TableHead className="text-white w-[140px] text-xs font-bold uppercase tracking-wider">
+                      Amount / Margin
                     </TableHead>
-                    <TableHead className="text-white w-[160px]">
-                      <div className="font-semibold">Requested By</div>
+                    <TableHead className="text-white w-[160px] text-xs font-bold uppercase tracking-wider">
+                      Requested By
                     </TableHead>
-                    <TableHead className="text-white w-[120px]">
-                      <div className="font-semibold">Urgency / Level</div>
+                    <TableHead className="text-white w-[120px] text-xs font-bold uppercase tracking-wider">
+                      Urgency / Level
                     </TableHead>
-                    <TableHead className="text-white w-[100px]">
-                      <div className="font-semibold">Valid Till</div>
+                    <TableHead className="text-white w-[100px] text-xs font-bold uppercase tracking-wider">
+                      Valid Till
                     </TableHead>
-                    <TableHead className="text-white w-[180px]">
-                      <div className="font-semibold">Actions</div>
+                    <TableHead className="text-white w-[180px] text-xs font-bold uppercase tracking-wider">
+                      Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPending.map((approval) => (
+                  {paginatedPending.map((approval) => (
                     <Dialog key={approval.id}>
-                      <TableRow className="cursor-pointer hover:bg-muted/50">
+                      <TableRow className="cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
                         <DialogTrigger asChild>
                           <TableCell onClick={() => setSelectedApproval(approval)}>
                             <div>
                               <p className="font-semibold text-sm">{approval.id}</p>
-                              <p className="text-xs text-muted-foreground">{approval.customer}</p>
+                              <TruncatedText text={approval.customer} limit={25} className="text-xs text-muted-foreground" />
                             </div>
                           </TableCell>
                         </DialogTrigger>
                         <DialogTrigger asChild>
                           <TableCell onClick={() => setSelectedApproval(approval)}>
-                            <p className="font-medium">{approval.job}</p>
+                            <TruncatedText text={approval.job} limit={30} className="font-medium" />
                           </TableCell>
                         </DialogTrigger>
                         <DialogTrigger asChild>
@@ -348,6 +373,46 @@ export function ApprovalsContent() {
                 </TableBody>
               </Table>
             </CardContent>
+            {pendingTotalPages > 1 && (
+              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPendingPage(pendingPage - 1)}
+                    disabled={pendingPage === 1}
+                    className="h-8 px-3"
+                  >
+                    Previous
+                  </Button>
+                  <div className="hidden md:flex items-center gap-1">
+                    {Array.from({ length: pendingTotalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={pendingPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setPendingPage(page)}
+                        className={`h-8 w-8 ${pendingPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="md:hidden text-sm text-muted-foreground">
+                    {pendingPage} / {pendingTotalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPendingPage(pendingPage + 1)}
+                    disabled={pendingPage === pendingTotalPages}
+                    className="h-8 px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -368,7 +433,7 @@ export function ApprovalsContent() {
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-[#005180] hover:bg-[#005180]">
+                  <TableRow className="bg-gradient-to-r from-[#003d63] via-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#003d63] hover:via-[#005180] hover:to-[#004875]">
                     <TableHead className="text-white w-[180px]">
                       <div className="font-semibold">ID / Customer</div>
                     </TableHead>
@@ -390,20 +455,20 @@ export function ApprovalsContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredHistory.map((item) => (
+                  {paginatedHistory.map((item) => (
                     <Dialog key={item.id}>
-                      <TableRow className="cursor-pointer hover:bg-muted/50">
+                      <TableRow className="cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
                         <DialogTrigger asChild>
                           <TableCell onClick={() => setSelectedHistory(item)}>
                             <div>
                               <p className="font-semibold text-sm">{item.id}</p>
-                              <p className="text-xs text-muted-foreground">{item.customer}</p>
+                              <TruncatedText text={item.customer} limit={25} className="text-xs text-muted-foreground" />
                             </div>
                           </TableCell>
                         </DialogTrigger>
                         <DialogTrigger asChild>
                           <TableCell onClick={() => setSelectedHistory(item)}>
-                            <p className="font-medium">{item.job}</p>
+                            <TruncatedText text={item.job} limit={30} className="font-medium" />
                           </TableCell>
                         </DialogTrigger>
                         <DialogTrigger asChild>
@@ -519,6 +584,46 @@ export function ApprovalsContent() {
                 </TableBody>
               </Table>
             </CardContent>
+            {historyTotalPages > 1 && (
+              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHistoryPage(historyPage - 1)}
+                    disabled={historyPage === 1}
+                    className="h-8 px-3"
+                  >
+                    Previous
+                  </Button>
+                  <div className="hidden md:flex items-center gap-1">
+                    {Array.from({ length: historyTotalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={historyPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setHistoryPage(page)}
+                        className={`h-8 w-8 ${historyPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="md:hidden text-sm text-muted-foreground">
+                    {historyPage} / {historyTotalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHistoryPage(historyPage + 1)}
+                    disabled={historyPage === historyTotalPages}
+                    className="h-8 px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
       </Tabs>

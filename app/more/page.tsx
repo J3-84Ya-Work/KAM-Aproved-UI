@@ -3,7 +3,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
-import { FolderKanban, CheckCircle, Users, BarChart3, Settings, LogOut, LayoutDashboard, User } from "lucide-react"
+import { FolderKanban, CheckCircle, Users, Settings, LogOut, LayoutDashboard, User } from "lucide-react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -48,13 +48,6 @@ const allMoreItems = [
     badge: 3,
     color: "bg-green-80",
     roles: ["H.O.D", "Vertical Head"], // Not visible for KAM
-  },
-  {
-    title: "Reports",
-    url: "/reports",
-    icon: BarChart3,
-    color: "bg-burgundy-60",
-    roles: ["KAM", "H.O.D", "Vertical Head"],
   },
   {
     title: "Settings",

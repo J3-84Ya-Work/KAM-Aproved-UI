@@ -23,8 +23,8 @@ const conversionData = [
   { stage: "Orders", value: 35, percentage: 35 },
 ]
 
-// Enquiry details status comparison
-const enquiryDetailsData = [
+// Inquiry details status comparison
+const inquiryDetailsData = [
   { status: "Quotation Converted", count: 45 },
   { status: "Sent to Customer", count: 62 },
   { status: "Approved", count: 28 },
@@ -89,10 +89,10 @@ export function ReportsContent() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2 max-w-full">
-        {/* Enquiry Details */}
+        {/* Inquiry Details */}
         <Card className="max-w-full overflow-hidden">
           <CardHeader>
-            <CardTitle className="text-base md:text-lg">Enquiry Details</CardTitle>
+            <CardTitle className="text-base md:text-lg">Inquiry Details</CardTitle>
             <CardDescription className="text-sm md:text-base">
               Quotation converted vs sent to customer vs approved
             </CardDescription>
@@ -108,7 +108,7 @@ export function ReportsContent() {
               className="h-[240px] md:h-[320px] min-w-[280px] aspect-auto max-h-none border-0"
             >
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={enquiryDetailsData}>
+                <BarChart data={inquiryDetailsData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="status" className="text-xs md:text-sm" interval={0} angle={-20} textAnchor="end" height={70} />
                   <YAxis className="text-xs md:text-sm" />

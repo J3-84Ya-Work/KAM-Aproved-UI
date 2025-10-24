@@ -11,18 +11,18 @@ import Link from "next/link"
 import { CardSkeleton, TableSkeleton } from "@/components/loading-skeleton"
 import Image from "next/image"
 
-const enquiriesMonthlyData = [
-  { week: "Week 1", enquiries: 18, color: "rgba(0, 81, 128, 0.45)" },
-  { week: "Week 2", enquiries: 22, color: "rgba(0, 81, 128, 0.6)" },
-  { week: "Week 3", enquiries: 27, color: "rgba(0, 81, 128, 0.75)" },
-  { week: "Week 4", enquiries: 24, color: "rgba(0, 81, 128, 0.9)" },
+const inquiriesMonthlyData = [
+  { week: "Week 1", inquiries: 18, color: "rgba(0, 81, 128, 0.45)" },
+  { week: "Week 2", inquiries: 22, color: "rgba(0, 81, 128, 0.6)" },
+  { week: "Week 3", inquiries: 27, color: "rgba(0, 81, 128, 0.75)" },
+  { week: "Week 4", inquiries: 24, color: "rgba(0, 81, 128, 0.9)" },
 ]
 
-const enquiryConversionData = [
-  { week: "Week 1", enquiries: 18, pos: 6 },
-  { week: "Week 2", enquiries: 22, pos: 9 },
-  { week: "Week 3", enquiries: 27, pos: 11 },
-  { week: "Week 4", enquiries: 24, pos: 10 },
+const inquiryConversionData = [
+  { week: "Week 1", inquiries: 18, pos: 6 },
+  { week: "Week 2", inquiries: 22, pos: 9 },
+  { week: "Week 3", inquiries: 27, pos: 11 },
+  { week: "Week 4", inquiries: 24, pos: 10 },
 ]
 
 const projectsDistributionData = [
@@ -123,7 +123,7 @@ function getPriorityColor(priority: string) {
 export function DashboardContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [targetPeriod, setTargetPeriod] = useState("monthly")
-  const [selectedChart, setSelectedChart] = useState("monthlyEnquiries")
+  const [selectedChart, setSelectedChart] = useState("monthlyInquiries")
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 800)
@@ -186,7 +186,7 @@ export function DashboardContent() {
       changeColor: "text-green",
     },
     {
-      title: "Enquiries",
+      title: "Inquiries",
       value: "87",
       change: "+25%",
       icon: "/icons/icons8-enquiry-100.png",
@@ -264,32 +264,32 @@ export function DashboardContent() {
                 <SelectValue placeholder="Select Chart" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="monthlyEnquiries">Monthly Enquiries</SelectItem>
-                <SelectItem value="conversion">Enquiries Converted to POs</SelectItem>
+                <SelectItem value="monthlyInquiries">Monthly Inquiries</SelectItem>
+                <SelectItem value="conversion">Inquiries Converted to POs</SelectItem>
                 <SelectItem value="projects">Projects by Type</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardHeader>
         <CardContent className="p-3 md:p-4 pt-2">
-          {selectedChart === "monthlyEnquiries" && (
+          {selectedChart === "monthlyInquiries" && (
             <ChartContainer
               config={{
-                enquiries: {
-                  label: "Enquiries",
+                inquiries: {
+                  label: "Inquiries",
                   color: "#005180",
                 },
               }}
               className="h-[240px] md:h-[320px] w-full border-0 aspect-auto max-h-none"
             >
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={enquiriesMonthlyData}>
+                <BarChart data={inquiriesMonthlyData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="week" className="text-xs" />
                   <YAxis className="text-xs" />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="enquiries" fill="#005180" radius={[4, 4, 0, 0]} stroke="#005180" strokeWidth={1.5}>
-                    {enquiriesMonthlyData.map((item) => (
+                  <Bar dataKey="inquiries" fill="#005180" radius={[4, 4, 0, 0]} stroke="#005180" strokeWidth={1.5}>
+                    {inquiriesMonthlyData.map((item) => (
                       <Cell key={item.week} fill={item.color} />
                     ))}
                   </Bar>
@@ -301,8 +301,8 @@ export function DashboardContent() {
           {selectedChart === "conversion" && (
             <ChartContainer
               config={{
-                enquiries: {
-                  label: "Enquiries",
+                inquiries: {
+                  label: "Inquiries",
                   color: "#78BE20",
                 },
                 pos: {
@@ -313,7 +313,7 @@ export function DashboardContent() {
               className="h-[240px] md:h-[320px] w-full border-0 aspect-auto max-h-none"
             >
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={enquiryConversionData}>
+                <LineChart data={inquiryConversionData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="week" className="text-xs" />
                   <YAxis className="text-xs" />
@@ -321,7 +321,7 @@ export function DashboardContent() {
                   <Legend wrapperStyle={{ fontSize: "10px" }} />
                   <Line
                     type="monotone"
-                    dataKey="enquiries"
+                    dataKey="inquiries"
                     stroke="rgba(120, 190, 32, 0.9)"
                     strokeWidth={3.5}
                     strokeOpacity={0.95}

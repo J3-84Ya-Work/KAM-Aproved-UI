@@ -61,6 +61,12 @@ export function SplashScreen() {
             style={{ backgroundColor: "#78BE20", animationDelay: "600ms" }}
           />
         </div>
+
+        {/* Version and Copyright */}
+        <div className="flex flex-col items-center gap-1 mt-4">
+          <p className="text-sm text-gray-400 font-medium">Park Buddy Version 1.0</p>
+          <p className="text-xs text-gray-400">© 2025 Parksons Packaging Ltd.</p>
+        </div>
       </div>
     </div>
   )
