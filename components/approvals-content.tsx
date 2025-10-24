@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircle2, XCircle, Clock, AlertTriangle, Search, Eye } from "lucide-react"
+import { CheckCircle2, XCircle, Clock, AlertTriangle, Search, Eye, RefreshCw, Filter, Calendar } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -17,42 +17,58 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
+import { getApprovalLevel } from "@/lib/permissions"
 
 const pendingApprovals = [
   {
     id: "QUO-2024-045",
+    inquiryId: "INQ-2024-001",
     customer: "Metro Supplies",
     job: "Folding Cartons",
     amount: 245000,
     margin: 12.5,
-    validTill: "3 days",
+    validTill: "2024-01-18",
+    status: "Sent to HOD",
     level: "L1",
-    requestedBy: "John Doe",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    requestedBy: "Rajesh Kumar",
     requestedDate: "2024-01-15",
+    createdDate: "2024-01-15",
     urgency: "normal",
   },
   {
     id: "QUO-2024-046",
+    inquiryId: "INQ-2024-002",
     customer: "Prime Packaging",
     job: "Die-Cut Boxes",
     amount: 185000,
     margin: 8.2,
-    validTill: "5 days",
+    validTill: "2024-01-20",
+    status: "Sent to HOD",
     level: "L2",
-    requestedBy: "Jane Smith",
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    requestedBy: "Priya Sharma",
     requestedDate: "2024-01-14",
+    createdDate: "2024-01-14",
     urgency: "high",
   },
   {
     id: "QUO-2024-050",
+    inquiryId: "INQ-2024-006",
     customer: "Tech Solutions",
     job: "Custom Cartons",
     amount: 150000,
     margin: 7.5,
-    validTill: "2 days",
+    validTill: "2024-01-19",
+    status: "Sent to HOD",
     level: "L2",
-    requestedBy: "Mike Johnson",
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
+    requestedBy: "Amit Patel",
     requestedDate: "2024-01-16",
+    createdDate: "2024-01-16",
     urgency: "urgent",
   },
 ]
@@ -60,24 +76,34 @@ const pendingApprovals = [
 const approvalHistory = [
   {
     id: "QUO-2024-047",
+    inquiryId: "INQ-2024-003",
     customer: "Swift Logistics",
     job: "Corrugated Sheets",
     amount: 320000,
     margin: 15.8,
+    validTill: "2024-01-22",
     status: "Approved",
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
     approvedBy: "Senior Manager",
     approvedDate: "2024-01-13",
+    createdDate: "2024-01-13",
     level: "L1",
   },
   {
     id: "QUO-2024-049",
+    inquiryId: "INQ-2024-005",
     customer: "Global Traders",
     job: "Printed Labels",
     amount: 95000,
     margin: 6.5,
-    status: "Rejected",
+    validTill: "2024-01-19",
+    status: "Disapproved",
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
     approvedBy: "Director",
     approvedDate: "2024-01-11",
+    createdDate: "2024-01-11",
     level: "L2",
   },
 ]
@@ -106,127 +132,175 @@ function getUrgencyBadge(urgency: string) {
 }
 
 export function ApprovalsContent() {
-  const [pendingSearch, setPendingSearch] = useState("")
-  const [historySearch, setHistorySearch] = useState("")
+  const [search, setSearch] = useState("")
+  const [hodFilter, setHodFilter] = useState("all")
+  const [kamFilter, setKamFilter] = useState("all")
   const [selectedApproval, setSelectedApproval] = useState<(typeof pendingApprovals)[0] | null>(null)
-  const [selectedHistory, setSelectedHistory] = useState<(typeof approvalHistory)[0] | null>(null)
-  const [pendingPage, setPendingPage] = useState(1)
-  const [historyPage, setHistoryPage] = useState(1)
+  const [page, setPage] = useState(1)
+  const [userLevel, setUserLevel] = useState<"L1" | "L2" | null>(null)
   const itemsPerPage = 20
 
-  const filteredPending = pendingApprovals.filter((approval) => {
+  useEffect(() => {
+    // Get user's approval level (HOD = L1, Vertical Head = L2)
+    setUserLevel(getApprovalLevel())
+  }, [])
+
+  // Get unique HOD and KAM names for filters
+  const hodNames = Array.from(new Set(pendingApprovals.map(item => item.hodName).filter((name): name is string => Boolean(name))))
+  const kamNames = Array.from(new Set(pendingApprovals.map(item => item.kamName).filter((name): name is string => Boolean(name))))
+
+  const filteredApprovals = pendingApprovals.filter((approval) => {
+    // Filter by approval level - HOD sees L1, Vertical Head sees L2
+    const matchesLevel = !userLevel || approval.level === userLevel
+
     const matchesSearch =
-      approval.customer.toLowerCase().includes(pendingSearch.toLowerCase()) ||
-      approval.id.toLowerCase().includes(pendingSearch.toLowerCase()) ||
-      approval.job.toLowerCase().includes(pendingSearch.toLowerCase()) ||
-      approval.requestedBy.toLowerCase().includes(pendingSearch.toLowerCase())
-    return matchesSearch
+      approval.customer.toLowerCase().includes(search.toLowerCase()) ||
+      approval.id.toLowerCase().includes(search.toLowerCase()) ||
+      approval.job.toLowerCase().includes(search.toLowerCase()) ||
+      approval.requestedBy.toLowerCase().includes(search.toLowerCase()) ||
+      (approval.kamName && approval.kamName.toLowerCase().includes(search.toLowerCase())) ||
+      (approval.hodName && approval.hodName.toLowerCase().includes(search.toLowerCase()))
+
+    const matchesHod = hodFilter === "all" || approval.hodName === hodFilter
+    const matchesKam = kamFilter === "all" || approval.kamName === kamFilter
+
+    return matchesLevel && matchesSearch && matchesHod && matchesKam
   })
 
-  const filteredHistory = approvalHistory.filter((item) => {
-    const matchesSearch =
-      item.customer.toLowerCase().includes(historySearch.toLowerCase()) ||
-      item.id.toLowerCase().includes(historySearch.toLowerCase()) ||
-      item.job.toLowerCase().includes(historySearch.toLowerCase())
-    return matchesSearch
-  })
-
-  // Pagination calculations for pending
-  const pendingTotalPages = Math.ceil(filteredPending.length / itemsPerPage)
-  const pendingStartIndex = (pendingPage - 1) * itemsPerPage
-  const pendingEndIndex = pendingStartIndex + itemsPerPage
-  const paginatedPending = filteredPending.slice(pendingStartIndex, pendingEndIndex)
-
-  // Pagination calculations for history
-  const historyTotalPages = Math.ceil(filteredHistory.length / itemsPerPage)
-  const historyStartIndex = (historyPage - 1) * itemsPerPage
-  const historyEndIndex = historyStartIndex + itemsPerPage
-  const paginatedHistory = filteredHistory.slice(historyStartIndex, historyEndIndex)
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredApprovals.length / itemsPerPage)
+  const startIndex = (page - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedApprovals = filteredApprovals.slice(startIndex, endIndex)
 
   // Reset to page 1 when filters change
   useEffect(() => {
-    setPendingPage(1)
-  }, [pendingSearch])
-
-  useEffect(() => {
-    setHistoryPage(1)
-  }, [historySearch])
+    setPage(1)
+  }, [search, hodFilter, kamFilter])
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="pending">
-            Pending
-            <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-              {pendingApprovals.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+      {/* Search Bar with Refresh Button */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search approvals (ID, Customer, Job Name, HOD, KAM Name)..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-12 rounded-2xl border-2 border-border/50 bg-white/80 backdrop-blur-sm focus-visible:border-[#005180] focus-visible:ring-[#005180] text-sm shadow-sm transition-all"
+          />
+        </div>
+        <Button
+          onClick={() => window.location.reload()}
+          className="h-12 px-4 rounded-2xl bg-[#005180] hover:bg-[#004875] text-white shadow-lg transition-all"
+          title="Refresh page"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
 
-        <TabsContent value="pending" className="space-y-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search pending approvals (ID, Customer, Job Name, Requested By)..."
-              value={pendingSearch}
-              onChange={(e) => setPendingSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-
-          {/* Pending Approvals Table */}
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gradient-to-r from-[#003d63] via-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#003d63] hover:via-[#005180] hover:to-[#004875]">
-                    <TableHead className="text-white w-[180px] text-xs font-bold uppercase tracking-wider">
-                      ID / Customer
-                    </TableHead>
-                    <TableHead className="text-white w-[200px] text-xs font-bold uppercase tracking-wider">
-                      Job Name
-                    </TableHead>
-                    <TableHead className="text-white w-[140px] text-xs font-bold uppercase tracking-wider">
-                      Amount / Margin
-                    </TableHead>
-                    <TableHead className="text-white w-[160px] text-xs font-bold uppercase tracking-wider">
-                      Requested By
-                    </TableHead>
-                    <TableHead className="text-white w-[120px] text-xs font-bold uppercase tracking-wider">
-                      Urgency / Level
-                    </TableHead>
-                    <TableHead className="text-white w-[100px] text-xs font-bold uppercase tracking-wider">
-                      Valid Till
-                    </TableHead>
-                    <TableHead className="text-white w-[180px] text-xs font-bold uppercase tracking-wider">
-                      Actions
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedPending.map((approval) => (
+      {/* Approvals Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gradient-to-r from-[#003d63] via-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#003d63] hover:via-[#005180] hover:to-[#004875]">
+                <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  <div className="flex items-center justify-between">
+                    <span>HOD</span>
+                    <Select value={hodFilter} onValueChange={setHodFilter}>
+                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                        <Filter className="h-4 w-4 text-white" />
+                      </SelectTrigger>
+                      <SelectContent align="start" className="min-w-[150px]">
+                        <SelectItem value="all">All HODs</SelectItem>
+                        {hodNames.map(hodName => (
+                          <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableHead>
+                <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  <div className="flex items-center justify-between">
+                    <span>KAM Name</span>
+                    <Select value={kamFilter} onValueChange={setKamFilter}>
+                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                        <Filter className="h-4 w-4 text-white" />
+                      </SelectTrigger>
+                      <SelectContent align="start" className="min-w-[150px]">
+                        <SelectItem value="all">All KAMs</SelectItem>
+                        {kamNames.map(kamName => (
+                          <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableHead>
+                <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  ID / Inquiry
+                </TableHead>
+                <TableHead className="text-white w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Customer
+                </TableHead>
+                <TableHead className="text-white w-[240px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Job & Validity
+                </TableHead>
+                <TableHead className="text-white w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Amount / Margin
+                </TableHead>
+                <TableHead className="text-white w-[120px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Status
+                </TableHead>
+                <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedApprovals.map((approval) => (
                     <Dialog key={approval.id}>
                       <TableRow className="cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
                         <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)}>
-                            <div>
-                              <p className="font-semibold text-sm">{approval.id}</p>
-                              <TruncatedText text={approval.customer} limit={25} className="text-xs text-muted-foreground" />
+                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
+                            <p className="text-sm font-medium text-foreground">{approval.hodName || "N/A"}</p>
+                          </TableCell>
+                        </DialogTrigger>
+                        <DialogTrigger asChild>
+                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
+                            <p className="text-sm font-medium text-foreground">{approval.kamName || "N/A"}</p>
+                          </TableCell>
+                        </DialogTrigger>
+                        <DialogTrigger asChild>
+                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-semibold text-primary">{approval.id}</p>
+                              <p className="text-xs text-muted-foreground">Inquiry {approval.inquiryId}</p>
                             </div>
                           </TableCell>
                         </DialogTrigger>
                         <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)}>
-                            <TruncatedText text={approval.job} limit={30} className="font-medium" />
+                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
+                            <TruncatedText text={approval.customer} limit={25} className="text-sm font-medium text-foreground block" />
+                            <p className="text-xs text-muted-foreground">Created {approval.createdDate}</p>
                           </TableCell>
                         </DialogTrigger>
                         <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)}>
+                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
+                            <div className="space-y-0.5">
+                              <TruncatedText text={approval.job} limit={30} className="text-sm font-semibold text-foreground" />
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Calendar className="h-3.5 w-3.5" />
+                                <span>Valid till {approval.validTill}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </DialogTrigger>
+                        <DialogTrigger asChild>
+                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
                             <div>
-                              <p className="font-bold">₹{(approval.amount / 100000).toFixed(2)}L</p>
+                              <p className="font-bold text-sm">₹{(approval.amount / 100000).toFixed(2)}L</p>
                               <Badge className={`${getMarginBadge(approval.margin)} border mt-1`}>
                                 <span className={getMarginColor(approval.margin)}>{approval.margin}%</span>
                               </Badge>
@@ -234,29 +308,8 @@ export function ApprovalsContent() {
                           </TableCell>
                         </DialogTrigger>
                         <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)}>
-                            <div>
-                              <p className="text-sm">{approval.requestedBy}</p>
-                              <p className="text-xs text-muted-foreground">{approval.requestedDate}</p>
-                            </div>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)}>
-                            <div className="space-y-1">
-                              <Badge className={`${getUrgencyBadge(approval.urgency)} border`}>
-                                {approval.urgency}
-                              </Badge>
-                              <Badge variant="outline" className="block w-fit">{approval.level}</Badge>
-                            </div>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)}>
-                            <div className="flex items-center gap-1 text-sm">
-                              <Clock className="h-3 w-3" />
-                              <span>{approval.validTill}</span>
-                            </div>
+                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
+                            <Badge variant="outline">{approval.status}</Badge>
                           </TableCell>
                         </DialogTrigger>
                         <TableCell>
@@ -266,12 +319,12 @@ export function ApprovalsContent() {
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                alert(`Rejecting ${approval.id}`)
+                                alert(`Disapproving ${approval.id}`)
                               }}
-                              className="text-xs"
+                              className="text-xs bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700"
                             >
                               <XCircle className="h-3 w-3 mr-1" />
-                              Reject
+                              Disapprove
                             </Button>
                             <Button
                               size="sm"
@@ -279,7 +332,7 @@ export function ApprovalsContent() {
                                 e.stopPropagation()
                                 alert(`Approving ${approval.id}`)
                               }}
-                              className="text-xs"
+                              className="text-xs bg-emerald-600 text-white hover:bg-emerald-700"
                             >
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Approve
@@ -287,13 +340,13 @@ export function ApprovalsContent() {
                           </div>
                         </TableCell>
                       </TableRow>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
+                      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                        <DialogHeader className="flex-shrink-0">
                           <DialogTitle>Approval Details</DialogTitle>
                           <DialogDescription>{selectedApproval?.id}</DialogDescription>
                         </DialogHeader>
                         {selectedApproval && (
-                          <div className="space-y-4">
+                          <div className="space-y-4 overflow-y-auto overflow-x-hidden flex-1">
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <Label className="text-muted-foreground">Customer</Label>
@@ -356,11 +409,11 @@ export function ApprovalsContent() {
                             )}
 
                             <div className="flex justify-end gap-2">
-                              <Button variant="outline">
+                              <Button variant="outline" className="bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700">
                                 <XCircle className="mr-2 h-4 w-4" />
-                                Reject
+                                Disapprove
                               </Button>
-                              <Button>
+                              <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
                                 <CheckCircle2 className="mr-2 h-4 w-4" />
                                 Approve
                               </Button>
@@ -370,263 +423,50 @@ export function ApprovalsContent() {
                       </DialogContent>
                     </Dialog>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-            {pendingTotalPages > 1 && (
-              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-                <div className="flex items-center gap-2">
+            </TableBody>
+          </Table>
+        </CardContent>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+                className="h-8 px-3"
+              >
+                Previous
+              </Button>
+              <div className="hidden md:flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
                   <Button
-                    variant="outline"
+                    key={pageNum}
+                    variant={page === pageNum ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setPendingPage(pendingPage - 1)}
-                    disabled={pendingPage === 1}
-                    className="h-8 px-3"
+                    onClick={() => setPage(pageNum)}
+                    className={`h-8 w-8 ${page === pageNum ? "bg-primary text-primary-foreground" : ""}`}
                   >
-                    Previous
+                    {pageNum}
                   </Button>
-                  <div className="hidden md:flex items-center gap-1">
-                    {Array.from({ length: pendingTotalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={pendingPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setPendingPage(page)}
-                        className={`h-8 w-8 ${pendingPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                      >
-                        {page}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="md:hidden text-sm text-muted-foreground">
-                    {pendingPage} / {pendingTotalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPendingPage(pendingPage + 1)}
-                    disabled={pendingPage === pendingTotalPages}
-                    className="h-8 px-3"
-                  >
-                    Next
-                  </Button>
-                </div>
+                ))}
               </div>
-            )}
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search approval history (ID, Customer, Job Name)..."
-              value={historySearch}
-              onChange={(e) => setHistorySearch(e.target.value)}
-              className="pl-9"
-            />
+              <div className="md:hidden text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={page === totalPages}
+                className="h-8 px-3"
+              >
+                Next
+              </Button>
+            </div>
           </div>
-
-          {/* Approval History Table */}
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gradient-to-r from-[#003d63] via-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#003d63] hover:via-[#005180] hover:to-[#004875]">
-                    <TableHead className="text-white w-[180px]">
-                      <div className="font-semibold">ID / Customer</div>
-                    </TableHead>
-                    <TableHead className="text-white w-[200px]">
-                      <div className="font-semibold">Job Name</div>
-                    </TableHead>
-                    <TableHead className="text-white w-[140px]">
-                      <div className="font-semibold">Amount / Margin</div>
-                    </TableHead>
-                    <TableHead className="text-white w-[160px]">
-                      <div className="font-semibold">Approved By</div>
-                    </TableHead>
-                    <TableHead className="text-white w-[120px]">
-                      <div className="font-semibold">Status / Level</div>
-                    </TableHead>
-                    <TableHead className="text-white w-[80px]">
-                      <div className="font-semibold">Actions</div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedHistory.map((item) => (
-                    <Dialog key={item.id}>
-                      <TableRow className="cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedHistory(item)}>
-                            <div>
-                              <p className="font-semibold text-sm">{item.id}</p>
-                              <TruncatedText text={item.customer} limit={25} className="text-xs text-muted-foreground" />
-                            </div>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedHistory(item)}>
-                            <TruncatedText text={item.job} limit={30} className="font-medium" />
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedHistory(item)}>
-                            <div>
-                              <p className="font-bold">₹{(item.amount / 100000).toFixed(2)}L</p>
-                              <Badge className={`${getMarginBadge(item.margin)} border mt-1`}>
-                                <span className={getMarginColor(item.margin)}>{item.margin}%</span>
-                              </Badge>
-                            </div>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedHistory(item)}>
-                            <div>
-                              <p className="text-sm">{item.approvedBy}</p>
-                              <p className="text-xs text-muted-foreground">{item.approvedDate}</p>
-                            </div>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedHistory(item)}>
-                            <div className="space-y-1">
-                              {item.status === "Approved" ? (
-                                <Badge className="badge-green-gradient border gap-1">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  Approved
-                                </Badge>
-                              ) : (
-                                <Badge className="badge-burgundy-gradient border gap-1">
-                                  <XCircle className="h-3 w-3" />
-                                  Rejected
-                                </Badge>
-                              )}
-                              <Badge variant="outline" className="block w-fit">{item.level}</Badge>
-                            </div>
-                          </TableCell>
-                        </DialogTrigger>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedHistory(item)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Approval History Details</DialogTitle>
-                          <DialogDescription>{selectedHistory?.id}</DialogDescription>
-                        </DialogHeader>
-                        {selectedHistory && (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label className="text-muted-foreground">Customer</Label>
-                                <p className="mt-1 font-medium">{selectedHistory.customer}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Job Name</Label>
-                                <p className="mt-1 font-medium">{selectedHistory.job}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Amount</Label>
-                                <p className="mt-1 text-xl font-bold">₹{selectedHistory.amount.toLocaleString("en-IN")}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Margin</Label>
-                                <div className="mt-1">
-                                  <Badge className={`${getMarginBadge(selectedHistory.margin)} border`}>
-                                    <span className={getMarginColor(selectedHistory.margin)}>{selectedHistory.margin}%</span>
-                                  </Badge>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Status</Label>
-                                <div className="mt-1">
-                                  {selectedHistory.status === "Approved" ? (
-                                    <Badge className="badge-green-gradient border gap-1">
-                                      <CheckCircle2 className="h-3 w-3" />
-                                      Approved
-                                    </Badge>
-                                  ) : (
-                                    <Badge className="badge-burgundy-gradient border gap-1">
-                                      <XCircle className="h-3 w-3" />
-                                      Rejected
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Approval Level</Label>
-                                <div className="mt-1">
-                                  <Badge variant="outline">{selectedHistory.level}</Badge>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Approved By</Label>
-                                <p className="mt-1">{selectedHistory.approvedBy}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Approved Date</Label>
-                                <p className="mt-1">{selectedHistory.approvedDate}</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-            {historyTotalPages > 1 && (
-              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setHistoryPage(historyPage - 1)}
-                    disabled={historyPage === 1}
-                    className="h-8 px-3"
-                  >
-                    Previous
-                  </Button>
-                  <div className="hidden md:flex items-center gap-1">
-                    {Array.from({ length: historyTotalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={historyPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setHistoryPage(page)}
-                        className={`h-8 w-8 ${historyPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                      >
-                        {page}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="md:hidden text-sm text-muted-foreground">
-                    {historyPage} / {historyTotalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setHistoryPage(historyPage + 1)}
-                    disabled={historyPage === historyTotalPages}
-                    className="h-8 px-3"
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+      </Card>
     </div>
   )
 }

@@ -18,30 +18,31 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
+import { getHODForKAM } from "@/lib/permissions"
 
 const inquiries = [
-  { id: "INQ-2024-001", customer: "Tata Industries", job: "Custom Packaging Box", sku: "PKG-001", jobType: "Monocarton", quantityRange: "5000-10000", status: "Costing", priority: "high", date: "2024-01-15", dueDate: "2024-01-18", clarificationStatus: "Pending Clarification", notes: "Urgent requirement for Q1 launch" },
-  { id: "INQ-2024-002", customer: "Reliance Retail", job: "Printed Labels", sku: "LBL-045", jobType: "Fluted Box", quantityRange: "10000-15000", status: "Quoted", priority: "medium", date: "2024-01-14", dueDate: "2024-01-20", clarificationStatus: "Clarified", notes: "Repeat order with minor modifications" },
-  { id: "INQ-2024-003", customer: "Mahindra Logistics", job: "Corrugated Sheets", sku: "COR-023", jobType: "Rigid Box", quantityRange: "2000-5000", status: "Pending", priority: "low", date: "2024-01-13", dueDate: "2024-01-25", clarificationStatus: "Awaiting Customer", notes: "New customer inquiry" },
-  { id: "INQ-2024-004", customer: "Wipro Technologies", job: "Folding Cartons", sku: "FLD-012", jobType: "Gable Top", quantityRange: "8000-12000", status: "Approved", priority: "high", date: "2024-01-12", dueDate: "2024-01-17", clarificationStatus: "Not Required", notes: "Ready for quotation" },
-  { id: "INQ-2024-005", customer: "Infosys Ltd", job: "Die-Cut Boxes", sku: "DCB-089", jobType: "Paper Pod", quantityRange: "3000-6000", status: "Pending", priority: "medium", date: "2024-01-11", dueDate: "2024-01-22", clarificationStatus: "Pending Clarification", notes: "Awaiting customer specifications" },
-  { id: "INQ-2024-006", customer: "Aditya Birla Group", job: "Luxury Gift Hampers", sku: "LGH-034", jobType: "Burgo Pack", quantityRange: "1500-3000", status: "Costing", priority: "medium", date: "2024-01-10", dueDate: "2024-01-19", clarificationStatus: "Awaiting Customer", notes: "Need final artwork approval" },
-  { id: "INQ-2024-007", customer: "Asian Paints Ltd", job: "Premium Tea Boxes", sku: "PTB-210", jobType: "Speciality Pack", quantityRange: "4000-7000", status: "Quoted", priority: "high", date: "2024-01-09", dueDate: "2024-01-21", clarificationStatus: "Clarified", notes: "All specs confirmed, awaiting PO" },
-  { id: "INQ-2024-008", customer: "Godrej Industries", job: "Pharmaceutical Cartons", sku: "PHC-156", jobType: "Monocarton", quantityRange: "12000-18000", status: "Costing", priority: "high", date: "2024-01-08", dueDate: "2024-01-15", clarificationStatus: "Clarified", notes: "Priority pharma packaging order" },
-  { id: "INQ-2024-009", customer: "Larsen & Toubro", job: "Industrial Labels", sku: "IND-089", jobType: "Paper Pod", quantityRange: "8000-10000", status: "Approved", priority: "medium", date: "2024-01-07", dueDate: "2024-01-19", clarificationStatus: "Not Required", notes: "Standard industrial labeling" },
-  { id: "INQ-2024-010", customer: "Bajaj Auto", job: "Auto Parts Packaging", sku: "AUT-234", jobType: "Rigid Box", quantityRange: "15000-20000", status: "Quoted", priority: "high", date: "2024-01-06", dueDate: "2024-01-16", clarificationStatus: "Clarified", notes: "Automotive component packaging" },
-  { id: "INQ-2024-011", customer: "ITC Limited", job: "Food Grade Cartons", sku: "FGC-445", jobType: "Fluted Box", quantityRange: "20000-25000", status: "Pending", priority: "medium", date: "2024-01-05", dueDate: "2024-01-22", clarificationStatus: "Pending Clarification", notes: "Food safety certification required" },
-  { id: "INQ-2024-012", customer: "HCL Technologies", job: "Electronic Device Boxes", sku: "EDB-678", jobType: "Gable Top", quantityRange: "5000-8000", status: "Costing", priority: "low", date: "2024-01-04", dueDate: "2024-01-28", clarificationStatus: "Awaiting Customer", notes: "Electronics packaging specifications needed" },
-  { id: "INQ-2024-013", customer: "Tech Mahindra", job: "Shipping Cartons", sku: "SHP-901", jobType: "Burgo Pack", quantityRange: "10000-15000", status: "Approved", priority: "high", date: "2024-01-03", dueDate: "2024-01-14", clarificationStatus: "Not Required", notes: "Bulk shipping order approved" },
-  { id: "INQ-2024-014", customer: "HDFC Bank", job: "Promotional Gift Boxes", sku: "PGB-123", jobType: "Speciality Pack", quantityRange: "3000-5000", status: "Quoted", priority: "medium", date: "2024-01-02", dueDate: "2024-01-20", clarificationStatus: "Clarified", notes: "Banking promotional materials" },
-  { id: "INQ-2024-015", customer: "ICICI Prudential", job: "Document Folders", sku: "DOC-567", jobType: "Monocarton", quantityRange: "7000-9000", status: "Pending", priority: "low", date: "2024-01-01", dueDate: "2024-01-25", clarificationStatus: "Pending Clarification", notes: "Insurance document packaging" },
-  { id: "INQ-2023-150", customer: "Hindustan Unilever", job: "FMCG Packaging", sku: "FMC-890", jobType: "Paper Pod", quantityRange: "25000-30000", status: "Costing", priority: "high", date: "2023-12-30", dueDate: "2024-01-12", clarificationStatus: "Clarified", notes: "Large FMCG order for multiple SKUs" },
-  { id: "INQ-2023-149", customer: "Sun Pharma", job: "Medicine Cartons", sku: "MED-234", jobType: "Rigid Box", quantityRange: "18000-22000", status: "Approved", priority: "high", date: "2023-12-28", dueDate: "2024-01-10", clarificationStatus: "Not Required", notes: "Pharmaceutical grade packaging" },
-  { id: "INQ-2023-148", customer: "Dr Reddy's Labs", job: "Tablet Blister Packs", sku: "TBP-456", jobType: "Fluted Box", quantityRange: "30000-35000", status: "Quoted", priority: "medium", date: "2023-12-26", dueDate: "2024-01-15", clarificationStatus: "Clarified", notes: "High volume pharma packaging" },
-  { id: "INQ-2023-147", customer: "Cipla Pharmaceuticals", job: "Syrup Cartons", sku: "SYR-789", jobType: "Gable Top", quantityRange: "12000-15000", status: "Pending", priority: "low", date: "2023-12-24", dueDate: "2024-01-18", clarificationStatus: "Awaiting Customer", notes: "Liquid medicine packaging" },
-  { id: "INQ-2023-146", customer: "Dabur India", job: "Ayurvedic Product Boxes", sku: "AYU-012", jobType: "Burgo Pack", quantityRange: "8000-10000", status: "Costing", priority: "medium", date: "2023-12-22", dueDate: "2024-01-16", clarificationStatus: "Pending Clarification", notes: "Traditional medicine packaging" },
-  { id: "INQ-2023-145", customer: "Patanjali Ayurved", job: "Herbal Product Cartons", sku: "HRB-345", jobType: "Speciality Pack", quantityRange: "15000-18000", status: "Approved", priority: "high", date: "2023-12-20", dueDate: "2024-01-08", clarificationStatus: "Not Required", notes: "Herbal products packaging approved" },
-  { id: "INQ-2023-144", customer: "Britannia Industries", job: "Biscuit Packaging", sku: "BIS-678", jobType: "Monocarton", quantityRange: "40000-45000", status: "Quoted", priority: "high", date: "2023-12-18", dueDate: "2024-01-05", clarificationStatus: "Clarified", notes: "Food packaging for new product line" },
+  { id: "INQ-2024-001", customer: "Tata Industries", job: "Custom Packaging Box", sku: "PKG-001", jobType: "Monocarton", quantityRange: "5000-10000", status: "Costing", priority: "high", date: "2024-01-15", dueDate: "2024-01-18", clarificationStatus: "Pending Clarification", notes: "Urgent requirement for Q1 launch", kamName: "Rajesh Kumar", hodName: "Suresh Menon" },
+  { id: "INQ-2024-002", customer: "Reliance Retail", job: "Printed Labels", sku: "LBL-045", jobType: "Fluted Box", quantityRange: "10000-15000", status: "Quoted", priority: "medium", date: "2024-01-14", dueDate: "2024-01-20", clarificationStatus: "Clarified", notes: "Repeat order with minor modifications", kamName: "Priya Sharma", hodName: "Kavita Reddy" },
+  { id: "INQ-2024-003", customer: "Mahindra Logistics", job: "Corrugated Sheets", sku: "COR-023", jobType: "Rigid Box", quantityRange: "2000-5000", status: "Pending", priority: "low", date: "2024-01-13", dueDate: "2024-01-25", clarificationStatus: "Awaiting Customer", notes: "New customer inquiry", kamName: "Amit Patel", hodName: "Suresh Menon" },
+  { id: "INQ-2024-004", customer: "Wipro Technologies", job: "Folding Cartons", sku: "FLD-012", jobType: "Gable Top", quantityRange: "8000-12000", status: "Approved", priority: "high", date: "2024-01-12", dueDate: "2024-01-17", clarificationStatus: "Not Required", notes: "Ready for quotation", kamName: "Rajesh Kumar", hodName: "Suresh Menon" },
+  { id: "INQ-2024-005", customer: "Infosys Ltd", job: "Die-Cut Boxes", sku: "DCB-089", jobType: "Paper Pod", quantityRange: "3000-6000", status: "Pending", priority: "medium", date: "2024-01-11", dueDate: "2024-01-22", clarificationStatus: "Pending Clarification", notes: "Awaiting customer specifications", kamName: "Sneha Gupta", hodName: "Kavita Reddy" },
+  { id: "INQ-2024-006", customer: "Aditya Birla Group", job: "Luxury Gift Hampers", sku: "LGH-034", jobType: "Burgo Pack", quantityRange: "1500-3000", status: "Costing", priority: "medium", date: "2024-01-10", dueDate: "2024-01-19", clarificationStatus: "Awaiting Customer", notes: "Need final artwork approval", kamName: "Priya Sharma", hodName: "Kavita Reddy" },
+  { id: "INQ-2024-007", customer: "Asian Paints Ltd", job: "Premium Tea Boxes", sku: "PTB-210", jobType: "Speciality Pack", quantityRange: "4000-7000", status: "Quoted", priority: "high", date: "2024-01-09", dueDate: "2024-01-21", clarificationStatus: "Clarified", notes: "All specs confirmed, awaiting PO", kamName: "Amit Patel", hodName: "Suresh Menon" },
+  { id: "INQ-2024-008", customer: "Godrej Industries", job: "Pharmaceutical Cartons", sku: "PHC-156", jobType: "Monocarton", quantityRange: "12000-18000", status: "Costing", priority: "high", date: "2024-01-08", dueDate: "2024-01-15", clarificationStatus: "Clarified", notes: "Priority pharma packaging order", kamName: "Sneha Gupta", hodName: "Kavita Reddy" },
+  { id: "INQ-2024-009", customer: "Larsen & Toubro", job: "Industrial Labels", sku: "IND-089", jobType: "Paper Pod", quantityRange: "8000-10000", status: "Approved", priority: "medium", date: "2024-01-07", dueDate: "2024-01-19", clarificationStatus: "Not Required", notes: "Standard industrial labeling", kamName: "Rajesh Kumar", hodName: "Suresh Menon" },
+  { id: "INQ-2024-010", customer: "Bajaj Auto", job: "Auto Parts Packaging", sku: "AUT-234", jobType: "Rigid Box", quantityRange: "15000-20000", status: "Quoted", priority: "high", date: "2024-01-06", dueDate: "2024-01-16", clarificationStatus: "Clarified", notes: "Automotive component packaging", kamName: "Priya Sharma", hodName: "Kavita Reddy" },
+  { id: "INQ-2024-011", customer: "ITC Limited", job: "Food Grade Cartons", sku: "FGC-445", jobType: "Fluted Box", quantityRange: "20000-25000", status: "Pending", priority: "medium", date: "2024-01-05", dueDate: "2024-01-22", clarificationStatus: "Pending Clarification", notes: "Food safety certification required", kamName: "Amit Patel", hodName: "Suresh Menon" },
+  { id: "INQ-2024-012", customer: "HCL Technologies", job: "Electronic Device Boxes", sku: "EDB-678", jobType: "Gable Top", quantityRange: "5000-8000", status: "Costing", priority: "low", date: "2024-01-04", dueDate: "2024-01-28", clarificationStatus: "Awaiting Customer", notes: "Electronics packaging specifications needed", kamName: "Sneha Gupta", hodName: "Kavita Reddy" },
+  { id: "INQ-2024-013", customer: "Tech Mahindra", job: "Shipping Cartons", sku: "SHP-901", jobType: "Burgo Pack", quantityRange: "10000-15000", status: "Approved", priority: "high", date: "2024-01-03", dueDate: "2024-01-14", clarificationStatus: "Not Required", notes: "Bulk shipping order approved", kamName: "Rajesh Kumar", hodName: "Suresh Menon" },
+  { id: "INQ-2024-014", customer: "HDFC Bank", job: "Promotional Gift Boxes", sku: "PGB-123", jobType: "Speciality Pack", quantityRange: "3000-5000", status: "Quoted", priority: "medium", date: "2024-01-02", dueDate: "2024-01-20", clarificationStatus: "Clarified", notes: "Banking promotional materials", kamName: "Priya Sharma", hodName: "Kavita Reddy" },
+  { id: "INQ-2024-015", customer: "ICICI Prudential", job: "Document Folders", sku: "DOC-567", jobType: "Monocarton", quantityRange: "7000-9000", status: "Pending", priority: "low", date: "2024-01-01", dueDate: "2024-01-25", clarificationStatus: "Pending Clarification", notes: "Insurance document packaging", kamName: "Amit Patel", hodName: "Suresh Menon" },
+  { id: "INQ-2023-150", customer: "Hindustan Unilever", job: "FMCG Packaging", sku: "FMC-890", jobType: "Paper Pod", quantityRange: "25000-30000", status: "Costing", priority: "high", date: "2023-12-30", dueDate: "2024-01-12", clarificationStatus: "Clarified", notes: "Large FMCG order for multiple SKUs", kamName: "Sneha Gupta", hodName: "Kavita Reddy" },
+  { id: "INQ-2023-149", customer: "Sun Pharma", job: "Medicine Cartons", sku: "MED-234", jobType: "Rigid Box", quantityRange: "18000-22000", status: "Approved", priority: "high", date: "2023-12-28", dueDate: "2024-01-10", clarificationStatus: "Not Required", notes: "Pharmaceutical grade packaging", kamName: "Rajesh Kumar", hodName: "Suresh Menon" },
+  { id: "INQ-2023-148", customer: "Dr Reddy's Labs", job: "Tablet Blister Packs", sku: "TBP-456", jobType: "Fluted Box", quantityRange: "30000-35000", status: "Quoted", priority: "medium", date: "2023-12-26", dueDate: "2024-01-15", clarificationStatus: "Clarified", notes: "High volume pharma packaging", kamName: "Priya Sharma", hodName: "Kavita Reddy" },
+  { id: "INQ-2023-147", customer: "Cipla Pharmaceuticals", job: "Syrup Cartons", sku: "SYR-789", jobType: "Gable Top", quantityRange: "12000-15000", status: "Pending", priority: "low", date: "2023-12-24", dueDate: "2024-01-18", clarificationStatus: "Awaiting Customer", notes: "Liquid medicine packaging", kamName: "Amit Patel", hodName: "Suresh Menon" },
+  { id: "INQ-2023-146", customer: "Dabur India", job: "Ayurvedic Product Boxes", sku: "AYU-012", jobType: "Burgo Pack", quantityRange: "8000-10000", status: "Costing", priority: "medium", date: "2023-12-22", dueDate: "2024-01-16", clarificationStatus: "Pending Clarification", notes: "Traditional medicine packaging", kamName: "Sneha Gupta", hodName: "Kavita Reddy" },
+  { id: "INQ-2023-145", customer: "Patanjali Ayurved", job: "Herbal Product Cartons", sku: "HRB-345", jobType: "Speciality Pack", quantityRange: "15000-18000", status: "Approved", priority: "high", date: "2023-12-20", dueDate: "2024-01-08", clarificationStatus: "Not Required", notes: "Herbal products packaging approved", hodName: "Suresh Menon" },
+  { id: "INQ-2023-144", customer: "Britannia Industries", job: "Biscuit Packaging", sku: "BIS-678", jobType: "Monocarton", quantityRange: "40000-45000", status: "Quoted", priority: "high", date: "2023-12-18", dueDate: "2024-01-05", clarificationStatus: "Clarified", notes: "Food packaging for new product line", hodName: "Kavita Reddy" },
   { id: "INQ-2023-143", customer: "Parle Products", job: "Confectionery Boxes", sku: "CNF-901", jobType: "Paper Pod", quantityRange: "35000-40000", status: "Pending", priority: "medium", date: "2023-12-16", dueDate: "2024-01-12", clarificationStatus: "Pending Clarification", notes: "Sweet packaging requirements" },
   { id: "INQ-2023-142", customer: "Nestle India", job: "Chocolate Packaging", sku: "CHO-234", jobType: "Rigid Box", quantityRange: "20000-25000", status: "Costing", priority: "low", date: "2023-12-14", dueDate: "2024-01-20", clarificationStatus: "Awaiting Customer", notes: "Premium chocolate gift boxes" },
   { id: "INQ-2023-141", customer: "PepsiCo India", job: "Snack Cartons", sku: "SNK-567", jobType: "Fluted Box", quantityRange: "50000-55000", status: "Approved", priority: "high", date: "2023-12-12", dueDate: "2024-01-06", clarificationStatus: "Not Required", notes: "High volume snack packaging" },
@@ -227,9 +228,15 @@ export function InquiriesContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
+  const [hodFilter, setHodFilter] = useState("all")
+  const [kamFilter, setKamFilter] = useState("all")
   const [sortBy, setSortBy] = useState("date-desc")
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
+
+  // Get unique HOD and KAM names for filters
+  const hodNames = Array.from(new Set(inquiries.map(inq => inq.hodName).filter((name): name is string => Boolean(name))))
+  const kamNames = Array.from(new Set(inquiries.map(inq => inq.kamName).filter((name): name is string => Boolean(name))))
 
   const filteredInquiries = inquiries
     .filter((inquiry) => {
@@ -242,11 +249,15 @@ export function InquiriesContent() {
         inquiry.job.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inquiry.quantityRange.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inquiry.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inquiry.jobType.toLowerCase().includes(searchQuery.toLowerCase())
+        inquiry.jobType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (inquiry.kamName && inquiry.kamName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (inquiry.hodName && inquiry.hodName.toLowerCase().includes(searchQuery.toLowerCase()))
       const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter
       const matchesPriority = priorityFilter === "all" || inquiry.priority === priorityFilter
+      const matchesHod = hodFilter === "all" || inquiry.hodName === hodFilter
+      const matchesKam = kamFilter === "all" || inquiry.kamName === kamFilter
 
-      return matchesSearch && matchesStatus && matchesPriority
+      return matchesSearch && matchesStatus && matchesPriority && matchesHod && matchesKam
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -275,7 +286,7 @@ export function InquiriesContent() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, statusFilter, priorityFilter, sortBy])
+  }, [searchQuery, statusFilter, priorityFilter, hodFilter, kamFilter, sortBy])
 
   return (
     <div className="section-spacing">
@@ -304,6 +315,38 @@ export function InquiriesContent() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gradient-to-r from-[#005180] to-[#003d63] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#003d63]">
+                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    <div className="flex items-center justify-between">
+                      <span>HOD</span>
+                      <Select value={hodFilter} onValueChange={setHodFilter}>
+                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                          <Filter className="h-4 w-4 text-white" />
+                        </SelectTrigger>
+                        <SelectContent align="start" className="min-w-[150px]">
+                          <SelectItem value="all">All HODs</SelectItem>
+                          {hodNames.map(hodName => (
+                            <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    <div className="flex items-center justify-between">
+                      <span>KAM Name</span>
+                      <Select value={kamFilter} onValueChange={setKamFilter}>
+                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                          <Filter className="h-4 w-4 text-white" />
+                        </SelectTrigger>
+                        <SelectContent align="start" className="min-w-[150px]">
+                          <SelectItem value="all">All KAMs</SelectItem>
+                          {kamNames.map(kamName => (
+                            <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableHead>
                   <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     ID / Customer
                   </TableHead>
@@ -370,13 +413,16 @@ export function InquiriesContent() {
                         className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
                         style={{ animationDelay: `${index * 30}ms` }}
                       >
+                        <TableCell className="py-4">
+                          <p className="text-sm font-medium text-foreground">{inquiry.hodName || "N/A"}</p>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <p className="text-sm font-medium text-foreground">{inquiry.kamName || "N/A"}</p>
+                        </TableCell>
                         <TableCell className="whitespace-nowrap py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`h-10 w-1 rounded-full ${getPriorityAccent(inquiry.priority)}`} />
-                            <div className="space-y-0.5">
-                              <p className="text-sm font-semibold text-primary">{inquiry.id}</p>
-                              <TruncatedText text={inquiry.customer} limit={25} className="text-sm font-medium text-foreground/80" />
-                            </div>
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-semibold text-primary">{inquiry.id}</p>
+                            <TruncatedText text={inquiry.customer} limit={25} className="text-sm font-medium text-foreground/80" />
                           </div>
                         </TableCell>
                         <TableCell className="py-4">
@@ -406,12 +452,12 @@ export function InquiriesContent() {
                         </TableCell>
                       </TableRow>
                     </DialogTrigger>
-                    <DialogContent className="surface-elevated max-w-2xl p-0">
-                      <DialogHeader className="gap-1 border-b border-border/60 bg-primary-muted/60 px-6 py-5">
+                    <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+                      <DialogHeader className="gap-1 border-b border-border/60 bg-primary-muted/60 px-6 py-5 flex-shrink-0">
                         <DialogTitle className="text-lg font-semibold text-foreground">{inquiry.job}</DialogTitle>
                         <DialogDescription className="text-sm text-muted-foreground">{inquiry.id}</DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-5 px-6 py-5">
+                      <div className="space-y-5 px-6 py-5 overflow-y-auto overflow-x-hidden flex-1">
                         <div className="grid gap-4 sm:grid-cols-3">
                           <div>
                             <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
@@ -424,11 +470,15 @@ export function InquiriesContent() {
                             </div>
                           </div>
                           <div>
+                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">KAM Name</Label>
+                            <p className="mt-1 text-sm font-medium text-foreground">{inquiry.kamName || "N/A"}</p>
+                          </div>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          <div>
                             <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Clarification</Label>
                             <p className="mt-1 text-sm text-foreground/80">{inquiry.clarificationStatus}</p>
                           </div>
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
                           <div>
                             <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Job Type</Label>
                             <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">{inquiry.jobType}</p>

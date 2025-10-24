@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Plus, Eye, Upload, CheckCircle2, XCircle, AlertCircle, RefreshCw } from "lucide-react"
+import { Search, Plus, Eye, Upload, CheckCircle2, XCircle, AlertCircle, RefreshCw, Filter } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { TruncatedText } from "@/components/truncated-text"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 
 const clients = [
   {
@@ -32,6 +33,8 @@ const clients = [
     totalOrders: 45,
     totalValue: 12500000,
     lastOrder: "2024-01-14",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     documents: {
       gst: true,
       pan: true,
@@ -51,6 +54,8 @@ const clients = [
     totalOrders: 32,
     totalValue: 8900000,
     lastOrder: "2024-01-15",
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
     documents: {
       gst: true,
       pan: true,
@@ -70,6 +75,8 @@ const clients = [
     totalOrders: 12,
     totalValue: 3200000,
     lastOrder: "2024-01-13",
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
     documents: {
       gst: true,
       pan: true,
@@ -89,6 +96,8 @@ const clients = [
     totalOrders: 28,
     totalValue: 7800000,
     lastOrder: "2024-01-12",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     documents: {
       gst: true,
       pan: true,
@@ -108,6 +117,8 @@ const clients = [
     totalOrders: 0,
     totalValue: 0,
     lastOrder: null,
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
     documents: {
       gst: false,
       pan: false,
@@ -146,7 +157,10 @@ export function ClientsContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedClient, setSelectedClient] = useState<(typeof clients)[0] | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [hodFilter, setHodFilter] = useState("all")
   const itemsPerPage = 20
+
+  const hodNames = Array.from(new Set(clients.map(client => client.hodName).filter((name): name is string => Boolean(name))))
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch =
@@ -154,7 +168,8 @@ export function ClientsContent() {
       client.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (client.code && client.code.toLowerCase().includes(searchQuery.toLowerCase()))
-    return matchesSearch
+    const matchesHod = hodFilter === "all" || client.hodName === hodFilter
+    return matchesSearch && matchesHod
   })
 
   // Pagination calculations
@@ -166,7 +181,7 @@ export function ClientsContent() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery])
+  }, [searchQuery, hodFilter])
 
   return (
     <div className="space-y-4">
@@ -196,6 +211,23 @@ export function ClientsContent() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-[#004875] to-[#003d63] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#003d63] [&_th]:text-white [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs">
+                <TableHead>
+                  <div className="flex items-center justify-between">
+                    <span>HOD</span>
+                    <Select value={hodFilter} onValueChange={setHodFilter}>
+                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                        <Filter className="h-4 w-4 text-white" />
+                      </SelectTrigger>
+                      <SelectContent align="start" className="min-w-[150px]">
+                        <SelectItem value="all">All HODs</SelectItem>
+                        {hodNames.map(hodName => (
+                          <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableHead>
+                <TableHead>KAM Name</TableHead>
                 <TableHead>Client ID</TableHead>
                 <TableHead>Company Name</TableHead>
                 <TableHead>Customer Code</TableHead>
@@ -209,6 +241,12 @@ export function ClientsContent() {
             <TableBody>
               {paginatedClients.map((client, index) => (
                 <TableRow key={client.id} className="border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
+                  <TableCell>
+                    <p className="text-sm font-medium text-foreground">{client.hodName || "N/A"}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="text-sm font-medium text-foreground">{client.kamName || "N/A"}</p>
+                  </TableCell>
                   <TableCell className="font-medium text-primary">{client.id}</TableCell>
                   <TableCell>
                     <div>
@@ -245,13 +283,13 @@ export function ClientsContent() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-3xl">
-                        <DialogHeader>
+                      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+                        <DialogHeader className="flex-shrink-0">
                           <DialogTitle>Client Details</DialogTitle>
                           <DialogDescription>{selectedClient?.name}</DialogDescription>
                         </DialogHeader>
                         {selectedClient && (
-                          <div className="grid gap-6 py-4">
+                          <div className="grid gap-6 py-4 overflow-y-auto overflow-x-hidden flex-1">
                             {/* Basic Info */}
                             <div>
                               <h3 className="mb-3 text-sm font-semibold">Basic Information</h3>

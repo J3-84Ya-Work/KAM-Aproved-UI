@@ -1,6 +1,5 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import "./globals.css"
 import { FontSizeProvider } from "@/lib/font-size-context"
@@ -27,7 +26,6 @@ export default function RootLayout({
         <FontSizeProvider>
           <Suspense fallback={null}>{children}</Suspense>
         </FontSizeProvider>
-        <Analytics />
       </body>
     </html>
   )

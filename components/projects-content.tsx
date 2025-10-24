@@ -31,6 +31,8 @@ const sdoProjects = [
     progress: 100,
     createdDate: "2024-01-10",
     approvedDate: "2024-01-14",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     notes: "Customer approved sample with minor color adjustment",
     history: [
       { stage: "Inquiry Received", date: "2024-01-06" },
@@ -49,6 +51,8 @@ const sdoProjects = [
     progress: 75,
     createdDate: "2024-01-12",
     approvedDate: null,
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
     notes: "Sent for sales approval on 2024-01-15",
     history: [
       { stage: "Inquiry Received", date: "2024-01-09" },
@@ -67,6 +71,8 @@ const sdoProjects = [
     progress: 50,
     createdDate: "2024-01-14",
     approvedDate: null,
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     notes: "Awaiting clarification on material finish",
     history: [
       { stage: "Inquiry Received", date: "2024-01-11" },
@@ -84,6 +90,8 @@ const sdoProjects = [
     progress: 40,
     createdDate: "2024-01-16",
     approvedDate: null,
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
     notes: "Prototype build in progress",
     history: [
       { stage: "Inquiry Received", date: "2024-01-12" },
@@ -105,6 +113,8 @@ const jdoProjects = [
     routingStatus: "Complete",
     progress: 100,
     createdDate: "2024-01-15",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     notes: "Ready for commercial PO",
     mfReleased: true,
   },
@@ -120,6 +130,8 @@ const jdoProjects = [
     routingStatus: "Pending",
     progress: 60,
     createdDate: "2024-01-13",
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
     notes: "Awaiting artwork approval from customer",
     mfReleased: false,
   },
@@ -142,6 +154,8 @@ const commercialOrders = [
     orderDate: "2024-01-08",
     expectedDelivery: "2024-01-25",
     progress: 70,
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
     notes: "Commercial production ongoing",
   },
   {
@@ -160,6 +174,8 @@ const commercialOrders = [
     orderDate: "2024-01-12",
     expectedDelivery: "2024-01-28",
     progress: 100,
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
     notes: "Commercial order approved, ready for production",
   },
   {
@@ -178,6 +194,8 @@ const commercialOrders = [
     orderDate: "2024-01-15",
     expectedDelivery: "2024-02-02",
     progress: 45,
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     notes: "Under commercial review",
   },
 ]
@@ -201,6 +219,8 @@ const pnOrders = [
     dispatchedDate: "2024-01-18",
     initiateDate: "2024-01-08",
     progress: 100,
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
     notes: "Successfully delivered to customer",
     description: "Printed corrugated shipping boxes",
     rmType: "Paperboard",
@@ -227,6 +247,8 @@ const pnOrders = [
     dispatchedDate: null,
     initiateDate: "2024-01-12",
     progress: 60,
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     notes: "Production in progress, expected dispatch: 2024-01-22",
     description: "Premium folding cartons - matte finish",
     rmType: "Coated Board",
@@ -253,6 +275,8 @@ const pnOrders = [
     dispatchedDate: null,
     initiateDate: "2024-01-15",
     progress: 35,
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
     notes: "Released to production floor",
     description: "Logistics barcode and brand labels",
     rmType: "Vinyl",
@@ -405,12 +429,20 @@ interface ProjectsContentProps {
 export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsContentProps) {
   const [sdoSearch, setSdoSearch] = useState("")
   const [sdoStatusFilter, setSdoStatusFilter] = useState("all")
+  const [sdoKamFilter, setSdoKamFilter] = useState("all")
+  const [sdoHodFilter, setSdoHodFilter] = useState("all")
   const [jdoSearch, setJdoSearch] = useState("")
   const [jdoStatusFilter, setJdoStatusFilter] = useState("all")
+  const [jdoKamFilter, setJdoKamFilter] = useState("all")
+  const [jdoHodFilter, setJdoHodFilter] = useState("all")
   const [comSearch, setComSearch] = useState("")
   const [comStatusFilter, setComStatusFilter] = useState("all")
+  const [comKamFilter, setComKamFilter] = useState("all")
+  const [comHodFilter, setComHodFilter] = useState("all")
   const [pnSearch, setPnSearch] = useState("")
   const [pnStatusFilter, setPnStatusFilter] = useState("all")
+  const [pnKamFilter, setPnKamFilter] = useState("all")
+  const [pnHodFilter, setPnHodFilter] = useState("all")
 
   // Pagination states
   const [sdoPage, setSdoPage] = useState(1)
@@ -418,6 +450,18 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
   const [comPage, setComPage] = useState(1)
   const [pnPage, setPnPage] = useState(1)
   const itemsPerPage = 20
+
+  // Get unique KAM names
+  const sdoKamNames = Array.from(new Set(sdoProjects.map(p => p.kamName).filter((name): name is string => Boolean(name))))
+  const jdoKamNames = Array.from(new Set(jdoProjects.map(p => p.kamName).filter((name): name is string => Boolean(name))))
+  const comKamNames = Array.from(new Set(commercialOrders.map(p => p.kamName).filter((name): name is string => Boolean(name))))
+  const pnKamNames = Array.from(new Set(pnOrders.map(p => p.kamName).filter((name): name is string => Boolean(name))))
+
+  // Get unique HOD names
+  const sdoHodNames = Array.from(new Set(sdoProjects.map(p => p.hodName).filter((name): name is string => Boolean(name))))
+  const jdoHodNames = Array.from(new Set(jdoProjects.map(p => p.hodName).filter((name): name is string => Boolean(name))))
+  const comHodNames = Array.from(new Set(commercialOrders.map(p => p.hodName).filter((name): name is string => Boolean(name))))
+  const pnHodNames = Array.from(new Set(pnOrders.map(p => p.hodName).filter((name): name is string => Boolean(name))))
 
   // Filtered data
   const filteredSDO = sdoProjects.filter(p => {
@@ -429,7 +473,9 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       p.executionLocation.toLowerCase().includes(sdoSearch.toLowerCase()) ||
       p.productionPlant.toLowerCase().includes(sdoSearch.toLowerCase())
     const matchesStatus = sdoStatusFilter === "all" || p.status === sdoStatusFilter
-    return matchesSearch && matchesStatus
+    const matchesKam = sdoKamFilter === "all" || p.kamName === sdoKamFilter
+    const matchesHod = sdoHodFilter === "all" || p.hodName === sdoHodFilter
+    return matchesSearch && matchesStatus && matchesKam && matchesHod
   })
 
   const filteredJDO = jdoProjects.filter(p => {
@@ -444,7 +490,9 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       p.artworkStatus === "Approved" && p.bomStatus === "Complete" && p.routingStatus === "Complete"
         ? "Approved"
         : "In Review"
-    return matchesSearch && (jdoStatusFilter === "all" || overallStatus === jdoStatusFilter)
+    const matchesKam = jdoKamFilter === "all" || p.kamName === jdoKamFilter
+    const matchesHod = jdoHodFilter === "all" || p.hodName === jdoHodFilter
+    return matchesSearch && (jdoStatusFilter === "all" || overallStatus === jdoStatusFilter) && matchesKam && matchesHod
   })
 
   const filteredCommercial = commercialOrders.filter(p => {
@@ -456,7 +504,9 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       p.quantity.toLowerCase().includes(comSearch.toLowerCase()) ||
       p.prePressPlant.toLowerCase().includes(comSearch.toLowerCase()) ||
       p.productionPlant.toLowerCase().includes(comSearch.toLowerCase())
-    return matchesSearch && (comStatusFilter === "all" || p.status === comStatusFilter)
+    const matchesKam = comKamFilter === "all" || p.kamName === comKamFilter
+    const matchesHod = comHodFilter === "all" || p.hodName === comHodFilter
+    return matchesSearch && (comStatusFilter === "all" || p.status === comStatusFilter) && matchesKam && matchesHod
   })
 
   const filteredPN = pnOrders.filter(p => {
@@ -472,7 +522,9 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       p.rmType.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.plant.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.initiateDate.toLowerCase().includes(pnSearch.toLowerCase())
-    return matchesSearch && (pnStatusFilter === "all" || p.status === pnStatusFilter)
+    const matchesKam = pnKamFilter === "all" || p.kamName === pnKamFilter
+    const matchesHod = pnHodFilter === "all" || p.hodName === pnHodFilter
+    return matchesSearch && (pnStatusFilter === "all" || p.status === pnStatusFilter) && matchesKam && matchesHod
   })
 
   // Pagination calculations for SDO
@@ -502,19 +554,19 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
   // Reset to page 1 when filters change
   useEffect(() => {
     setSdoPage(1)
-  }, [sdoSearch, sdoStatusFilter])
+  }, [sdoSearch, sdoStatusFilter, sdoKamFilter, sdoHodFilter])
 
   useEffect(() => {
     setJdoPage(1)
-  }, [jdoSearch, jdoStatusFilter])
+  }, [jdoSearch, jdoStatusFilter, jdoKamFilter, jdoHodFilter])
 
   useEffect(() => {
     setComPage(1)
-  }, [comSearch, comStatusFilter])
+  }, [comSearch, comStatusFilter, comKamFilter, comHodFilter])
 
   useEffect(() => {
     setPnPage(1)
-  }, [pnSearch, pnStatusFilter])
+  }, [pnSearch, pnStatusFilter, pnKamFilter, pnHodFilter])
 
   return (
     <div className="space-y-4">
@@ -546,6 +598,38 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-[#005180] to-[#0066a1] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#0066a1]">
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>HOD Name</span>
+                          <Select value={sdoHodFilter} onValueChange={setSdoHodFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All HODs</SelectItem>
+                              {sdoHodNames.map(hodName => (
+                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>KAM Name</span>
+                          <Select value={sdoKamFilter} onValueChange={setSdoKamFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All KAMs</SelectItem>
+                              {sdoKamNames.map(kamName => (
+                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
                       <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                         ID / Customer
                       </TableHead>
@@ -588,12 +672,15 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               style={{ animationDelay: `${index * 25}ms` }}
                             >
                               <TableCell className="py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className={`h-10 w-1 rounded-full ${getStatusAccent(project.status)}`} />
-                                  <div className="space-y-0.5">
-                                    <p className="text-sm font-semibold text-primary">{project.id}</p>
-                                    <TruncatedText text={project.customer} limit={25} className="text-sm text-muted-foreground" />
-                                  </div>
+                                <p className="text-sm font-medium text-foreground">{project.hodName || "N/A"}</p>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground">{project.kamName || "N/A"}</p>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <div className="space-y-0.5">
+                                  <p className="text-sm font-semibold text-primary">{project.id}</p>
+                                  <TruncatedText text={project.customer} limit={25} className="text-sm text-muted-foreground" />
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
@@ -616,12 +703,12 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               </TableCell>
                             </TableRow>
                           </DialogTrigger>
-                          <DialogContent className="surface-elevated max-w-2xl p-0">
-                            <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5">
+                          <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+                            <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5 flex-shrink-0">
                               <DialogTitle className="text-lg font-semibold text-foreground">{project.job}</DialogTitle>
                               <DialogDescription className="text-sm text-muted-foreground">{project.id}</DialogDescription>
                             </DialogHeader>
-                            <div className="space-y-5 px-6 py-6">
+                            <div className="space-y-5 px-6 py-6 overflow-y-auto overflow-x-hidden flex-1">
                               <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
                                   <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
@@ -758,6 +845,38 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-[#004875] to-[#005180] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#005180]">
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>HOD Name</span>
+                          <Select value={jdoHodFilter} onValueChange={setJdoHodFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All HODs</SelectItem>
+                              {jdoHodNames.map(hodName => (
+                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>KAM Name</span>
+                          <Select value={jdoKamFilter} onValueChange={setJdoKamFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All KAMs</SelectItem>
+                              {jdoKamNames.map(kamName => (
+                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
                       <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                         ID / Customer
                       </TableHead>
@@ -805,13 +924,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               style={{ animationDelay: `${index * 25}ms` }}
                             >
                               <TableCell className="py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className={`h-10 w-1 rounded-full ${getStatusAccent(overallStatus)}`} />
-                                  <div className="space-y-0.5">
-                                    <p className="text-sm font-semibold text-primary">{project.id}</p>
-                                    <TruncatedText text={project.customer} limit={25} className="text-sm text-muted-foreground" />
-                                    <p className="text-xs text-muted-foreground">SDO {project.sdoId}</p>
-                                  </div>
+                                <p className="text-sm font-medium text-foreground">{project.hodName || "N/A"}</p>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground">{project.kamName || "N/A"}</p>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <div className="space-y-0.5">
+                                  <p className="text-sm font-semibold text-primary">{project.id}</p>
+                                  <TruncatedText text={project.customer} limit={25} className="text-sm text-muted-foreground" />
+                                  <p className="text-xs text-muted-foreground">SDO {project.sdoId}</p>
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
@@ -847,12 +969,12 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               </TableCell>
                             </TableRow>
                           </DialogTrigger>
-                          <DialogContent className="surface-elevated max-w-2xl p-0">
-                            <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5">
+                          <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+                            <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5 flex-shrink-0">
                               <DialogTitle className="text-lg font-semibold text-foreground">{project.job}</DialogTitle>
                               <DialogDescription className="text-sm text-muted-foreground">{project.id}</DialogDescription>
                             </DialogHeader>
-                            <div className="space-y-5 px-6 py-6">
+                            <div className="space-y-5 px-6 py-6 overflow-y-auto overflow-x-hidden flex-1">
                               <div className="grid gap-4 sm:grid-cols-3">
                                 <div>
                                   <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
@@ -996,6 +1118,38 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-[#003d63] to-[#005180] hover:bg-gradient-to-r hover:from-[#003d63] hover:to-[#005180]">
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>HOD Name</span>
+                          <Select value={comHodFilter} onValueChange={setComHodFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All HODs</SelectItem>
+                              {comHodNames.map(hodName => (
+                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>KAM Name</span>
+                          <Select value={comKamFilter} onValueChange={setComKamFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All KAMs</SelectItem>
+                              {comKamNames.map(kamName => (
+                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
                       <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                         ID / Customer
                       </TableHead>
@@ -1042,13 +1196,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               style={{ animationDelay: `${index * 25}ms` }}
                             >
                               <TableCell className="py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className={`h-10 w-1 rounded-full ${getStatusAccent(order.status)}`} />
-                                  <div className="space-y-0.5">
-                                    <p className="text-sm font-semibold text-primary">{order.id}</p>
-                                    <TruncatedText text={order.customer} limit={25} className="text-sm text-muted-foreground" />
-                                    <p className="text-xs text-muted-foreground">JDO {order.jdoId}</p>
-                                  </div>
+                                <p className="text-sm font-medium text-foreground">{order.hodName || "N/A"}</p>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground">{order.kamName || "N/A"}</p>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <div className="space-y-0.5">
+                                  <p className="text-sm font-semibold text-primary">{order.id}</p>
+                                  <TruncatedText text={order.customer} limit={25} className="text-sm text-muted-foreground" />
+                                  <p className="text-xs text-muted-foreground">JDO {order.jdoId}</p>
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
@@ -1086,14 +1243,14 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               </TableCell>
                             </TableRow>
                           </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
+                          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                            <DialogHeader className="flex-shrink-0">
                               <DialogTitle className="text-2xl font-bold text-blue">{order.id}</DialogTitle>
                               <DialogDescription>
                                 Commercial Order Details
                               </DialogDescription>
                             </DialogHeader>
-                            <div className="grid grid-cols-2 gap-4 py-4">
+                            <div className="grid grid-cols-2 gap-4 py-4 overflow-y-auto overflow-x-hidden flex-1">
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">Customer</Label>
                                 <p className="text-base font-medium">{order.customer}</p>
@@ -1231,6 +1388,38 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#004875]">
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>HOD Name</span>
+                          <Select value={pnHodFilter} onValueChange={setPnHodFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All HODs</SelectItem>
+                              {pnHodNames.map(hodName => (
+                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                        <div className="flex items-center justify-between">
+                          <span>KAM Name</span>
+                          <Select value={pnKamFilter} onValueChange={setPnKamFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All KAMs</SelectItem>
+                              {pnKamNames.map(kamName => (
+                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
                       <TableHead className="w-[130px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                         PN
                       </TableHead>
@@ -1286,12 +1475,15 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               style={{ animationDelay: `${index * 25}ms` }}
                             >
                               <TableCell className="py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className={`h-10 w-1 rounded-full ${getStatusAccent(order.status)}`} />
-                                  <div className="space-y-0.5">
-                                    <p className="text-sm font-semibold text-primary">{order.id}</p>
-                                    <p className="text-xs text-muted-foreground">Commercial {order.commercialId}</p>
-                                  </div>
+                                <p className="text-sm font-medium text-foreground">{order.hodName || "N/A"}</p>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <p className="text-sm font-medium text-foreground">{order.kamName || "N/A"}</p>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <div className="space-y-0.5">
+                                  <p className="text-sm font-semibold text-primary">{order.id}</p>
+                                  <p className="text-xs text-muted-foreground">Commercial {order.commercialId}</p>
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
@@ -1326,12 +1518,12 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               </TableCell>
                             </TableRow>
                           </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
+                          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                            <DialogHeader className="flex-shrink-0">
                               <DialogTitle className="text-2xl font-bold text-blue">{order.id}</DialogTitle>
                               <DialogDescription>Production Order Details</DialogDescription>
                             </DialogHeader>
-                            <div className="grid grid-cols-2 gap-4 py-4">
+                            <div className="grid grid-cols-2 gap-4 py-4 overflow-y-auto overflow-x-hidden flex-1">
                               <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-muted-foreground">PN Req No.</Label>
                                 <p className="text-base font-medium">{order.pnReqNo}</p>

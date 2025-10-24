@@ -59,7 +59,6 @@ export default function ProjectsPage() {
     switch (activeTab) {
       case "sdo":
         return [
-          { label: "New SDO", onClick: handleNewSDO },
           { label: "View JDO", onClick: handleViewJDO },
           { label: "View Commercial", onClick: handleViewCommercial },
           { label: "View PN", onClick: handleViewPN },

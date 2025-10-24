@@ -6,11 +6,18 @@ import { InquiriesContent } from "@/components/inquiries-content"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { useRouter } from "next/navigation"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
+import { canCreate } from "@/lib/permissions"
 
 export default function InquiriesPage() {
   const router = useRouter()
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+  const [showFAB, setShowFAB] = useState(false)
+
+  useEffect(() => {
+    // Check if user can create new inquiries (only KAM)
+    setShowFAB(canCreate())
+  }, [])
 
   const handleExport = () => {
     // Implement export functionality - for now, just show alert
@@ -18,7 +25,6 @@ export default function InquiriesPage() {
   }
 
   const actions = [
-    { label: "New Inquiry", onClick: () => router.push("/") },
     { label: "Draft", onClick: () => router.push("/chats") },
     { label: "Export", onClick: handleExport },
   ]
@@ -43,7 +49,7 @@ export default function InquiriesPage() {
         <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6">
           <InquiriesContent />
         </div>
-        <FloatingActionButton actions={actions} />
+        {showFAB && <FloatingActionButton actions={actions} />}
         <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
     </SidebarProvider>

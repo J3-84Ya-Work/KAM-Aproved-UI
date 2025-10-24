@@ -11,9 +11,11 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  UserCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
 
 import {
   Sidebar,
@@ -30,6 +32,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { getCurrentUser } from "@/lib/permissions"
 
 const navItems = [
   {
@@ -80,6 +83,17 @@ export function AppSidebar() {
   const router = useRouter()
   const { state, toggleSidebar } = useSidebar()
   const isCollapsed = state === "collapsed"
+  const [userRole, setUserRole] = useState<string>("")
+  const [userName, setUserName] = useState<string>("")
+
+  useEffect(() => {
+    // Get current user info
+    const user = getCurrentUser()
+    if (user) {
+      setUserRole(user.role)
+      setUserName(user.name)
+    }
+  }, [])
 
   const handleLogout = () => {
     // Clear localStorage
@@ -88,6 +102,20 @@ export function AppSidebar() {
 
     // Redirect to login page
     router.push("/login")
+  }
+
+  // Get role badge color
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case "KAM":
+        return "bg-blue-100 text-blue-700 border-blue-300"
+      case "H.O.D":
+        return "bg-amber-100 text-amber-700 border-amber-300"
+      case "Vertical Head":
+        return "bg-purple-100 text-purple-700 border-purple-300"
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-300"
+    }
   }
 
   return (
@@ -110,6 +138,27 @@ export function AppSidebar() {
           )}
         </Button>
       </div>
+
+      {/* User Role Indicator */}
+      {userRole && (
+        <div className="border-b border-gray-200 p-3">
+          {isCollapsed ? (
+            <div className="flex justify-center" title={`${userRole} - ${userName}`}>
+              <UserCircle className="h-6 w-6 text-[#005180]" />
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <UserCircle className="h-6 w-6 text-[#005180] flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+                <Badge className={`${getRoleBadgeColor(userRole)} border text-xs font-semibold mt-1`}>
+                  {userRole}
+                </Badge>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <SidebarContent>
         <SidebarGroup>

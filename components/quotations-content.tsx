@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, SlidersHorizontal, ArrowUpCircle, Share2, Calendar, RefreshCw } from "lucide-react"
+import { Search, Filter, SlidersHorizontal, ArrowUpCircle, Share2, Calendar, RefreshCw, CheckCircle2, XCircle } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
+import { isHOD, isVerticalHead, isKAM } from "@/lib/permissions"
 
 const quotations = [
   {
@@ -31,6 +32,8 @@ const quotations = [
     approvalLevel: "L1",
     createdDate: "2024-01-15",
     notes: "Standard pricing applied",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     history: [
       { stage: "Inquiry Received", date: "2024-01-10" },
       { stage: "Costing Completed", date: "2024-01-13" },
@@ -49,6 +52,8 @@ const quotations = [
     approvalLevel: "L2",
     createdDate: "2024-01-14",
     notes: "Low margin - requires L2 approval",
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
     history: [
       { stage: "Inquiry Received", date: "2024-01-09" },
       { stage: "Costing Completed", date: "2024-01-11" },
@@ -68,6 +73,8 @@ const quotations = [
     approvalLevel: "L1",
     createdDate: "2024-01-13",
     notes: "Good margin - approved",
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
     history: [
       { stage: "Inquiry Received", date: "2024-01-08" },
       { stage: "Quotation Drafted", date: "2024-01-11" },
@@ -87,6 +94,8 @@ const quotations = [
     approvalLevel: "L1",
     createdDate: "2024-01-12",
     notes: "Premium pricing - customer accepted",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
     history: [
       { stage: "Inquiry Received", date: "2024-01-06" },
       { stage: "Quotation Drafted", date: "2024-01-08" },
@@ -103,15 +112,17 @@ const quotations = [
     amount: 95000,
     margin: 6.5,
     validTill: "2024-01-19",
-    status: "Rejected",
+    status: "Disapproved",
     approvalLevel: "L2",
     createdDate: "2024-01-11",
-    notes: "Margin too low - rejected by L2",
+    notes: "Margin too low - disapproved by L2",
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
     history: [
       { stage: "Inquiry Received", date: "2024-01-05" },
       { stage: "Quotation Drafted", date: "2024-01-07" },
       { stage: "Sent to HOD", date: "2024-01-08" },
-      { stage: "Rejected", date: "2024-01-09" },
+      { stage: "Disapproved", date: "2024-01-09" },
     ],
   },
 ]
@@ -121,6 +132,7 @@ const STATUS_BADGES: Record<string, string> = {
   Approved: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
   "Sent to HOD": "bg-amber-400/20 text-amber-700 border-amber-400/30",
   "Sent to Customer": "bg-cyan-500/15 text-cyan-700 border-cyan-500/30",
+  Disapproved: "bg-rose-500/15 text-rose-700 border-rose-500/30",
   Rejected: "bg-rose-500/15 text-rose-700 border-rose-500/30",
 }
 
@@ -129,6 +141,7 @@ const STATUS_ACCENTS: Record<string, string> = {
   Approved: "bg-emerald-500",
   "Sent to HOD": "bg-amber-500",
   "Sent to Customer": "bg-cyan-500",
+  Disapproved: "bg-rose-500",
   Rejected: "bg-rose-500",
 }
 
@@ -155,10 +168,26 @@ function getMarginBadge(margin: number) {
 export function QuotationsContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [hodFilter, setHodFilter] = useState("all")
+  const [kamFilter, setKamFilter] = useState("all")
   const [sortBy, setSortBy] = useState("date-desc")
   const [selectedQuotation, setSelectedQuotation] = useState<(typeof quotations)[0] | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [userIsHOD, setUserIsHOD] = useState(false)
+  const [userIsVerticalHead, setUserIsVerticalHead] = useState(false)
+  const [userIsKAM, setUserIsKAM] = useState(false)
   const itemsPerPage = 20
+
+  useEffect(() => {
+    // Check user role on component mount
+    setUserIsHOD(isHOD())
+    setUserIsVerticalHead(isVerticalHead())
+    setUserIsKAM(isKAM())
+  }, [])
+
+  // Get unique HOD and KAM names for filters
+  const hodNames = Array.from(new Set(quotations.map(q => q.hodName).filter((name): name is string => Boolean(name))))
+  const kamNames = Array.from(new Set(quotations.map(q => q.kamName).filter((name): name is string => Boolean(name))))
 
   const filteredQuotations = quotations
     .filter((quotation) => {
@@ -167,10 +196,14 @@ export function QuotationsContent() {
         quotation.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quotation.job.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quotation.inquiryId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        quotation.amount.toString().includes(searchQuery)
+        quotation.amount.toString().includes(searchQuery) ||
+        (quotation.kamName && quotation.kamName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (quotation.hodName && quotation.hodName.toLowerCase().includes(searchQuery.toLowerCase()))
       const matchesStatus = statusFilter === "all" || quotation.status === statusFilter
+      const matchesHod = hodFilter === "all" || quotation.hodName === hodFilter
+      const matchesKam = kamFilter === "all" || quotation.kamName === kamFilter
 
-      return matchesSearch && matchesStatus
+      return matchesSearch && matchesStatus && matchesHod && matchesKam
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -200,7 +233,7 @@ export function QuotationsContent() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, statusFilter, sortBy])
+  }, [searchQuery, statusFilter, hodFilter, kamFilter, sortBy])
 
   const handleOpenQuotation = (quotation: (typeof quotations)[0]) => {
     setSelectedQuotation(quotation)
@@ -233,6 +266,38 @@ export function QuotationsContent() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gradient-to-r from-[#005180] to-[#003d63] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#003d63]">
+                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    <div className="flex items-center justify-between">
+                      <span>HOD</span>
+                      <Select value={hodFilter} onValueChange={setHodFilter}>
+                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                          <Filter className="h-4 w-4 text-white" />
+                        </SelectTrigger>
+                        <SelectContent align="start" className="min-w-[150px]">
+                          <SelectItem value="all">All HODs</SelectItem>
+                          {hodNames.map(hodName => (
+                            <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    <div className="flex items-center justify-between">
+                      <span>KAM Name</span>
+                      <Select value={kamFilter} onValueChange={setKamFilter}>
+                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                          <Filter className="h-4 w-4 text-white" />
+                        </SelectTrigger>
+                        <SelectContent align="start" className="min-w-[150px]">
+                          <SelectItem value="all">All KAMs</SelectItem>
+                          {kamNames.map(kamName => (
+                            <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableHead>
                   <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     ID / Inquiry
                   </TableHead>
@@ -241,6 +306,9 @@ export function QuotationsContent() {
                   </TableHead>
                   <TableHead className="w-[240px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     Job & Validity
+                  </TableHead>
+                  <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    Amount / Margin
                   </TableHead>
                   <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     <div className="flex items-center justify-between">
@@ -255,13 +323,10 @@ export function QuotationsContent() {
                           <SelectItem value="Sent to HOD">Sent to HOD</SelectItem>
                           <SelectItem value="Approved">Approved</SelectItem>
                           <SelectItem value="Sent to Customer">Sent to Customer</SelectItem>
-                          <SelectItem value="Rejected">Rejected</SelectItem>
+                          <SelectItem value="Disapproved">Disapproved</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                  </TableHead>
-                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    Actions
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -275,12 +340,15 @@ export function QuotationsContent() {
                         onClick={() => handleOpenQuotation(quotation)}
                       >
                         <TableCell className="py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`h-10 w-1 rounded-full ${getStatusAccent(quotation.status)}`} />
-                            <div className="space-y-0.5">
-                              <p className="text-sm font-semibold text-primary">{quotation.id}</p>
-                              <p className="text-xs text-muted-foreground">Inquiry {quotation.inquiryId}</p>
-                            </div>
+                          <p className="text-sm font-medium text-foreground">{quotation.hodName || "N/A"}</p>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <p className="text-sm font-medium text-foreground">{quotation.kamName || "N/A"}</p>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-semibold text-primary">{quotation.id}</p>
+                            <p className="text-xs text-muted-foreground">Inquiry {quotation.inquiryId}</p>
                           </div>
                         </TableCell>
                         <TableCell className="py-4">
@@ -297,6 +365,14 @@ export function QuotationsContent() {
                           </div>
                         </TableCell>
                         <TableCell className="py-4">
+                          <div>
+                            <p className="font-bold text-sm">₹{(quotation.amount / 100000).toFixed(2)}L</p>
+                            <Badge className={`${getMarginBadge(quotation.margin)} border mt-1`}>
+                              <span className={getMarginColor(quotation.margin)}>{quotation.margin}%</span>
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4">
                           <Badge className={`${getStatusBadge(quotation.status)} border`}>{quotation.status}</Badge>
                           {quotation.status === "Quoted" && (
                             <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground/80">
@@ -304,45 +380,15 @@ export function QuotationsContent() {
                             </p>
                           )}
                         </TableCell>
-                        <TableCell className="py-4">
-                          <div className="flex gap-2">
-                            {quotation.status === "Quoted" && (
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  alert(`Sending ${quotation.id} to HOD`)
-                                }}
-                                className="h-9 w-9 rounded-xl border-border/70 bg-white/80 text-primary hover:bg-primary/10"
-                              >
-                                <ArrowUpCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {quotation.status === "Approved" && (
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  alert(`Sharing ${quotation.id} with customer`)
-                                }}
-                                className="h-9 w-9 rounded-xl border-border/70 bg-white/80 text-primary hover:bg-primary/10"
-                              >
-                                <Share2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
                       </TableRow>
                     </DialogTrigger>
-                    <DialogContent className="surface-elevated max-w-2xl p-0">
-                      <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5">
+                    <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+                      <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5 flex-shrink-0">
                         <DialogTitle className="text-lg font-semibold text-foreground">{selectedQuotation?.job}</DialogTitle>
                         <DialogDescription className="text-sm text-muted-foreground">{selectedQuotation?.id}</DialogDescription>
                       </DialogHeader>
                       {selectedQuotation && (
-                        <div className="space-y-5 px-6 py-6">
+                        <div className="space-y-5 px-6 py-6 overflow-y-auto overflow-x-hidden flex-1">
                           <div className="grid gap-4 sm:grid-cols-3">
                             <div>
                               <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
@@ -357,18 +403,28 @@ export function QuotationsContent() {
                               </div>
                             </div>
                             <div>
-                              <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Approval Level</Label>
-                              <p className="mt-1 text-sm text-foreground/80">{selectedQuotation.approvalLevel}</p>
+                              <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">KAM Name</Label>
+                              <p className="mt-1 text-sm font-medium text-foreground">{selectedQuotation.kamName || "N/A"}</p>
                             </div>
                           </div>
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div>
+                              <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Approval Level</Label>
+                              <p className="mt-1 text-sm text-foreground/80">{selectedQuotation.approvalLevel}</p>
+                            </div>
+                            <div>
                               <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Inquiry</Label>
                               <p className="mt-1 text-sm text-foreground/80">{selectedQuotation.inquiryId}</p>
                             </div>
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                               <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Valid Till</Label>
                               <p className="mt-1 text-sm text-foreground/80">{selectedQuotation.validTill}</p>
+                            </div>
+                            <div>
+                              <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Created Date</Label>
+                              <p className="mt-1 text-sm text-foreground/80">{selectedQuotation.createdDate}</p>
                             </div>
                           </div>
                           <div className="grid gap-4 sm:grid-cols-3">

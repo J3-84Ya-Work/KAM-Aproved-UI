@@ -6,11 +6,18 @@ import { QuotationsContent } from "@/components/quotations-content"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { useRouter } from "next/navigation"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
+import { canCreate } from "@/lib/permissions"
 
 export default function QuotationsPage() {
   const router = useRouter()
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+  const [showFAB, setShowFAB] = useState(false)
+
+  useEffect(() => {
+    // Check if user can create new quotations (only KAM)
+    setShowFAB(canCreate())
+  }, [])
 
   const handleExport = () => {
     alert("Export functionality will download all quotations as CSV/Excel")
@@ -40,7 +47,7 @@ export default function QuotationsPage() {
         <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6">
           <QuotationsContent />
         </div>
-        <FloatingActionButton actions={actions} />
+        {showFAB && <FloatingActionButton actions={actions} />}
         <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
     </SidebarProvider>

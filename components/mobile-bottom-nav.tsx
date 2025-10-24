@@ -30,9 +30,9 @@ const roleBasedNavItems = {
   ],
   "H.O.D": [
     {
-      title: "Inquiries",
-      url: "/inquiries",
-      icon: FileText,
+      title: "Approvals",
+      url: "/approvals",
+      icon: CheckCircle,
     },
     {
       title: "Quotations",
@@ -52,9 +52,9 @@ const roleBasedNavItems = {
   ],
   "Vertical Head": [
     {
-      title: "Inquiries",
-      url: "/inquiries",
-      icon: FileText,
+      title: "Approvals",
+      url: "/approvals",
+      icon: CheckCircle,
     },
     {
       title: "Quotations",
