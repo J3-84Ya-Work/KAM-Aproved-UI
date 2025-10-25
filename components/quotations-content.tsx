@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
-import { isHOD, isVerticalHead, isKAM } from "@/lib/permissions"
+import { isHOD, isVerticalHead, isKAM, getViewableKAMs } from "@/lib/permissions"
 
 const quotations = [
   {
@@ -166,6 +166,11 @@ function getMarginBadge(margin: number) {
 }
 
 export function QuotationsContent() {
+  const viewableKams = getViewableKAMs()
+  const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
+  const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
+  const isHODUser = isHOD() // HOD user check
+
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [hodFilter, setHodFilter] = useState("all")
@@ -185,11 +190,16 @@ export function QuotationsContent() {
     setUserIsKAM(isKAM())
   }, [])
 
-  // Get unique HOD and KAM names for filters
-  const hodNames = Array.from(new Set(quotations.map(q => q.hodName).filter((name): name is string => Boolean(name))))
-  const kamNames = Array.from(new Set(quotations.map(q => q.kamName).filter((name): name is string => Boolean(name))))
+  // Filter data based on user role - KAMs can only see their own data
+  const userFilteredQuotations = isRestrictedUser
+    ? quotations.filter(q => q.kamName && viewableKams.includes(q.kamName))
+    : quotations
 
-  const filteredQuotations = quotations
+  // Get unique HOD and KAM names for filters
+  const hodNames = Array.from(new Set(userFilteredQuotations.map(q => q.hodName).filter((name): name is string => Boolean(name))))
+  const kamNames = Array.from(new Set(userFilteredQuotations.map(q => q.kamName).filter((name): name is string => Boolean(name))))
+
+  const filteredQuotations = userFilteredQuotations
     .filter((quotation) => {
       const matchesSearch =
         quotation.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -266,38 +276,44 @@ export function QuotationsContent() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gradient-to-r from-[#005180] to-[#003d63] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#003d63]">
-                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>HOD</span>
-                      <Select value={hodFilter} onValueChange={setHodFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All HODs</SelectItem>
-                          {hodNames.map(hodName => (
-                            <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>KAM Name</span>
-                      <Select value={kamFilter} onValueChange={setKamFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All KAMs</SelectItem>
-                          {kamNames.map(kamName => (
-                            <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
+                  {!isKAMUser && !isHODUser && (
+                    <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                      <div className="flex items-center justify-between">
+                        <span>HOD</span>
+                        {!isRestrictedUser && (
+                          <Select value={hodFilter} onValueChange={setHodFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All HODs</SelectItem>
+                              {hodNames.map(hodName => (
+                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </TableHead>
+                  )}
+                  {!isKAMUser && (
+                    <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                      <div className="flex items-center justify-between">
+                        <span>KAM Name</span>
+                        <Select value={kamFilter} onValueChange={setKamFilter}>
+                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                            <Filter className="h-4 w-4 text-white" />
+                          </SelectTrigger>
+                          <SelectContent align="start" className="min-w-[150px]">
+                            <SelectItem value="all">All KAMs</SelectItem>
+                            {kamNames.map(kamName => (
+                              <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TableHead>
+                  )}
                   <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     ID / Inquiry
                   </TableHead>
@@ -339,12 +355,16 @@ export function QuotationsContent() {
                         style={{ animationDelay: `${index * 25}ms` }}
                         onClick={() => handleOpenQuotation(quotation)}
                       >
-                        <TableCell className="py-4">
-                          <p className="text-sm font-medium text-foreground">{quotation.hodName || "N/A"}</p>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <p className="text-sm font-medium text-foreground">{quotation.kamName || "N/A"}</p>
-                        </TableCell>
+                        {!isKAMUser && !isHODUser && (
+                          <TableCell className="py-4">
+                            <p className="text-sm font-medium text-foreground">{quotation.hodName || "N/A"}</p>
+                          </TableCell>
+                        )}
+                        {!isKAMUser && (
+                          <TableCell className="py-4">
+                            <p className="text-sm font-medium text-foreground">{quotation.kamName || "N/A"}</p>
+                          </TableCell>
+                        )}
                         <TableCell className="py-4">
                           <div className="space-y-0.5">
                             <p className="text-sm font-semibold text-primary">{quotation.id}</p>

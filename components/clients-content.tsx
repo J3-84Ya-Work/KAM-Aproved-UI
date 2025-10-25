@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { TruncatedText } from "@/components/truncated-text"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { getViewableKAMs, isHOD } from "@/lib/permissions"
 
 const clients = [
   {
@@ -154,22 +155,35 @@ function getComplianceColor(status: string) {
 }
 
 export function ClientsContent() {
+  const viewableKams = getViewableKAMs()
+  const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
+  const isKAM = viewableKams.length === 1 // KAM can only see themselves
+  const isHODUser = isHOD() // HOD user check
+
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedClient, setSelectedClient] = useState<(typeof clients)[0] | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [hodFilter, setHodFilter] = useState("all")
+  const [kamFilter, setKamFilter] = useState("all")
   const itemsPerPage = 20
 
-  const hodNames = Array.from(new Set(clients.map(client => client.hodName).filter((name): name is string => Boolean(name))))
+  // Filter data based on user role - KAMs can only see their own data
+  const userFilteredClients = isRestrictedUser
+    ? clients.filter(client => client.kamName && viewableKams.includes(client.kamName))
+    : clients
 
-  const filteredClients = clients.filter((client) => {
+  const hodNames = Array.from(new Set(userFilteredClients.map(client => client.hodName).filter((name): name is string => Boolean(name))))
+  const kamNames = Array.from(new Set(userFilteredClients.map(client => client.kamName).filter((name): name is string => Boolean(name))))
+
+  const filteredClients = userFilteredClients.filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (client.code && client.code.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesHod = hodFilter === "all" || client.hodName === hodFilter
-    return matchesSearch && matchesHod
+    const matchesKam = kamFilter === "all" || client.kamName === kamFilter
+    return matchesSearch && matchesHod && matchesKam
   })
 
   // Pagination calculations
@@ -181,7 +195,7 @@ export function ClientsContent() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, hodFilter])
+  }, [searchQuery, hodFilter, kamFilter])
 
   return (
     <div className="space-y-4">
@@ -211,23 +225,44 @@ export function ClientsContent() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-[#004875] to-[#003d63] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#003d63] [&_th]:text-white [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs">
-                <TableHead>
-                  <div className="flex items-center justify-between">
-                    <span>HOD</span>
-                    <Select value={hodFilter} onValueChange={setHodFilter}>
-                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                        <Filter className="h-4 w-4 text-white" />
-                      </SelectTrigger>
-                      <SelectContent align="start" className="min-w-[150px]">
-                        <SelectItem value="all">All HODs</SelectItem>
-                        {hodNames.map(hodName => (
-                          <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TableHead>
-                <TableHead>KAM Name</TableHead>
+                {!isKAM && !isHODUser && (
+                  <TableHead>
+                    <div className="flex items-center justify-between">
+                      <span>HOD</span>
+                      {!isRestrictedUser && (
+                        <Select value={hodFilter} onValueChange={setHodFilter}>
+                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                            <Filter className="h-4 w-4 text-white" />
+                          </SelectTrigger>
+                          <SelectContent align="start" className="min-w-[150px]">
+                            <SelectItem value="all">All HODs</SelectItem>
+                            {hodNames.map(hodName => (
+                              <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </TableHead>
+                )}
+                {!isKAM && (
+                  <TableHead>
+                    <div className="flex items-center justify-between">
+                      <span>KAM Name</span>
+                      <Select value={kamFilter} onValueChange={setKamFilter}>
+                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                          <Filter className="h-4 w-4 text-white" />
+                        </SelectTrigger>
+                        <SelectContent align="start" className="min-w-[150px]">
+                          <SelectItem value="all">All KAMs</SelectItem>
+                          {kamNames.map(kamName => (
+                            <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableHead>
+                )}
                 <TableHead>Client ID</TableHead>
                 <TableHead>Company Name</TableHead>
                 <TableHead>Customer Code</TableHead>
@@ -241,12 +276,16 @@ export function ClientsContent() {
             <TableBody>
               {paginatedClients.map((client, index) => (
                 <TableRow key={client.id} className="border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
-                  <TableCell>
-                    <p className="text-sm font-medium text-foreground">{client.hodName || "N/A"}</p>
-                  </TableCell>
-                  <TableCell>
-                    <p className="text-sm font-medium text-foreground">{client.kamName || "N/A"}</p>
-                  </TableCell>
+                  {!isKAM && !isHODUser && (
+                    <TableCell>
+                      <p className="text-sm font-medium text-foreground">{client.hodName || "N/A"}</p>
+                    </TableCell>
+                  )}
+                  {!isKAM && (
+                    <TableCell>
+                      <p className="text-sm font-medium text-foreground">{client.kamName || "N/A"}</p>
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium text-primary">{client.id}</TableCell>
                   <TableCell>
                     <div>

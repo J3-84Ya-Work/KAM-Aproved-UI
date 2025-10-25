@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
+import { getViewableKAMs, isHOD } from "@/lib/permissions"
 
 const sdoProjects = [
   {
@@ -98,6 +99,162 @@ const sdoProjects = [
       { stage: "Sample Fabrication", date: "2024-01-16" },
     ],
   },
+  {
+    id: "SDO-2024-005",
+    customer: "Galaxy Foods",
+    job: "Food Grade Packaging",
+    quoteId: "QUO-2024-051",
+    executionLocation: "Bangalore",
+    productionPlant: "Plant A",
+    status: "Sample Approved",
+    progress: 100,
+    createdDate: "2024-01-18",
+    approvedDate: "2024-01-22",
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
+    notes: "Sample approved with food safety certification",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-15" },
+      { stage: "Sample Initiated", date: "2024-01-18" },
+      { stage: "Sample Approved", date: "2024-01-22" },
+    ],
+  },
+  {
+    id: "SDO-2024-006",
+    customer: "Express Delivery Ltd",
+    job: "Courier Bags",
+    quoteId: "QUO-2024-052",
+    executionLocation: "Chennai",
+    productionPlant: "Plant B",
+    status: "Sales Approval",
+    progress: 80,
+    createdDate: "2024-01-20",
+    approvedDate: null,
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
+    notes: "Awaiting final sales approval",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-17" },
+      { stage: "Sample Prepared", date: "2024-01-20" },
+      { stage: "Sales Approval", date: "2024-01-23" },
+    ],
+  },
+  {
+    id: "SDO-2024-007",
+    customer: "Premium Cosmetics",
+    job: "Luxury Cosmetic Box",
+    quoteId: "QUO-2024-053",
+    executionLocation: "Mumbai",
+    productionPlant: "Plant C",
+    status: "Clarification",
+    progress: 45,
+    createdDate: "2024-01-22",
+    approvedDate: null,
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    notes: "Awaiting gold foil specification details",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-19" },
+      { stage: "Clarification Requested", date: "2024-01-22" },
+    ],
+  },
+  {
+    id: "SDO-2024-008",
+    customer: "BuildTech Solutions",
+    job: "Industrial Labels",
+    quoteId: "QUO-2024-054",
+    executionLocation: "Pune",
+    productionPlant: "Plant D",
+    status: "In PDD",
+    progress: 60,
+    createdDate: "2024-01-24",
+    approvedDate: null,
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    notes: "Prototype development in progress",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-21" },
+      { stage: "Sample Fabrication", date: "2024-01-24" },
+    ],
+  },
+  {
+    id: "SDO-2024-009",
+    customer: "FreshMart Retail",
+    job: "Retail Packaging",
+    quoteId: "QUO-2024-055",
+    executionLocation: "Hyderabad",
+    productionPlant: "Plant A",
+    status: "Sample Approved",
+    progress: 100,
+    createdDate: "2024-01-26",
+    approvedDate: "2024-01-30",
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
+    notes: "Eco-friendly packaging approved by client",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-23" },
+      { stage: "Sample Initiated", date: "2024-01-26" },
+      { stage: "Sample Approved", date: "2024-01-30" },
+    ],
+  },
+  {
+    id: "SDO-2024-010",
+    customer: "AutoParts Inc",
+    job: "Automotive Component Box",
+    quoteId: "QUO-2024-056",
+    executionLocation: "Gurgaon",
+    productionPlant: "Plant B",
+    status: "Sales Approval",
+    progress: 70,
+    createdDate: "2024-01-28",
+    approvedDate: null,
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
+    notes: "Heavy-duty packaging for automotive parts",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-25" },
+      { stage: "Sample Prepared", date: "2024-01-28" },
+      { stage: "Sales Approval", date: "2024-01-31" },
+    ],
+  },
+  {
+    id: "SDO-2024-011",
+    customer: "PharmaCare Ltd",
+    job: "Medicine Packaging",
+    quoteId: "QUO-2024-057",
+    executionLocation: "Delhi",
+    productionPlant: "Plant C",
+    status: "In PDD",
+    progress: 55,
+    createdDate: "2024-01-30",
+    approvedDate: null,
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    notes: "Pharmaceutical-grade packaging development",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-27" },
+      { stage: "Sample Fabrication", date: "2024-01-30" },
+    ],
+  },
+  {
+    id: "SDO-2024-012",
+    customer: "TechGadgets Co",
+    job: "Electronic Device Box",
+    quoteId: "QUO-2024-058",
+    executionLocation: "Noida",
+    productionPlant: "Plant D",
+    status: "Clarification",
+    progress: 35,
+    createdDate: "2024-02-01",
+    approvedDate: null,
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    notes: "Awaiting dimensions for new product line",
+    history: [
+      { stage: "Inquiry Received", date: "2024-01-29" },
+      { stage: "Clarification Requested", date: "2024-02-01" },
+    ],
+  },
 ]
 
 const jdoProjects = [
@@ -133,6 +290,108 @@ const jdoProjects = [
     kamName: "Amit Patel",
     hodName: "Suresh Menon",
     notes: "Awaiting artwork approval from customer",
+    mfReleased: false,
+  },
+  {
+    id: "JDO-2024-003",
+    customer: "Galaxy Foods",
+    job: "Food Grade Packaging",
+    sdoId: "SDO-2024-005",
+    prePressPlant: "Prepress Hub 1",
+    productionPlant: "Plant A",
+    artworkStatus: "Approved",
+    bomStatus: "Complete",
+    routingStatus: "Complete",
+    progress: 100,
+    createdDate: "2024-01-23",
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
+    notes: "All approvals completed, ready for commercial",
+    mfReleased: true,
+  },
+  {
+    id: "JDO-2024-004",
+    customer: "Premium Cosmetics",
+    job: "Luxury Cosmetic Box",
+    sdoId: "SDO-2024-007",
+    prePressPlant: "Prepress Hub 3",
+    productionPlant: "Plant C",
+    artworkStatus: "In Review",
+    bomStatus: "Pending",
+    routingStatus: "Pending",
+    progress: 40,
+    createdDate: "2024-01-24",
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    notes: "Artwork with gold foil detailing under review",
+    mfReleased: false,
+  },
+  {
+    id: "JDO-2024-005",
+    customer: "BuildTech Solutions",
+    job: "Industrial Labels",
+    sdoId: "SDO-2024-008",
+    prePressPlant: "Prepress Hub 2",
+    productionPlant: "Plant D",
+    artworkStatus: "Approved",
+    bomStatus: "Complete",
+    routingStatus: "Pending",
+    progress: 75,
+    createdDate: "2024-01-26",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    notes: "BOM finalized, routing in progress",
+    mfReleased: false,
+  },
+  {
+    id: "JDO-2024-006",
+    customer: "Express Delivery Ltd",
+    job: "Courier Bags",
+    sdoId: "SDO-2024-006",
+    prePressPlant: "Prepress Hub 1",
+    productionPlant: "Plant B",
+    artworkStatus: "Approved",
+    bomStatus: "Complete",
+    routingStatus: "Complete",
+    progress: 100,
+    createdDate: "2024-01-25",
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
+    notes: "Ready for production scheduling",
+    mfReleased: true,
+  },
+  {
+    id: "JDO-2024-007",
+    customer: "FreshMart Retail",
+    job: "Retail Packaging",
+    sdoId: "SDO-2024-009",
+    prePressPlant: "Prepress Hub 2",
+    productionPlant: "Plant A",
+    artworkStatus: "In Review",
+    bomStatus: "Complete",
+    routingStatus: "Pending",
+    progress: 55,
+    createdDate: "2024-01-31",
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
+    notes: "Eco-friendly materials BOM completed",
+    mfReleased: false,
+  },
+  {
+    id: "JDO-2024-008",
+    customer: "PharmaCare Ltd",
+    job: "Medicine Packaging",
+    sdoId: "SDO-2024-011",
+    prePressPlant: "Prepress Hub 3",
+    productionPlant: "Plant C",
+    artworkStatus: "Approved",
+    bomStatus: "Pending",
+    routingStatus: "Pending",
+    progress: 50,
+    createdDate: "2024-02-01",
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    notes: "Pharmaceutical compliance review in progress",
     mfReleased: false,
   },
 ]
@@ -197,6 +456,106 @@ const commercialOrders = [
     kamName: "Rajesh Kumar",
     hodName: "Suresh Menon",
     notes: "Under commercial review",
+  },
+  {
+    id: "COM-2024-004",
+    customer: "Express Delivery Ltd",
+    job: "Courier Bags",
+    jdoId: "JDO-2024-006",
+    prePressPlant: "Prepress Hub 1",
+    productionPlant: "Plant B",
+    prePressStatus: "Complete",
+    productionStatus: "Approved",
+    dispatchStatus: "Scheduled",
+    amount: 290000,
+    quantity: "15000 units",
+    status: "Approved",
+    orderDate: "2024-01-26",
+    expectedDelivery: "2024-02-08",
+    progress: 100,
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
+    notes: "Order approved for production",
+  },
+  {
+    id: "COM-2024-005",
+    customer: "Galaxy Foods",
+    job: "Food Grade Packaging",
+    jdoId: "JDO-2024-003",
+    prePressPlant: "Prepress Hub 1",
+    productionPlant: "Plant A",
+    prePressStatus: "Complete",
+    productionStatus: "In PDD",
+    dispatchStatus: "Pending",
+    amount: 385000,
+    quantity: "7500 units",
+    status: "In PDD",
+    orderDate: "2024-01-24",
+    expectedDelivery: "2024-02-10",
+    progress: 65,
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
+    notes: "Food safety certification verified",
+  },
+  {
+    id: "COM-2024-006",
+    customer: "PharmaCare Ltd",
+    job: "Medicine Packaging",
+    jdoId: "JDO-2024-008",
+    prePressPlant: "Prepress Hub 3",
+    productionPlant: "Plant C",
+    prePressStatus: "In Progress",
+    productionStatus: "Pending",
+    dispatchStatus: "Pending",
+    amount: 510000,
+    quantity: "4000 units",
+    status: "In Review",
+    orderDate: "2024-02-02",
+    expectedDelivery: "2024-02-18",
+    progress: 40,
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    notes: "Pharmaceutical compliance documents under review",
+  },
+  {
+    id: "COM-2024-007",
+    customer: "BuildTech Solutions",
+    job: "Industrial Labels",
+    jdoId: "JDO-2024-005",
+    prePressPlant: "Prepress Hub 2",
+    productionPlant: "Plant D",
+    prePressStatus: "Complete",
+    productionStatus: "In PDD",
+    dispatchStatus: "Pending",
+    amount: 225000,
+    quantity: "20000 units",
+    status: "In PDD",
+    orderDate: "2024-01-28",
+    expectedDelivery: "2024-02-12",
+    progress: 70,
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    notes: "High-volume production scheduled",
+  },
+  {
+    id: "COM-2024-008",
+    customer: "FreshMart Retail",
+    job: "Retail Packaging",
+    jdoId: "JDO-2024-007",
+    prePressPlant: "Prepress Hub 2",
+    productionPlant: "Plant A",
+    prePressStatus: "In Progress",
+    productionStatus: "Pending",
+    dispatchStatus: "Pending",
+    amount: 340000,
+    quantity: "9000 units",
+    status: "In Review",
+    orderDate: "2024-02-01",
+    expectedDelivery: "2024-02-15",
+    progress: 50,
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
+    notes: "Eco-friendly packaging commercial order",
   },
 ]
 
@@ -284,6 +643,202 @@ const pnOrders = [
     plant: "Plant D",
     orderDate: "2024-01-14",
     expectedDelivery: "2024-01-29",
+  },
+  {
+    id: "PN-2024-004",
+    pnReqNo: "REQ-2024-1015",
+    customer: "Prime Packaging",
+    job: "Die-Cut Boxes",
+    commercialId: "COM-2024-001",
+    fgMaterial: "FG-DCUT-3342",
+    amount: 425000,
+    quantity: "8000 units",
+    status: "Not Arrived",
+    prePressStatus: "Complete",
+    productionStatus: "In PDD",
+    dispatchStatus: "Pending",
+    punchedDate: "2024-01-20",
+    releasedDate: "2024-01-22",
+    dispatchedDate: null,
+    initiateDate: "2024-01-18",
+    progress: 65,
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    notes: "Die-cutting tools prepared, production ongoing",
+    description: "Custom die-cut boxes with window",
+    rmType: "Duplex Board",
+    procurementQty: "8,000 units",
+    plant: "Plant B",
+    orderDate: "2024-01-16",
+    expectedDelivery: "2024-02-05",
+  },
+  {
+    id: "PN-2024-005",
+    pnReqNo: "REQ-2024-1020",
+    customer: "Galaxy Foods",
+    job: "Food Grade Packaging",
+    commercialId: "COM-2024-005",
+    fgMaterial: "FG-FOOD-6612",
+    amount: 385000,
+    quantity: "7500 units",
+    status: "Arrived",
+    prePressStatus: "Complete",
+    productionStatus: "Completed",
+    dispatchStatus: "Dispatched",
+    punchedDate: "2024-01-25",
+    releasedDate: "2024-01-27",
+    dispatchedDate: "2024-02-03",
+    initiateDate: "2024-01-23",
+    progress: 100,
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
+    notes: "Successfully delivered with food safety certification",
+    description: "Food-safe packaging with FDA approval",
+    rmType: "Food Grade Board",
+    procurementQty: "7,500 units",
+    plant: "Plant A",
+    orderDate: "2024-01-20",
+    expectedDelivery: "2024-02-03",
+  },
+  {
+    id: "PN-2024-006",
+    pnReqNo: "REQ-2024-1025",
+    customer: "Express Delivery Ltd",
+    job: "Courier Bags",
+    commercialId: "COM-2024-004",
+    fgMaterial: "FG-POLY-8891",
+    amount: 290000,
+    quantity: "15000 units",
+    status: "Not Arrived",
+    prePressStatus: "Approved",
+    productionStatus: "Released",
+    dispatchStatus: "Pending",
+    punchedDate: "2024-01-28",
+    releasedDate: "2024-01-30",
+    dispatchedDate: null,
+    initiateDate: "2024-01-27",
+    progress: 55,
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
+    notes: "High-volume courier bag production in progress",
+    description: "Tamper-proof courier bags with barcode",
+    rmType: "Poly Material",
+    procurementQty: "15,000 units",
+    plant: "Plant B",
+    orderDate: "2024-01-25",
+    expectedDelivery: "2024-02-10",
+  },
+  {
+    id: "PN-2024-007",
+    pnReqNo: "REQ-2024-1030",
+    customer: "BuildTech Solutions",
+    job: "Industrial Labels",
+    commercialId: "COM-2024-007",
+    fgMaterial: "FG-IND-2234",
+    amount: 225000,
+    quantity: "20000 units",
+    status: "Not Arrived",
+    prePressStatus: "Complete",
+    productionStatus: "In PDD",
+    dispatchStatus: "Pending",
+    punchedDate: "2024-01-30",
+    releasedDate: "2024-02-01",
+    dispatchedDate: null,
+    initiateDate: "2024-01-29",
+    progress: 60,
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    notes: "Industrial-grade labels production scheduled",
+    description: "Heavy-duty industrial warning labels",
+    rmType: "Synthetic Paper",
+    procurementQty: "20,000 units",
+    plant: "Plant D",
+    orderDate: "2024-01-27",
+    expectedDelivery: "2024-02-13",
+  },
+  {
+    id: "PN-2024-008",
+    pnReqNo: "REQ-2024-1035",
+    customer: "PharmaCare Ltd",
+    job: "Medicine Packaging",
+    commercialId: "COM-2024-006",
+    fgMaterial: "FG-PHAR-5567",
+    amount: 510000,
+    quantity: "4000 units",
+    status: "Not Arrived",
+    prePressStatus: "In Review",
+    productionStatus: "Pending",
+    dispatchStatus: "Pending",
+    punchedDate: "2024-02-03",
+    releasedDate: null,
+    dispatchedDate: null,
+    initiateDate: "2024-02-02",
+    progress: 30,
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    notes: "Pharmaceutical compliance review in progress",
+    description: "Child-resistant pharmaceutical packaging",
+    rmType: "Pharma Grade Board",
+    procurementQty: "4,000 units",
+    plant: "Plant C",
+    orderDate: "2024-02-01",
+    expectedDelivery: "2024-02-20",
+  },
+  {
+    id: "PN-2024-009",
+    pnReqNo: "REQ-2024-1040",
+    customer: "Acme Corp",
+    job: "Custom Packaging Box",
+    commercialId: "COM-2024-003",
+    fgMaterial: "FG-CUST-7788",
+    amount: 320000,
+    quantity: "5000 units",
+    status: "Not Arrived",
+    prePressStatus: "In Progress",
+    productionStatus: "Pending",
+    dispatchStatus: "Pending",
+    punchedDate: "2024-02-04",
+    releasedDate: null,
+    dispatchedDate: null,
+    initiateDate: "2024-02-03",
+    progress: 25,
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    notes: "Custom packaging design finalization pending",
+    description: "Premium custom packaging with embossing",
+    rmType: "Art Board",
+    procurementQty: "5,000 units",
+    plant: "Plant D",
+    orderDate: "2024-02-01",
+    expectedDelivery: "2024-02-22",
+  },
+  {
+    id: "PN-2024-010",
+    pnReqNo: "REQ-2024-1045",
+    customer: "FreshMart Retail",
+    job: "Retail Packaging",
+    commercialId: "COM-2024-008",
+    fgMaterial: "FG-RETL-4455",
+    amount: 340000,
+    quantity: "9000 units",
+    status: "Not Arrived",
+    prePressStatus: "Approved",
+    productionStatus: "Released",
+    dispatchStatus: "Pending",
+    punchedDate: "2024-02-02",
+    releasedDate: "2024-02-04",
+    dispatchedDate: null,
+    initiateDate: "2024-02-01",
+    progress: 45,
+    kamName: "Sneha Gupta",
+    hodName: "Kavita Reddy",
+    notes: "Eco-friendly retail packaging in production",
+    description: "Recyclable retail display packaging",
+    rmType: "Recycled Board",
+    procurementQty: "9,000 units",
+    plant: "Plant A",
+    orderDate: "2024-01-30",
+    expectedDelivery: "2024-02-17",
   },
 ]
 
@@ -427,6 +982,11 @@ interface ProjectsContentProps {
 }
 
 export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsContentProps) {
+  const viewableKams = getViewableKAMs()
+  const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
+  const isKAM = viewableKams.length === 1 // KAM can only see themselves
+  const isHODUser = isHOD() // HOD user check
+
   const [sdoSearch, setSdoSearch] = useState("")
   const [sdoStatusFilter, setSdoStatusFilter] = useState("all")
   const [sdoKamFilter, setSdoKamFilter] = useState("all")
@@ -451,20 +1011,37 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
   const [pnPage, setPnPage] = useState(1)
   const itemsPerPage = 20
 
+  // Filter data based on user role - KAMs can only see their own data
+  const userFilteredSdo = isRestrictedUser
+    ? sdoProjects.filter(p => p.kamName && viewableKams.includes(p.kamName))
+    : sdoProjects
+
+  const userFilteredJdo = isRestrictedUser
+    ? jdoProjects.filter(p => p.kamName && viewableKams.includes(p.kamName))
+    : jdoProjects
+
+  const userFilteredCommercial = isRestrictedUser
+    ? commercialOrders.filter(p => p.kamName && viewableKams.includes(p.kamName))
+    : commercialOrders
+
+  const userFilteredPn = isRestrictedUser
+    ? pnOrders.filter(p => p.kamName && viewableKams.includes(p.kamName))
+    : pnOrders
+
   // Get unique KAM names
-  const sdoKamNames = Array.from(new Set(sdoProjects.map(p => p.kamName).filter((name): name is string => Boolean(name))))
-  const jdoKamNames = Array.from(new Set(jdoProjects.map(p => p.kamName).filter((name): name is string => Boolean(name))))
-  const comKamNames = Array.from(new Set(commercialOrders.map(p => p.kamName).filter((name): name is string => Boolean(name))))
-  const pnKamNames = Array.from(new Set(pnOrders.map(p => p.kamName).filter((name): name is string => Boolean(name))))
+  const sdoKamNames = Array.from(new Set(userFilteredSdo.map(p => p.kamName).filter((name): name is string => Boolean(name))))
+  const jdoKamNames = Array.from(new Set(userFilteredJdo.map(p => p.kamName).filter((name): name is string => Boolean(name))))
+  const comKamNames = Array.from(new Set(userFilteredCommercial.map(p => p.kamName).filter((name): name is string => Boolean(name))))
+  const pnKamNames = Array.from(new Set(userFilteredPn.map(p => p.kamName).filter((name): name is string => Boolean(name))))
 
   // Get unique HOD names
-  const sdoHodNames = Array.from(new Set(sdoProjects.map(p => p.hodName).filter((name): name is string => Boolean(name))))
-  const jdoHodNames = Array.from(new Set(jdoProjects.map(p => p.hodName).filter((name): name is string => Boolean(name))))
-  const comHodNames = Array.from(new Set(commercialOrders.map(p => p.hodName).filter((name): name is string => Boolean(name))))
-  const pnHodNames = Array.from(new Set(pnOrders.map(p => p.hodName).filter((name): name is string => Boolean(name))))
+  const sdoHodNames = Array.from(new Set(userFilteredSdo.map(p => p.hodName).filter((name): name is string => Boolean(name))))
+  const jdoHodNames = Array.from(new Set(userFilteredJdo.map(p => p.hodName).filter((name): name is string => Boolean(name))))
+  const comHodNames = Array.from(new Set(userFilteredCommercial.map(p => p.hodName).filter((name): name is string => Boolean(name))))
+  const pnHodNames = Array.from(new Set(userFilteredPn.map(p => p.hodName).filter((name): name is string => Boolean(name))))
 
   // Filtered data
-  const filteredSDO = sdoProjects.filter(p => {
+  const filteredSDO = userFilteredSdo.filter(p => {
     const matchesSearch =
       p.id.toLowerCase().includes(sdoSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(sdoSearch.toLowerCase()) ||
@@ -478,7 +1055,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
     return matchesSearch && matchesStatus && matchesKam && matchesHod
   })
 
-  const filteredJDO = jdoProjects.filter(p => {
+  const filteredJDO = userFilteredJdo.filter(p => {
     const matchesSearch =
       p.id.toLowerCase().includes(jdoSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(jdoSearch.toLowerCase()) ||
@@ -495,7 +1072,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
     return matchesSearch && (jdoStatusFilter === "all" || overallStatus === jdoStatusFilter) && matchesKam && matchesHod
   })
 
-  const filteredCommercial = commercialOrders.filter(p => {
+  const filteredCommercial = userFilteredCommercial.filter(p => {
     const matchesSearch =
       p.id.toLowerCase().includes(comSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(comSearch.toLowerCase()) ||
@@ -509,7 +1086,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
     return matchesSearch && (comStatusFilter === "all" || p.status === comStatusFilter) && matchesKam && matchesHod
   })
 
-  const filteredPN = pnOrders.filter(p => {
+  const filteredPN = userFilteredPn.filter(p => {
     const matchesSearch =
       p.id.toLowerCase().includes(pnSearch.toLowerCase()) ||
       p.customer.toLowerCase().includes(pnSearch.toLowerCase()) ||
@@ -598,38 +1175,44 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-[#005180] to-[#0066a1] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#0066a1]">
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>HOD Name</span>
-                          <Select value={sdoHodFilter} onValueChange={setSdoHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {sdoHodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>KAM Name</span>
-                          <Select value={sdoKamFilter} onValueChange={setSdoKamFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All KAMs</SelectItem>
-                              {sdoKamNames.map(kamName => (
-                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
+                      {!isKAM && !isHODUser && (
+                        <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          <div className="flex items-center justify-between">
+                            <span>HOD Name</span>
+                            {!isRestrictedUser && (
+                              <Select value={sdoHodFilter} onValueChange={setSdoHodFilter}>
+                                <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                                  <Filter className="h-4 w-4 text-white" />
+                                </SelectTrigger>
+                                <SelectContent align="start" className="min-w-[150px]">
+                                  <SelectItem value="all">All HODs</SelectItem>
+                                  {sdoHodNames.map(hodName => (
+                                    <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        </TableHead>
+                      )}
+                      {!isKAM && (
+                        <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          <div className="flex items-center justify-between">
+                            <span>KAM Name</span>
+                            <Select value={sdoKamFilter} onValueChange={setSdoKamFilter}>
+                              <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                                <Filter className="h-4 w-4 text-white" />
+                              </SelectTrigger>
+                              <SelectContent align="start" className="min-w-[150px]">
+                                <SelectItem value="all">All KAMs</SelectItem>
+                                {sdoKamNames.map(kamName => (
+                                  <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableHead>
+                      )}
                       <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                         ID / Customer
                       </TableHead>
@@ -671,12 +1254,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
                               style={{ animationDelay: `${index * 25}ms` }}
                             >
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{project.hodName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{project.kamName || "N/A"}</p>
-                              </TableCell>
+                              {!isKAM && !isHODUser && (
+                                <TableCell className="py-4">
+                                  <p className="text-sm font-medium text-foreground">{project.hodName || "N/A"}</p>
+                                </TableCell>
+                              )}
+                              {!isKAM && (
+                                <TableCell className="py-4">
+                                  <p className="text-sm font-medium text-foreground">{project.kamName || "N/A"}</p>
+                                </TableCell>
+                              )}
                               <TableCell className="py-4">
                                 <div className="space-y-0.5">
                                   <p className="text-sm font-semibold text-primary">{project.id}</p>
@@ -845,38 +1432,44 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-[#004875] to-[#005180] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#005180]">
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>HOD Name</span>
-                          <Select value={jdoHodFilter} onValueChange={setJdoHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {jdoHodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>KAM Name</span>
-                          <Select value={jdoKamFilter} onValueChange={setJdoKamFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All KAMs</SelectItem>
-                              {jdoKamNames.map(kamName => (
-                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
+                      {!isKAM && !isHODUser && (
+                        <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          <div className="flex items-center justify-between">
+                            <span>HOD Name</span>
+                            {!isRestrictedUser && (
+                              <Select value={jdoHodFilter} onValueChange={setJdoHodFilter}>
+                                <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                                  <Filter className="h-4 w-4 text-white" />
+                                </SelectTrigger>
+                                <SelectContent align="start" className="min-w-[150px]">
+                                  <SelectItem value="all">All HODs</SelectItem>
+                                  {jdoHodNames.map(hodName => (
+                                    <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        </TableHead>
+                      )}
+                      {!isKAM && (
+                        <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          <div className="flex items-center justify-between">
+                            <span>KAM Name</span>
+                            <Select value={jdoKamFilter} onValueChange={setJdoKamFilter}>
+                              <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                                <Filter className="h-4 w-4 text-white" />
+                              </SelectTrigger>
+                              <SelectContent align="start" className="min-w-[150px]">
+                                <SelectItem value="all">All KAMs</SelectItem>
+                                {jdoKamNames.map(kamName => (
+                                  <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableHead>
+                      )}
                       <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                         ID / Customer
                       </TableHead>
@@ -923,12 +1516,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
                               style={{ animationDelay: `${index * 25}ms` }}
                             >
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{project.hodName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{project.kamName || "N/A"}</p>
-                              </TableCell>
+                              {!isKAM && !isHODUser && (
+                                <TableCell className="py-4">
+                                  <p className="text-sm font-medium text-foreground">{project.hodName || "N/A"}</p>
+                                </TableCell>
+                              )}
+                              {!isKAM && (
+                                <TableCell className="py-4">
+                                  <p className="text-sm font-medium text-foreground">{project.kamName || "N/A"}</p>
+                                </TableCell>
+                              )}
                               <TableCell className="py-4">
                                 <div className="space-y-0.5">
                                   <p className="text-sm font-semibold text-primary">{project.id}</p>
@@ -1118,38 +1715,44 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-[#003d63] to-[#005180] hover:bg-gradient-to-r hover:from-[#003d63] hover:to-[#005180]">
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>HOD Name</span>
-                          <Select value={comHodFilter} onValueChange={setComHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {comHodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>KAM Name</span>
-                          <Select value={comKamFilter} onValueChange={setComKamFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All KAMs</SelectItem>
-                              {comKamNames.map(kamName => (
-                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
+                      {!isKAM && !isHODUser && (
+                        <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          <div className="flex items-center justify-between">
+                            <span>HOD Name</span>
+                            {!isRestrictedUser && (
+                              <Select value={comHodFilter} onValueChange={setComHodFilter}>
+                                <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                                  <Filter className="h-4 w-4 text-white" />
+                                </SelectTrigger>
+                                <SelectContent align="start" className="min-w-[150px]">
+                                  <SelectItem value="all">All HODs</SelectItem>
+                                  {comHodNames.map(hodName => (
+                                    <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        </TableHead>
+                      )}
+                      {!isKAM && (
+                        <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          <div className="flex items-center justify-between">
+                            <span>KAM Name</span>
+                            <Select value={comKamFilter} onValueChange={setComKamFilter}>
+                              <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                                <Filter className="h-4 w-4 text-white" />
+                              </SelectTrigger>
+                              <SelectContent align="start" className="min-w-[150px]">
+                                <SelectItem value="all">All KAMs</SelectItem>
+                                {comKamNames.map(kamName => (
+                                  <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableHead>
+                      )}
                       <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                         ID / Customer
                       </TableHead>
@@ -1195,12 +1798,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
                               style={{ animationDelay: `${index * 25}ms` }}
                             >
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{order.hodName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{order.kamName || "N/A"}</p>
-                              </TableCell>
+                              {!isKAM && !isHODUser && (
+                                <TableCell className="py-4">
+                                  <p className="text-sm font-medium text-foreground">{order.hodName || "N/A"}</p>
+                                </TableCell>
+                              )}
+                              {!isKAM && (
+                                <TableCell className="py-4">
+                                  <p className="text-sm font-medium text-foreground">{order.kamName || "N/A"}</p>
+                                </TableCell>
+                              )}
                               <TableCell className="py-4">
                                 <div className="space-y-0.5">
                                   <p className="text-sm font-semibold text-primary">{order.id}</p>
@@ -1230,10 +1837,12 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
+                                <Badge className={`${getStatusBadge(order.status)} border gap-1 px-3 py-1 text-xs font-semibold`}>
+                                  {order.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="py-4">
                                 <div className="space-y-2">
-                                  <Badge className={`${getStatusBadge(order.status)} border gap-1 px-3 py-1 text-xs font-semibold`}>
-                                    {order.status}
-                                  </Badge>
                                   <p className="text-xs font-semibold text-muted-foreground">Progress {order.progress}%</p>
                                   <div className="h-2 w-full overflow-hidden rounded-full bg-border/80">
                                     <div className={`${getStatusAccent(order.status)} h-full transition-all`} style={{ width: `${order.progress}%` }} />
@@ -1388,38 +1997,44 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#004875]">
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>HOD Name</span>
-                          <Select value={pnHodFilter} onValueChange={setPnHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {pnHodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>KAM Name</span>
-                          <Select value={pnKamFilter} onValueChange={setPnKamFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All KAMs</SelectItem>
-                              {pnKamNames.map(kamName => (
-                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
+                      {!isKAM && !isHODUser && (
+                        <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          <div className="flex items-center justify-between">
+                            <span>HOD Name</span>
+                            {!isRestrictedUser && (
+                              <Select value={pnHodFilter} onValueChange={setPnHodFilter}>
+                                <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                                  <Filter className="h-4 w-4 text-white" />
+                                </SelectTrigger>
+                                <SelectContent align="start" className="min-w-[150px]">
+                                  <SelectItem value="all">All HODs</SelectItem>
+                                  {pnHodNames.map(hodName => (
+                                    <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        </TableHead>
+                      )}
+                      {!isKAM && (
+                        <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          <div className="flex items-center justify-between">
+                            <span>KAM Name</span>
+                            <Select value={pnKamFilter} onValueChange={setPnKamFilter}>
+                              <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                                <Filter className="h-4 w-4 text-white" />
+                              </SelectTrigger>
+                              <SelectContent align="start" className="min-w-[150px]">
+                                <SelectItem value="all">All KAMs</SelectItem>
+                                {pnKamNames.map(kamName => (
+                                  <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableHead>
+                      )}
                       <TableHead className="w-[130px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                         PN
                       </TableHead>
@@ -1474,12 +2089,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                               className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
                               style={{ animationDelay: `${index * 25}ms` }}
                             >
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{order.hodName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{order.kamName || "N/A"}</p>
-                              </TableCell>
+                              {!isKAM && !isHODUser && (
+                                <TableCell className="py-4">
+                                  <p className="text-sm font-medium text-foreground">{order.hodName || "N/A"}</p>
+                                </TableCell>
+                              )}
+                              {!isKAM && (
+                                <TableCell className="py-4">
+                                  <p className="text-sm font-medium text-foreground">{order.kamName || "N/A"}</p>
+                                </TableCell>
+                              )}
                               <TableCell className="py-4">
                                 <div className="space-y-0.5">
                                   <p className="text-sm font-semibold text-primary">{order.id}</p>

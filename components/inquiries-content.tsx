@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
-import { getHODForKAM } from "@/lib/permissions"
+import { getViewableKAMs, isHOD } from "@/lib/permissions"
 
 const inquiries = [
   { id: "INQ-2024-001", customer: "Tata Industries", job: "Custom Packaging Box", sku: "PKG-001", jobType: "Monocarton", quantityRange: "5000-10000", status: "Costing", priority: "high", date: "2024-01-15", dueDate: "2024-01-18", clarificationStatus: "Pending Clarification", notes: "Urgent requirement for Q1 launch", kamName: "Rajesh Kumar", hodName: "Suresh Menon" },
@@ -225,6 +225,11 @@ function getPriorityAccent(priority: string) {
 }
 
 export function InquiriesContent() {
+  const viewableKams = getViewableKAMs()
+  const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
+  const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
+  const isHODUser = isHOD() // HOD user check
+
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
@@ -234,11 +239,16 @@ export function InquiriesContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
 
-  // Get unique HOD and KAM names for filters
-  const hodNames = Array.from(new Set(inquiries.map(inq => inq.hodName).filter((name): name is string => Boolean(name))))
-  const kamNames = Array.from(new Set(inquiries.map(inq => inq.kamName).filter((name): name is string => Boolean(name))))
+  // Filter data based on user role - KAMs can only see their own data
+  const userFilteredInquiries = isRestrictedUser
+    ? inquiries.filter(inq => inq.kamName && viewableKams.includes(inq.kamName))
+    : inquiries
 
-  const filteredInquiries = inquiries
+  // Get unique HOD and KAM names for filters
+  const hodNames = Array.from(new Set(userFilteredInquiries.map(inq => inq.hodName).filter((name): name is string => Boolean(name))))
+  const kamNames = Array.from(new Set(userFilteredInquiries.map(inq => inq.kamName).filter((name): name is string => Boolean(name))))
+
+  const filteredInquiries = userFilteredInquiries
     .filter((inquiry) => {
       // Exclude Draft status inquiries
       if (inquiry.status === "Draft") return false
@@ -315,38 +325,44 @@ export function InquiriesContent() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gradient-to-r from-[#005180] to-[#003d63] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#003d63]">
-                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>HOD</span>
-                      <Select value={hodFilter} onValueChange={setHodFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All HODs</SelectItem>
-                          {hodNames.map(hodName => (
-                            <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>KAM Name</span>
-                      <Select value={kamFilter} onValueChange={setKamFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All KAMs</SelectItem>
-                          {kamNames.map(kamName => (
-                            <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
+                  {!isKAMUser && !isHODUser && (
+                    <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                      <div className="flex items-center justify-between">
+                        <span>HOD</span>
+                        {!isRestrictedUser && (
+                          <Select value={hodFilter} onValueChange={setHodFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All HODs</SelectItem>
+                              {hodNames.map(hodName => (
+                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </TableHead>
+                  )}
+                  {!isKAMUser && (
+                    <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                      <div className="flex items-center justify-between">
+                        <span>KAM Name</span>
+                        <Select value={kamFilter} onValueChange={setKamFilter}>
+                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                            <Filter className="h-4 w-4 text-white" />
+                          </SelectTrigger>
+                          <SelectContent align="start" className="min-w-[150px]">
+                            <SelectItem value="all">All KAMs</SelectItem>
+                            {kamNames.map(kamName => (
+                              <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TableHead>
+                  )}
                   <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     ID / Customer
                   </TableHead>
@@ -413,12 +429,16 @@ export function InquiriesContent() {
                         className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
                         style={{ animationDelay: `${index * 30}ms` }}
                       >
-                        <TableCell className="py-4">
-                          <p className="text-sm font-medium text-foreground">{inquiry.hodName || "N/A"}</p>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <p className="text-sm font-medium text-foreground">{inquiry.kamName || "N/A"}</p>
-                        </TableCell>
+                        {!isKAMUser && !isHODUser && (
+                          <TableCell className="py-4">
+                            <p className="text-sm font-medium text-foreground">{inquiry.hodName || "N/A"}</p>
+                          </TableCell>
+                        )}
+                        {!isKAMUser && (
+                          <TableCell className="py-4">
+                            <p className="text-sm font-medium text-foreground">{inquiry.kamName || "N/A"}</p>
+                          </TableCell>
+                        )}
                         <TableCell className="whitespace-nowrap py-4">
                           <div className="space-y-0.5">
                             <p className="text-sm font-semibold text-primary">{inquiry.id}</p>
@@ -469,10 +489,12 @@ export function InquiriesContent() {
                               <Badge className={`${getStatusBadge(inquiry.status)} border`}>{inquiry.status}</Badge>
                             </div>
                           </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">KAM Name</Label>
-                            <p className="mt-1 text-sm font-medium text-foreground">{inquiry.kamName || "N/A"}</p>
-                          </div>
+                          {!isKAMUser && (
+                            <div>
+                              <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">KAM Name</Label>
+                              <p className="mt-1 text-sm font-medium text-foreground">{inquiry.kamName || "N/A"}</p>
+                            </div>
+                          )}
                         </div>
                         <div className="grid gap-4 sm:grid-cols-3">
                           <div>

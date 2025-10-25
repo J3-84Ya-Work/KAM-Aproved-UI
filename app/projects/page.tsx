@@ -7,10 +7,14 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { useRouter } from "next/navigation"
 import { useState, useCallback } from "react"
+import { getViewableKAMs } from "@/lib/permissions"
 
 export default function ProjectsPage() {
   const router = useRouter()
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+
+  const viewableKams = getViewableKAMs()
+  const isKAM = viewableKams.length === 1 // KAM can only see themselves
 
   const handleExport = () => {
     alert("Export functionality will download all projects as CSV/Excel")
@@ -59,6 +63,7 @@ export default function ProjectsPage() {
     switch (activeTab) {
       case "sdo":
         return [
+          { label: "New SDO", onClick: handleNewSDO },
           { label: "View JDO", onClick: handleViewJDO },
           { label: "View Commercial", onClick: handleViewCommercial },
           { label: "View PN", onClick: handleViewPN },
@@ -66,7 +71,7 @@ export default function ProjectsPage() {
         ]
       case "jdo":
         return [
-          { label: "New JDO", onClick: handleNewJDO },
+          { label: "New SDO", onClick: handleNewSDO },
           { label: "View SDO", onClick: handleViewSDO },
           { label: "View Commercial", onClick: handleViewCommercial },
           { label: "View PN", onClick: handleViewPN },
@@ -74,7 +79,7 @@ export default function ProjectsPage() {
         ]
       case "commercial":
         return [
-          { label: "New Commercial", onClick: handleNewCommercial },
+          { label: "New SDO", onClick: handleNewSDO },
           { label: "View SDO", onClick: handleViewSDO },
           { label: "View JDO", onClick: handleViewJDO },
           { label: "View PN", onClick: handleViewPN },
@@ -82,7 +87,7 @@ export default function ProjectsPage() {
         ]
       case "pn":
         return [
-          { label: "New PN", onClick: handleNewPN },
+          { label: "New SDO", onClick: handleNewSDO },
           { label: "View SDO", onClick: handleViewSDO },
           { label: "View JDO", onClick: handleViewJDO },
           { label: "View Commercial", onClick: handleViewCommercial },

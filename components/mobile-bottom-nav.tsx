@@ -1,9 +1,10 @@
 "use client"
-import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, User, Settings } from "lucide-react"
+import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, User, Settings, UserCircle } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
+import { Badge } from "@/components/ui/badge"
 
 const roleBasedNavItems = {
   KAM: [
@@ -83,6 +84,8 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
   const router = useRouter()
   const [navItems, setNavItems] = useState(roleBasedNavItems.KAM) // Default to KAM
   const [showSidePanel, setShowSidePanel] = useState(false) // State for side panel
+  const [userRole, setUserRole] = useState<string>("")
+  const [userName, setUserName] = useState<string>("")
 
   const toggleSidePanel = () => {
     setShowSidePanel(prev => !prev)
@@ -104,8 +107,11 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
     const authData = localStorage.getItem("userAuth")
     if (authData) {
       const auth = JSON.parse(authData)
-      const userRole = auth.role || "KAM"
-      setNavItems(roleBasedNavItems[userRole as keyof typeof roleBasedNavItems] || roleBasedNavItems.KAM)
+      const role = auth.role || "KAM"
+      const name = auth.name || ""
+      setUserRole(role)
+      setUserName(name)
+      setNavItems(roleBasedNavItems[role as keyof typeof roleBasedNavItems] || roleBasedNavItems.KAM)
     }
   }, [pathname])
 
@@ -114,6 +120,20 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
       onMenuToggle(toggleSidePanel)
     }
   }, [onMenuToggle])
+
+  // Get role badge color
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case "KAM":
+        return "bg-blue-100 text-blue-700 border-blue-300"
+      case "H.O.D":
+        return "bg-amber-100 text-amber-700 border-amber-300"
+      case "Vertical Head":
+        return "bg-purple-100 text-purple-700 border-purple-300"
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-300"
+    }
+  }
 
   const sidePanelItems = [
     { title: "Customer", url: "/clients", icon: Users },
@@ -148,6 +168,21 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
                   </svg>
                 </button>
               </div>
+
+              {/* User Role Indicator */}
+              {userRole && (
+                <div className="border-b border-gray-200 p-4 bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <UserCircle className="h-8 w-8 text-[#005180] flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+                      <Badge className={`${getRoleBadgeColor(userRole)} border text-xs font-semibold mt-1`}>
+                        {userRole}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Panel Content */}
               <nav className="flex-1 overflow-y-auto py-2 bg-white">

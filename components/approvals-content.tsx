@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
-import { getApprovalLevel } from "@/lib/permissions"
+import { getApprovalLevel, getViewableKAMs, isHOD } from "@/lib/permissions"
 
 const pendingApprovals = [
   {
@@ -132,6 +132,11 @@ function getUrgencyBadge(urgency: string) {
 }
 
 export function ApprovalsContent() {
+  const viewableKams = getViewableKAMs()
+  const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
+  const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
+  const isHODUser = isHOD() // HOD user check
+
   const [search, setSearch] = useState("")
   const [hodFilter, setHodFilter] = useState("all")
   const [kamFilter, setKamFilter] = useState("all")
@@ -145,11 +150,20 @@ export function ApprovalsContent() {
     setUserLevel(getApprovalLevel())
   }, [])
 
-  // Get unique HOD and KAM names for filters
-  const hodNames = Array.from(new Set(pendingApprovals.map(item => item.hodName).filter((name): name is string => Boolean(name))))
-  const kamNames = Array.from(new Set(pendingApprovals.map(item => item.kamName).filter((name): name is string => Boolean(name))))
+  // Filter data based on user role - KAMs can only see their own data
+  const userFilteredPending = isRestrictedUser
+    ? pendingApprovals.filter(a => a.kamName && viewableKams.includes(a.kamName))
+    : pendingApprovals
 
-  const filteredApprovals = pendingApprovals.filter((approval) => {
+  const userFilteredHistory = isRestrictedUser
+    ? approvalHistory.filter(a => a.kamName && viewableKams.includes(a.kamName))
+    : approvalHistory
+
+  // Get unique HOD and KAM names for filters
+  const hodNames = Array.from(new Set(userFilteredPending.map(item => item.hodName).filter((name): name is string => Boolean(name))))
+  const kamNames = Array.from(new Set(userFilteredPending.map(item => item.kamName).filter((name): name is string => Boolean(name))))
+
+  const filteredApprovals = userFilteredPending.filter((approval) => {
     // Filter by approval level - HOD sees L1, Vertical Head sees L2
     const matchesLevel = !userLevel || approval.level === userLevel
 
@@ -206,38 +220,44 @@ export function ApprovalsContent() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-[#003d63] via-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#003d63] hover:via-[#005180] hover:to-[#004875]">
-                <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center justify-between">
-                    <span>HOD</span>
-                    <Select value={hodFilter} onValueChange={setHodFilter}>
-                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                        <Filter className="h-4 w-4 text-white" />
-                      </SelectTrigger>
-                      <SelectContent align="start" className="min-w-[150px]">
-                        <SelectItem value="all">All HODs</SelectItem>
-                        {hodNames.map(hodName => (
-                          <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TableHead>
-                <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center justify-between">
-                    <span>KAM Name</span>
-                    <Select value={kamFilter} onValueChange={setKamFilter}>
-                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                        <Filter className="h-4 w-4 text-white" />
-                      </SelectTrigger>
-                      <SelectContent align="start" className="min-w-[150px]">
-                        <SelectItem value="all">All KAMs</SelectItem>
-                        {kamNames.map(kamName => (
-                          <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TableHead>
+                {!isKAMUser && !isHODUser && (
+                  <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                    <div className="flex items-center justify-between">
+                      <span>HOD</span>
+                      {!isRestrictedUser && (
+                        <Select value={hodFilter} onValueChange={setHodFilter}>
+                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                            <Filter className="h-4 w-4 text-white" />
+                          </SelectTrigger>
+                          <SelectContent align="start" className="min-w-[150px]">
+                            <SelectItem value="all">All HODs</SelectItem>
+                            {hodNames.map(hodName => (
+                              <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </TableHead>
+                )}
+                {!isKAMUser && (
+                  <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                    <div className="flex items-center justify-between">
+                      <span>KAM Name</span>
+                      <Select value={kamFilter} onValueChange={setKamFilter}>
+                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                          <Filter className="h-4 w-4 text-white" />
+                        </SelectTrigger>
+                        <SelectContent align="start" className="min-w-[150px]">
+                          <SelectItem value="all">All KAMs</SelectItem>
+                          {kamNames.map(kamName => (
+                            <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableHead>
+                )}
                 <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
                   ID / Inquiry
                 </TableHead>
@@ -262,16 +282,20 @@ export function ApprovalsContent() {
               {paginatedApprovals.map((approval) => (
                     <Dialog key={approval.id}>
                       <TableRow className="cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
-                            <p className="text-sm font-medium text-foreground">{approval.hodName || "N/A"}</p>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
-                            <p className="text-sm font-medium text-foreground">{approval.kamName || "N/A"}</p>
-                          </TableCell>
-                        </DialogTrigger>
+                        {!isKAMUser && !isHODUser && (
+                          <DialogTrigger asChild>
+                            <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
+                              <p className="text-sm font-medium text-foreground">{approval.hodName || "N/A"}</p>
+                            </TableCell>
+                          </DialogTrigger>
+                        )}
+                        {!isKAMUser && (
+                          <DialogTrigger asChild>
+                            <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
+                              <p className="text-sm font-medium text-foreground">{approval.kamName || "N/A"}</p>
+                            </TableCell>
+                          </DialogTrigger>
+                        )}
                         <DialogTrigger asChild>
                           <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
                             <div className="space-y-0.5">

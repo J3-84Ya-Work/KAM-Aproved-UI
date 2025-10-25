@@ -34,49 +34,117 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { getCurrentUser } from "@/lib/permissions"
 
-const navItems = [
-  {
-    title: "Customer",
-    url: "/clients",
-    icon: Users,
-  },
-  {
-    title: "Inquiries",
-    url: "/inquiries",
-    icon: FileText,
-    badge: 12,
-  },
-  {
-    title: "Quotations",
-    url: "/quotations",
-    icon: FileCheck,
-    badge: 8,
-  },
-  {
-    title: "Projects",
-    url: "/projects",
-    icon: FolderKanban,
-    badge: 5,
-  },
-  {
-    title: "Analytics",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings,
-  },
-]
-
-const moreItems = [
-  {
-    title: "Approvals",
-    url: "/approvals",
-    icon: FileCheck,
-  },
-]
+const roleBasedNavItems = {
+  KAM: [
+    {
+      title: "Customer",
+      url: "/clients",
+      icon: Users,
+    },
+    {
+      title: "Inquiries",
+      url: "/inquiries",
+      icon: FileText,
+      badge: 12,
+    },
+    {
+      title: "Quotations",
+      url: "/quotations",
+      icon: FileCheck,
+      badge: 8,
+    },
+    {
+      title: "Projects",
+      url: "/projects",
+      icon: FolderKanban,
+      badge: 5,
+    },
+    {
+      title: "Analytics",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: Settings,
+    },
+  ],
+  "H.O.D": [
+    {
+      title: "Approvals",
+      url: "/approvals",
+      icon: FileCheck,
+    },
+    {
+      title: "Customer",
+      url: "/clients",
+      icon: Users,
+    },
+    {
+      title: "Inquiries",
+      url: "/inquiries",
+      icon: FileText,
+    },
+    {
+      title: "Quotations",
+      url: "/quotations",
+      icon: FileCheck,
+    },
+    {
+      title: "Projects",
+      url: "/projects",
+      icon: FolderKanban,
+    },
+    {
+      title: "Analytics",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: Settings,
+    },
+  ],
+  "Vertical Head": [
+    {
+      title: "Approvals",
+      url: "/approvals",
+      icon: FileCheck,
+    },
+    {
+      title: "Customer",
+      url: "/clients",
+      icon: Users,
+    },
+    {
+      title: "Inquiries",
+      url: "/inquiries",
+      icon: FileText,
+    },
+    {
+      title: "Quotations",
+      url: "/quotations",
+      icon: FileCheck,
+    },
+    {
+      title: "Projects",
+      url: "/projects",
+      icon: FolderKanban,
+    },
+    {
+      title: "Analytics",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: Settings,
+    },
+  ],
+}
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -85,6 +153,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed"
   const [userRole, setUserRole] = useState<string>("")
   const [userName, setUserName] = useState<string>("")
+  const [navItems, setNavItems] = useState(roleBasedNavItems.KAM) // Default to KAM
 
   useEffect(() => {
     // Get current user info
@@ -92,6 +161,8 @@ export function AppSidebar() {
     if (user) {
       setUserRole(user.role)
       setUserName(user.name)
+      // Set navigation items based on role
+      setNavItems(roleBasedNavItems[user.role as keyof typeof roleBasedNavItems] || roleBasedNavItems.KAM)
     }
   }, [])
 

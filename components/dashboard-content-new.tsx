@@ -9,9 +9,10 @@ import { Bar, BarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Legend, Re
 import { ArrowUpRight, TrendingUp, TrendingDown, Download, Calendar, Target, DollarSign, Package, Users, FileText, CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { getViewableKAMs, getCurrentUserHODName, isHOD, isKAM } from "@/lib/permissions"
 
 // KPI Data - Base data for all KAMs combined
-const baseKpiData = {
+const baseKpiData: Record<string, any> = {
   all: [
     {
       title: "Total Inquiries",
@@ -222,6 +223,90 @@ const baseKpiData = {
       comparison: "active this month",
     },
   ],
+  "Suresh Menon Team": [
+    {
+      title: "Total Inquiries",
+      value: "120",
+      change: "+13%",
+      trend: "up",
+      icon: FileText,
+      color: "#005180",
+      bgGradient: "from-blue-50 to-blue-100",
+      comparison: "vs last month",
+    },
+    {
+      title: "Completed",
+      value: "98",
+      change: "+18%",
+      trend: "up",
+      icon: CheckCircle,
+      color: "#78BE20",
+      bgGradient: "from-green-50 to-green-100",
+      comparison: "vs last month",
+    },
+    {
+      title: "Conversions",
+      value: "73",
+      change: "+25%",
+      trend: "up",
+      icon: Package,
+      color: "#005180",
+      bgGradient: "from-indigo-50 to-indigo-100",
+      comparison: "conversion rate 60.8%",
+    },
+    {
+      title: "Active Clients",
+      value: "44",
+      change: "+5%",
+      trend: "up",
+      icon: Users,
+      color: "#005180",
+      bgGradient: "from-violet-50 to-violet-100",
+      comparison: "active this month",
+    },
+  ],
+  "Kavita Reddy Team": [
+    {
+      title: "Total Inquiries",
+      value: "114",
+      change: "+11%",
+      trend: "up",
+      icon: FileText,
+      color: "#005180",
+      bgGradient: "from-blue-50 to-blue-100",
+      comparison: "vs last month",
+    },
+    {
+      title: "Completed",
+      value: "91",
+      change: "+17%",
+      trend: "up",
+      icon: CheckCircle,
+      color: "#78BE20",
+      bgGradient: "from-green-50 to-green-100",
+      comparison: "vs last month",
+    },
+    {
+      title: "Conversions",
+      value: "69",
+      change: "+25%",
+      trend: "up",
+      icon: Package,
+      color: "#005180",
+      bgGradient: "from-indigo-50 to-indigo-100",
+      comparison: "conversion rate 60.5%",
+    },
+    {
+      title: "Active Clients",
+      value: "43",
+      change: "+5%",
+      trend: "up",
+      icon: Users,
+      color: "#005180",
+      bgGradient: "from-violet-50 to-violet-100",
+      comparison: "active this month",
+    },
+  ],
 } as Record<string, typeof baseKpiData.all>
 
 // Status Legend Data
@@ -234,7 +319,7 @@ const statusLegend = [
 ]
 
 // Chart Data - Base data structures
-const baseMonthlyInquiriesData = {
+const baseMonthlyInquiriesData: Record<string, any> = {
   all: [
     { month: "Jan", inquiries: 45, quotations: 30, conversions: 18 },
     { month: "Feb", inquiries: 52, quotations: 35, conversions: 22 },
@@ -275,9 +360,25 @@ const baseMonthlyInquiriesData = {
     { month: "May", inquiries: 12, quotations: 9, conversions: 5 },
     { month: "Jun", inquiries: 15, quotations: 10, conversions: 7 },
   ],
-} as Record<string, typeof baseMonthlyInquiriesData.all>
+  "Suresh Menon Team": [
+    { month: "Jan", inquiries: 23, quotations: 15, conversions: 9 },
+    { month: "Feb", inquiries: 27, quotations: 18, conversions: 11 },
+    { month: "Mar", inquiries: 25, quotations: 17, conversions: 10 },
+    { month: "Apr", inquiries: 31, quotations: 21, conversions: 14 },
+    { month: "May", inquiries: 28, quotations: 19, conversions: 12 },
+    { month: "Jun", inquiries: 34, quotations: 23, conversions: 15 },
+  ],
+  "Kavita Reddy Team": [
+    { month: "Jan", inquiries: 22, quotations: 15, conversions: 9 },
+    { month: "Feb", inquiries: 25, quotations: 17, conversions: 11 },
+    { month: "Mar", inquiries: 23, quotations: 15, conversions: 10 },
+    { month: "Apr", inquiries: 30, quotations: 21, conversions: 14 },
+    { month: "May", inquiries: 27, quotations: 19, conversions: 12 },
+    { month: "Jun", inquiries: 33, quotations: 22, conversions: 15 },
+  ],
+}
 
-const baseSalesVsTargetData = {
+const baseSalesVsTargetData: Record<string, any> = {
   all: [
     { month: "Jan", sales: 3.2, target: 3.5 },
     { month: "Feb", sales: 3.8, target: 3.5 },
@@ -318,9 +419,25 @@ const baseSalesVsTargetData = {
     { month: "May", sales: 0.85, target: 1.0 },
     { month: "Jun", sales: 1.08, target: 1.0 },
   ],
-} as Record<string, typeof baseSalesVsTargetData.all>
+  "Suresh Menon Team": [
+    { month: "Jan", sales: 1.63, target: 1.75 },
+    { month: "Feb", sales: 1.92, target: 1.75 },
+    { month: "Mar", sales: 1.77, target: 1.95 },
+    { month: "Apr", sales: 2.12, target: 1.95 },
+    { month: "May", sales: 1.97, target: 2.2 },
+    { month: "Jun", sales: 2.4, target: 2.2 },
+  ],
+  "Kavita Reddy Team": [
+    { month: "Jan", sales: 1.57, target: 1.65 },
+    { month: "Feb", sales: 1.88, target: 1.65 },
+    { month: "Mar", sales: 1.73, target: 1.85 },
+    { month: "Apr", sales: 2.08, target: 1.85 },
+    { month: "May", sales: 1.93, target: 2.15 },
+    { month: "Jun", sales: 2.4, target: 2.15 },
+  ],
+}
 
-const baseConversionFunnelData = {
+const baseConversionFunnelData: Record<string, any> = {
   all: [
     { stage: "Inquiries", value: 234, percentage: 100 },
     { stage: "Quotations", value: 142, percentage: 60.7 },
@@ -350,6 +467,18 @@ const baseConversionFunnelData = {
     { stage: "Quotations", value: 30, percentage: 61.2 },
     { stage: "Approved", value: 21, percentage: 42.9 },
     { stage: "Orders", value: 15, percentage: 30.6 },
+  ],
+  "Suresh Menon Team": [
+    { stage: "Inquiries", value: 120, percentage: 100 },
+    { stage: "Quotations", value: 73, percentage: 60.8 },
+    { stage: "Approved", value: 50, percentage: 41.7 },
+    { stage: "Orders", value: 37, percentage: 30.8 },
+  ],
+  "Kavita Reddy Team": [
+    { stage: "Inquiries", value: 114, percentage: 100 },
+    { stage: "Quotations", value: 69, percentage: 60.5 },
+    { stage: "Approved", value: 48, percentage: 42.1 },
+    { stage: "Orders", value: 35, percentage: 30.7 },
   ],
 } as Record<string, typeof baseConversionFunnelData.all>
 
@@ -399,6 +528,13 @@ export function DashboardContent() {
   const [selectedHod, setSelectedHod] = useState("all")
   const [selectedKam, setSelectedKam] = useState("all")
 
+  // Get viewable KAMs based on user role
+  const viewableKams = getViewableKAMs()
+  const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
+  const currentUserHod = getCurrentUserHODName()
+  const isHODUser = isHOD() // Check if user is HOD
+  const isKAMUser = isKAM() // Check if user is KAM
+
   // HOD-KAM mapping
   const hodKamMapping = {
     "Suresh Menon": ["Rajesh Kumar", "Amit Patel"],
@@ -407,15 +543,35 @@ export function DashboardContent() {
 
   const hodNames = ["Suresh Menon", "Kavita Reddy"]
 
-  // Get KAMs based on selected HOD
+  // Get KAMs based on selected HOD or user role
   const getAvailableKams = () => {
+    // If user is restricted (KAM or HOD), only show their viewable KAMs
+    if (isRestrictedUser) {
+      return viewableKams
+    }
+
+    // Vertical Head can filter by any HOD
     if (selectedHod === "all") {
       return ["Rajesh Kumar", "Amit Patel", "Priya Sharma", "Sneha Gupta"]
     }
-    return hodKamMapping[selectedHod as keyof typeof hodKamMapping] || []
+    const kams = hodKamMapping[selectedHod as keyof typeof hodKamMapping]
+    return kams ? [...kams] : []
   }
 
-  const availableKams = getAvailableKams()
+  const availableKams: string[] = getAvailableKams()
+
+  // Auto-select HOD/KAM for restricted users
+  useEffect(() => {
+    // If user is a HOD, set their name as selected HOD
+    if (currentUserHod) {
+      setSelectedHod(currentUserHod)
+    }
+
+    // If user is a KAM (single viewable KAM), auto-select that KAM
+    if (viewableKams.length === 1) {
+      setSelectedKam(viewableKams[0])
+    }
+  }, [currentUserHod, viewableKams])
 
   // Reset KAM selection when HOD changes and selected KAM is not in the new HOD's team
   useEffect(() => {
@@ -423,6 +579,28 @@ export function DashboardContent() {
       setSelectedKam("all")
     }
   }, [selectedHod])
+
+  // Auto-update HOD when KAM is selected (for Vertical Head only)
+  useEffect(() => {
+    // Only for Vertical Head users (not restricted)
+    if (!isRestrictedUser && selectedKam !== "all") {
+      // Find which HOD this KAM belongs to
+      for (const [hod, kams] of Object.entries(hodKamMapping)) {
+        if ((kams as readonly string[]).includes(selectedKam)) {
+          setSelectedHod(hod)
+          break
+        }
+      }
+    }
+  }, [selectedKam, isRestrictedUser])
+
+  // Auto-update KAM to "all" when "All HODs" is selected (for Vertical Head only)
+  useEffect(() => {
+    // Only for Vertical Head users (not restricted)
+    if (!isRestrictedUser && selectedHod === "all") {
+      setSelectedKam("all")
+    }
+  }, [selectedHod, isRestrictedUser])
 
   // Get filtered data based on selected HOD and KAM
   const getFilteredData = () => {
@@ -436,21 +614,33 @@ export function DashboardContent() {
       }
     }
 
-    // If HOD is selected (but no specific KAM), aggregate all KAMs under that HOD
-    if (selectedHod !== "all") {
-      const kamsUnderHod = hodKamMapping[selectedHod as keyof typeof hodKamMapping]
-      // For now, show the first KAM's data as a placeholder
-      // In production, you would aggregate the data from all KAMs under this HOD
-      const firstKam = kamsUnderHod[0]
+    // If "All KAMs" is selected, show combined data for their viewable KAMs
+    // For HOD users, this shows combined data for all KAMs under them
+    // For Vertical Head with HOD filter, this shows combined data for KAMs under that HOD
+
+    // Check if HOD user and return team-specific combined data
+    if (isHODUser && currentUserHod) {
+      const teamKey = `${currentUserHod} Team`
       return {
-        kpiData: baseKpiData[firstKam] || baseKpiData.all,
-        monthlyInquiriesData: baseMonthlyInquiriesData[firstKam] || baseMonthlyInquiriesData.all,
-        salesVsTargetData: baseSalesVsTargetData[firstKam] || baseSalesVsTargetData.all,
-        conversionFunnelData: baseConversionFunnelData[firstKam] || baseConversionFunnelData.all,
+        kpiData: baseKpiData[teamKey] || baseKpiData.all,
+        monthlyInquiriesData: baseMonthlyInquiriesData[teamKey] || baseMonthlyInquiriesData.all,
+        salesVsTargetData: baseSalesVsTargetData[teamKey] || baseSalesVsTargetData.all,
+        conversionFunnelData: baseConversionFunnelData[teamKey] || baseConversionFunnelData.all,
       }
     }
 
-    // Show all data
+    // Check if Vertical Head has selected a specific HOD
+    if (!isRestrictedUser && selectedHod !== "all") {
+      const teamKey = `${selectedHod} Team`
+      return {
+        kpiData: baseKpiData[teamKey] || baseKpiData.all,
+        monthlyInquiriesData: baseMonthlyInquiriesData[teamKey] || baseMonthlyInquiriesData.all,
+        salesVsTargetData: baseSalesVsTargetData[teamKey] || baseSalesVsTargetData.all,
+        conversionFunnelData: baseConversionFunnelData[teamKey] || baseConversionFunnelData.all,
+      }
+    }
+
+    // Vertical Head with "All HODs" selected or others see all data
     return {
       kpiData: baseKpiData.all,
       monthlyInquiriesData: baseMonthlyInquiriesData.all,
@@ -477,45 +667,49 @@ export function DashboardContent() {
   return (
     <div className="space-y-3 bg-gradient-to-br from-slate-50 via-blue-50/30 to-green-50/20 min-h-screen px-2 pb-2 pt-4">
       {/* HOD and KAM Filters */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 px-2">
-        {/* HOD Filter */}
-        <div className="flex items-center gap-2 flex-1">
-          <Users className="h-5 w-5 text-[#005180]" />
-          <Select value={selectedHod} onValueChange={setSelectedHod}>
-            <SelectTrigger className="w-full h-11 rounded-2xl border-2 border-[#005180]/30 bg-white/90 backdrop-blur-sm hover:border-[#005180] transition-all shadow-sm">
-              <SelectValue placeholder="Select HOD" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All HODs</SelectItem>
-              {hodNames.map(hodName => (
-                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {!isKAMUser && (
+        <div className="flex items-center gap-2 px-2">
+          {/* HOD Filter - Only for Vertical Head */}
+          {!isRestrictedUser && (
+            <div className="flex items-center gap-2 flex-1">
+              <Users className="h-5 w-5 text-[#005180] flex-shrink-0" />
+              <Select value={selectedHod} onValueChange={setSelectedHod}>
+                <SelectTrigger className="w-full h-11 rounded-2xl border-2 border-[#005180]/30 bg-white/90 backdrop-blur-sm hover:border-[#005180] transition-all shadow-sm">
+                  <SelectValue placeholder="Select HOD" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All HODs</SelectItem>
+                  {hodNames.map(hodName => (
+                    <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-        {/* KAM Filter */}
-        <div className="flex items-center gap-2 flex-1">
-          <Users className="h-5 w-5 text-[#78BE20]" />
-          <Select value={selectedKam} onValueChange={setSelectedKam}>
-            <SelectTrigger className="w-full h-11 rounded-2xl border-2 border-[#78BE20]/30 bg-white/90 backdrop-blur-sm hover:border-[#78BE20] transition-all shadow-sm">
-              <SelectValue placeholder="Select KAM" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                {selectedHod === "all" ? "All KAMs" : `All KAMs (${selectedHod})`}
-              </SelectItem>
-              {availableKams.map(kamName => (
-                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* KAM Filter - For both Vertical Head and HOD */}
+          <div className="flex items-center gap-2 flex-1">
+            <Users className="h-5 w-5 text-[#78BE20] flex-shrink-0" />
+            <Select value={selectedKam} onValueChange={setSelectedKam}>
+              <SelectTrigger className="w-full h-11 rounded-2xl border-2 border-[#78BE20]/30 bg-white/90 backdrop-blur-sm hover:border-[#78BE20] transition-all shadow-sm">
+                <SelectValue placeholder="Select KAM" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  {selectedHod === "all" ? "All KAMs" : `All KAMs (${selectedHod})`}
+                </SelectItem>
+                {availableKams.map(kamName => (
+                  <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* KPI Tiles - 4 Square Cards in 2 per row */}
       <div className="grid grid-cols-2 gap-2">
-        {kpiData.map((kpi, index) => (
+        {kpiData.map((kpi: any, index: number) => (
           <Card key={kpi.title} className={`bg-gradient-to-br ${kpi.bgGradient} border-0 shadow-md hover:shadow-lg transition-all duration-300 animate-fade-in`} style={{ animationDelay: `${index * 50}ms` }}>
             <CardContent className="p-3 h-full flex flex-col justify-between">
               <div className="flex items-start justify-between">
@@ -574,7 +768,7 @@ export function DashboardContent() {
                   <YAxis dataKey="stage" type="category" className="text-xs" width={100} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="value" fill="#005180" radius={[0, 6, 6, 0]}>
-                    {conversionFunnelData.map((entry, index) => (
+                    {conversionFunnelData.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={`rgba(0, 81, 128, ${1 - index * 0.2})`} />
                     ))}
                   </Bar>

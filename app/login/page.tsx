@@ -2,18 +2,22 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Image from "next/image"
 
-// Hardcoded user credentials with roles
+// Hardcoded user credentials with roles (matching database)
 const USERS = [
-  { email: "kam@parksons", password: "kam@123", name: "KAM User", role: "KAM" },
-  { email: "hod@parksons", password: "hod@123", name: "HOD User", role: "H.O.D" },
-  { email: "vertical@parksons", password: "vertical@123", name: "Vertical Head User", role: "Vertical Head" },
+  { email: "rajesh@parksons.com", password: "rajesh@123", name: "Rajesh Kumar", role: "KAM" },
+  { email: "amit@parksons.com", password: "amit@123", name: "Amit Patel", role: "KAM" },
+  { email: "priya@parksons.com", password: "priya@123", name: "Priya Sharma", role: "KAM" },
+  { email: "sneha@parksons.com", password: "sneha@123", name: "Sneha Gupta", role: "KAM" },
+  { email: "suresh@parksons.com", password: "suresh@123", name: "Suresh Menon", role: "H.O.D" },
+  { email: "kavita@parksons.com", password: "kavita@123", name: "Kavita Reddy", role: "H.O.D" },
+  { email: "vertical@parksons.com", password: "vertical@123", name: "Vertical Head", role: "Vertical Head" },
 ]
 
 export default function LoginPage() {
@@ -25,6 +29,17 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
+
+  // Load saved credentials on component mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("rememberedEmail")
+    const savedPassword = localStorage.getItem("rememberedPassword")
+    if (savedEmail && savedPassword) {
+      setFormData({ email: savedEmail, password: savedPassword })
+      setRememberMe(true)
+    }
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,6 +78,15 @@ export default function LoginPage() {
 
     console.log("[v0] User logged in:", authData)
 
+    // Handle Remember Me functionality
+    if (rememberMe) {
+      localStorage.setItem("rememberedEmail", formData.email)
+      localStorage.setItem("rememberedPassword", formData.password)
+    } else {
+      localStorage.removeItem("rememberedEmail")
+      localStorage.removeItem("rememberedPassword")
+    }
+
     // Dispatch event to notify other components
     window.dispatchEvent(new Event("profileUpdated"))
 
@@ -70,7 +94,7 @@ export default function LoginPage() {
       if (user.role === "KAM") {
         router.push("/") // KAM goes to home/new chat
       } else {
-        router.push("/dashboard") // Vertical Head and H.O.D go to dashboard
+        router.push("/approvals") // Vertical Head and H.O.D go to approvals
       }
     }, 500)
   }
@@ -81,57 +105,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md lg:max-w-6xl lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center">
 
         {/* Left side - Branding (Desktop only) */}
-        <div className="hidden lg:flex lg:flex-col lg:space-y-8 lg:pr-12">
-          <div className="space-y-6">
-            <div className="relative w-48 h-48 mx-auto lg:mx-0">
-              <Image src="/images/parkbuddy-logo.jpg" alt="Park Buddy Logo" fill className="object-contain" priority />
-            </div>
-            <div className="space-y-4">
-              <h2 className="text-4xl font-bold text-gray-900 leading-tight">
-                Your AI-Powered <br />
-                <span className="text-[#005180]">Sales Assistant</span>
-              </h2>
-              <p className="text-lg text-gray-600 leading-relaxed">
-                Streamline your sales workflow with intelligent automation and real-time insights.
-              </p>
-            </div>
-          </div>
-
-          {/* Feature highlights */}
-          <div className="space-y-4 pt-8 border-t border-gray-200">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#005180]/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-[#005180]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Smart Analytics</h3>
-                <p className="text-sm text-gray-600">Track performance metrics in real-time</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#78BE20]/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-[#78BE20]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Lightning Fast</h3>
-                <p className="text-sm text-gray-600">Optimized for speed and efficiency</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#005180]/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-[#005180]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Secure & Reliable</h3>
-                <p className="text-sm text-gray-600">Enterprise-grade security standards</p>
-              </div>
-            </div>
+        <div className="hidden lg:flex lg:flex-col lg:justify-center lg:pr-12">
+          <div className="relative w-64 h-64 mx-auto">
+            <Image src="/images/parkbuddy-logo.jpg" alt="Park Buddy Logo" fill className="object-contain" priority />
           </div>
         </div>
 
@@ -206,6 +182,20 @@ export default function LoginPage() {
                   {error}
                 </div>
               )}
+
+              {/* Remember Me Checkbox */}
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-[#005180] focus:ring-[#005180] focus:ring-2 cursor-pointer"
+                />
+                <label htmlFor="remember-me" className="ml-2 text-sm lg:text-base text-gray-700 cursor-pointer select-none">
+                  Remember me
+                </label>
+              </div>
             </div>
 
             <Button
@@ -217,10 +207,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Footer Text */}
-          <p className="text-center text-sm lg:text-base text-gray-500 pt-4 border-t border-gray-200 lg:border-0">
-            Your AI Sales Assistant is ready to help
-          </p>
         </div>
       </div>
     </div>
