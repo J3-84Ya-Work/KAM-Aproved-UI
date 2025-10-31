@@ -1,5 +1,5 @@
 "use client"
-import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, User, Settings, UserCircle } from "lucide-react"
+import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, User, Settings, UserCircle, Home } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -136,6 +136,7 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
   }
 
   const sidePanelItems = [
+    { title: "Home", url: "/", icon: Home },
     { title: "Customer", url: "/clients", icon: Users },
     { title: "Profile", url: "/profile", icon: User },
     { title: "Settings", url: "/settings", icon: Settings },
@@ -217,9 +218,9 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
         </>
       )}
 
-      {/* Bottom Navigation - Hidden on Desktop (lg and above) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg safe-area-bottom lg:hidden">
-        <div className="flex items-center justify-around h-16 px-1">
+      {/* Bottom Navigation - Tab Style (Hidden on Desktop) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 safe-area-bottom lg:hidden">
+        <div className="relative flex h-14 px-1">
           {navItems.map((item) => {
             const isActive = pathname === item.url || pathname.startsWith(item.url || "")
             return (
@@ -227,23 +228,37 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
                 key={item.title}
                 href={item.url}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-2 flex-1 h-full transition-all duration-200 rounded-lg touch-manipulation",
+                  "relative flex items-center justify-center flex-1 transition-all duration-200 touch-manipulation mx-0.5",
                   isActive
-                    ? "font-semibold"
-                    : "hover:bg-blue-50/50",
+                    ? "bg-white -mt-3 h-[68px] rounded-t-2xl border-l border-r border-t border-gray-200"
+                    : "bg-transparent hover:bg-gray-50 h-14",
                 )}
-                style={{
-                  color: isActive ? "#B92221" : "#005180"
-                }}
+                title={item.title}
               >
-                <item.icon className={cn(
-                  "transition-all",
-                  isActive ? "h-6 w-6" : "h-5 w-5"
-                )} />
-                <span className={cn(
-                  "text-[10px] sm:text-xs leading-tight",
-                  isActive ? "font-bold" : "font-medium"
-                )}>{item.title}</span>
+                {/* Curved connectors for active tab */}
+                {isActive && (
+                  <>
+                    {/* Left curve */}
+                    <div className="absolute -left-2 bottom-0 w-2 h-2">
+                      <svg width="8" height="8" viewBox="0 0 8 8" className="absolute bottom-0 right-0">
+                        <path d="M8,0 Q8,8 0,8 L0,0 Z" fill="white" />
+                      </svg>
+                    </div>
+                    {/* Right curve */}
+                    <div className="absolute -right-2 bottom-0 w-2 h-2">
+                      <svg width="8" height="8" viewBox="0 0 8 8" className="absolute bottom-0 left-0">
+                        <path d="M0,0 Q0,8 8,8 L8,0 Z" fill="white" />
+                      </svg>
+                    </div>
+                  </>
+                )}
+
+                <item.icon
+                  className={cn(
+                    "transition-all duration-200",
+                    isActive ? "h-6 w-6 text-[#B92221]" : "h-5 w-5 text-gray-500"
+                  )}
+                />
               </Link>
             )
           })}

@@ -86,13 +86,14 @@ export function AICostingChat({
   }, [])
 
   const sendChatMessage = useCallback(
-    async (messageText: string, { showUserMessage = true }: { showUserMessage?: boolean } = {}) => {
+    async (messageText: string, { showUserMessage = true, isFirstMessage = false }: { showUserMessage?: boolean; isFirstMessage?: boolean } = {}) => {
       const content = messageText.trim()
       if (!content) return
 
       const timestamp = new Date()
 
-      if (showUserMessage) {
+      // Only show user message if it's not the first auto-started message
+      if (showUserMessage && !isFirstMessage) {
         const userMessage: Message = {
           id: `${Date.now()}-user`,
           content,
@@ -105,7 +106,10 @@ export function AICostingChat({
       setIsTyping(true)
 
       try {
-        const response = await sendMessage(content)
+        // If this is the first message, send "I want costing" to API
+        // Otherwise send the actual user message
+        const messageToAPI = isFirstMessage ? "I want costing" : content
+        const response = await sendMessage(messageToAPI)
 
         if (response.success && response.data) {
           const aiResponseText =
@@ -155,7 +159,9 @@ export function AICostingChat({
       setIsInitialLoading(false)
 
       if (initialMessage) {
-        sendChatMessage(initialMessage)
+        // Mark this as the first message so it sends "I want costing" to API
+        // but displays the user's original message in the chat
+        sendChatMessage(initialMessage, { isFirstMessage: true })
       }
     }, 800)
 

@@ -17,8 +17,7 @@ export default function ChatsPage() {
   }
 
   const actions = [
-    { label: "New Inquiry", onClick: () => router.push("/") },
-    { label: "Refresh", onClick: () => window.location.reload() },
+    { label: "New Inquiry", onClick: () => router.push("/?autoStart=true") },
     { label: "Export", onClick: handleExport },
   ]
 

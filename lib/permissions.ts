@@ -111,7 +111,7 @@ export function getAllHODs(): HODName[] {
 /**
  * Get KAMs under a specific HOD
  */
-export function getKAMsForHOD(hodName: HODName): string[] {
+export function getKAMsForHOD(hodName: HODName): readonly string[] {
   return HOD_KAM_MAPPING[hodName] || []
 }
 
@@ -120,7 +120,7 @@ export function getKAMsForHOD(hodName: HODName): string[] {
  */
 export function getHODForKAM(kamName: string): HODName | null {
   for (const [hod, kams] of Object.entries(HOD_KAM_MAPPING)) {
-    if (kams.includes(kamName as any)) {
+    if ((kams as readonly string[]).includes(kamName)) {
       return hod as HODName
     }
   }
@@ -132,4 +132,79 @@ export function getHODForKAM(kamName: string): HODName | null {
  */
 export function getAllKAMs(): string[] {
   return Object.values(HOD_KAM_MAPPING).flat()
+}
+
+/**
+ * Check if current user should see only their own data
+ * Returns the KAM name if user is a KAM, null otherwise
+ */
+export function getCurrentUserKAMName(): string | null {
+  const user = getCurrentUser()
+  if (!user || user.role !== "KAM") return null
+
+  // The user's name should match one of the KAM names in the mapping
+  const allKams = getAllKAMs()
+  if (allKams.includes(user.name)) {
+    return user.name
+  }
+
+  return null
+}
+
+/**
+ * Check if current user can view all data (only Vertical Head)
+ */
+export function canViewAllData(): boolean {
+  const user = getCurrentUser()
+  if (!user) return false
+  return user.role === "Vertical Head"
+}
+
+/**
+ * Get current user's HOD name if they are an HOD
+ * Returns the HOD name if user is an HOD, null otherwise
+ */
+export function getCurrentUserHODName(): string | null {
+  const user = getCurrentUser()
+  if (!user || user.role !== "H.O.D") return null
+
+  // The user's name should match one of the HOD names in the mapping
+  const allHods = getAllHODs()
+  if (allHods.includes(user.name as HODName)) {
+    return user.name
+  }
+
+  return null
+}
+
+/**
+ * Get KAM names that the current user can view
+ * - KAM users: only their own name
+ * - HOD users: all KAMs under them
+ * - Vertical Head: all KAMs
+ */
+export function getViewableKAMs(): string[] {
+  const user = getCurrentUser()
+  if (!user) return []
+
+  // Vertical Head can see all KAMs
+  if (user.role === "Vertical Head") {
+    return getAllKAMs()
+  }
+
+  // HOD can see their KAMs
+  if (user.role === "H.O.D") {
+    const hodName = user.name as HODName
+    if (HOD_KAM_MAPPING[hodName]) {
+      return [...HOD_KAM_MAPPING[hodName]]
+    }
+  }
+
+  // KAM can only see themselves
+  if (user.role === "KAM") {
+    const kamName = getCurrentUserKAMName()
+    return kamName ? [kamName] : []
+  }
+
+  return []
 }

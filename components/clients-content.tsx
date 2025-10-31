@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Plus, Eye, Upload, CheckCircle2, XCircle, AlertCircle, RefreshCw, Filter } from "lucide-react"
+import { Search, Plus, Eye, Upload, CheckCircle2, XCircle, AlertCircle, Mic, Filter } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,75 @@ import { getViewableKAMs, isHOD } from "@/lib/permissions"
 
 const clients = [
   {
+    id: "CC-001",
+    name: "Tech Solutions Ltd",
+    code: "Pending",
+    email: "info@techsolutions.com",
+    phone: "+91 98765 43220",
+    gst: "27AABCU9603R1ZX",
+    pan: "AABCU9603R",
+    status: "Pending",
+    approvalStatus: "Pending Finance Approval",
+    complianceStatus: "Pending",
+    totalOrders: 0,
+    totalValue: 0,
+    lastOrder: "-",
+    kamName: "Priya Singh",
+    hodName: "Kavita Reddy",
+    submittedDate: "2024-10-20",
+    documents: {
+      gst: true,
+      pan: true,
+      agreement: false,
+    },
+  },
+  {
+    id: "CC-002",
+    name: "Prime Industries",
+    code: "Pending",
+    email: "contact@primeindustries.com",
+    phone: "+91 98765 43221",
+    gst: "27AABCP1234R1ZY",
+    pan: "AABCP1234R",
+    status: "Pending",
+    approvalStatus: "Pending D.V.P Approval",
+    complianceStatus: "Pending",
+    totalOrders: 0,
+    totalValue: 0,
+    lastOrder: "-",
+    kamName: "Rajat Kumar",
+    hodName: "Suresh Menon",
+    submittedDate: "2024-10-26",
+    documents: {
+      gst: true,
+      pan: true,
+      agreement: false,
+    },
+  },
+  {
+    id: "CC-003",
+    name: "Global Packaging Inc",
+    code: "Rejected",
+    email: "sales@globalpackaging.com",
+    phone: "+91 98765 43222",
+    gst: "27AABCG5555R1ZZ",
+    pan: "AABCG5555R",
+    status: "Rejected",
+    approvalStatus: "Rejected by Finance",
+    complianceStatus: "Incomplete",
+    totalOrders: 0,
+    totalValue: 0,
+    lastOrder: "-",
+    kamName: "Amit Verma",
+    hodName: "Kavita Reddy",
+    submittedDate: "2024-10-22",
+    documents: {
+      gst: false,
+      pan: true,
+      agreement: false,
+    },
+  },
+  {
     id: "CUST-001",
     name: "Acme Corp",
     code: "ACM-2024",
@@ -29,7 +98,8 @@ const clients = [
     phone: "+91 98765 43210",
     gst: "27AABCU9603R1ZM",
     pan: "AABCU9603R",
-    status: "Active",
+    status: "Approved",
+    approvalStatus: "Approved",
     complianceStatus: "Complete",
     totalOrders: 45,
     totalValue: 12500000,
@@ -50,7 +120,7 @@ const clients = [
     phone: "+91 98765 43211",
     gst: "29AABCT1332L1ZG",
     pan: "AABCT1332L",
-    status: "Active",
+    status: "Approved",
     complianceStatus: "Complete",
     totalOrders: 32,
     totalValue: 8900000,
@@ -71,7 +141,7 @@ const clients = [
     phone: "+91 98765 43212",
     gst: "27AABCG5647N1ZL",
     pan: "AABCG5647N",
-    status: "Active",
+    status: "Approved",
     complianceStatus: "Pending",
     totalOrders: 12,
     totalValue: 3200000,
@@ -92,7 +162,7 @@ const clients = [
     phone: "+91 98765 43213",
     gst: "29AABCM8965F1Z5",
     pan: "AABCM8965F",
-    status: "Active",
+    status: "Approved",
     complianceStatus: "Complete",
     totalOrders: 28,
     totalValue: 7800000,
@@ -106,22 +176,116 @@ const clients = [
     },
   },
   {
-    id: "CUST-005",
-    name: "Prime Packaging",
-    code: null,
-    email: "contact@primepack.com",
-    phone: "+91 98765 43214",
-    gst: "27AABCP7854K1Z8",
-    pan: "AABCP7854K",
-    status: "Pending Setup",
+    id: "CC-004",
+    name: "Innovative Packaging Solutions",
+    code: "Pending",
+    email: "sales@innovativepack.com",
+    phone: "+91 98765 43223",
+    gst: "27AABCI7890R1ZA",
+    pan: "AABCI7890R",
+    status: "Pending",
+    approvalStatus: "Pending Finance Approval",
+    complianceStatus: "Pending",
+    totalOrders: 0,
+    totalValue: 0,
+    lastOrder: "-",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    submittedDate: "2024-10-28",
+    documents: {
+      gst: true,
+      pan: true,
+      agreement: false,
+    },
+  },
+  {
+    id: "CC-005",
+    name: "Express Logistics Pvt Ltd",
+    code: "Pending",
+    email: "info@expresslogistics.com",
+    phone: "+91 98765 43224",
+    gst: "29AABCE4567R1ZB",
+    pan: "AABCE4567R",
+    status: "Pending",
+    approvalStatus: "Pending HOD Approval",
+    complianceStatus: "Pending",
+    totalOrders: 0,
+    totalValue: 0,
+    lastOrder: "-",
+    kamName: "Amit Patel",
+    hodName: "Suresh Menon",
+    submittedDate: "2024-10-27",
+    documents: {
+      gst: true,
+      pan: true,
+      agreement: false,
+    },
+  },
+  {
+    id: "CC-006",
+    name: "Smart Print Solutions",
+    code: "Rejected",
+    email: "contact@smartprint.com",
+    phone: "+91 98765 43225",
+    gst: "27AABCS1234R1ZC",
+    pan: "AABCS1234R",
+    status: "Rejected",
+    approvalStatus: "Rejected by D.V.P",
     complianceStatus: "Incomplete",
     totalOrders: 0,
     totalValue: 0,
-    lastOrder: null,
-    kamName: "Priya Sharma",
+    lastOrder: "-",
+    kamName: "Sneha Gupta",
     hodName: "Kavita Reddy",
+    submittedDate: "2024-10-24",
     documents: {
       gst: false,
+      pan: true,
+      agreement: false,
+    },
+  },
+  {
+    id: "CC-007",
+    name: "Rapid Manufacturing Co",
+    code: "Pending",
+    email: "sales@rapidmfg.com",
+    phone: "+91 98765 43226",
+    gst: "29AABCR6789R1ZD",
+    pan: "AABCR6789R",
+    status: "Pending",
+    approvalStatus: "Pending D.V.P Approval",
+    complianceStatus: "Pending",
+    totalOrders: 0,
+    totalValue: 0,
+    lastOrder: "-",
+    kamName: "Priya Sharma",
+    hodName: "Kavita Reddy",
+    submittedDate: "2024-10-29",
+    documents: {
+      gst: true,
+      pan: true,
+      agreement: false,
+    },
+  },
+  {
+    id: "CC-008",
+    name: "Quality Box Manufacturers",
+    code: "Rejected",
+    email: "info@qualitybox.com",
+    phone: "+91 98765 43227",
+    gst: "27AABCQ3456R1ZE",
+    pan: "AABCQ3456R",
+    status: "Rejected",
+    approvalStatus: "Rejected by Finance",
+    complianceStatus: "Incomplete",
+    totalOrders: 0,
+    totalValue: 0,
+    lastOrder: "-",
+    kamName: "Rajesh Kumar",
+    hodName: "Suresh Menon",
+    submittedDate: "2024-10-21",
+    documents: {
+      gst: true,
       pan: false,
       agreement: false,
     },
@@ -165,6 +329,7 @@ export function ClientsContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const [hodFilter, setHodFilter] = useState("all")
   const [kamFilter, setKamFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const itemsPerPage = 20
 
   // Filter data based on user role - KAMs can only see their own data
@@ -183,7 +348,8 @@ export function ClientsContent() {
       (client.code && client.code.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesHod = hodFilter === "all" || client.hodName === hodFilter
     const matchesKam = kamFilter === "all" || client.kamName === kamFilter
-    return matchesSearch && matchesHod && matchesKam
+    const matchesStatus = statusFilter === "all" || client.status === statusFilter
+    return matchesSearch && matchesHod && matchesKam && matchesStatus
   })
 
   // Pagination calculations
@@ -195,28 +361,25 @@ export function ClientsContent() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, hodFilter, kamFilter])
+  }, [searchQuery, hodFilter, kamFilter, statusFilter])
 
   return (
     <div className="space-y-4">
       {/* Search Bar Only */}
-      <div className="relative flex gap-2">
+      <div className="relative flex gap-2 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name, ID, code, or email..."
+            placeholder="Find your clients by name, ID, or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 placeholder:truncate"
           />
         </div>
-        <Button
-          onClick={() => window.location.reload()}
-          className="px-4 rounded-lg bg-[#005180] hover:bg-[#004875] text-white shadow-lg transition-all"
-          title="Refresh page"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <Mic
+          onClick={() => alert("Voice input feature coming soon")}
+          className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
+        />
       </div>
 
       {/* Clients Table */}
@@ -267,62 +430,90 @@ export function ClientsContent() {
                 <TableHead>Company Name</TableHead>
                 <TableHead>Customer Code</TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>
+                  <div className="flex items-center justify-between">
+                    <span>Status</span>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                        <Filter className="h-4 w-4 text-white" />
+                      </SelectTrigger>
+                      <SelectContent align="start" className="min-w-[150px]">
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="Approved">Approved</SelectItem>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableHead>
                 <TableHead>Compliance</TableHead>
                 <TableHead>Total Orders</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedClients.map((client, index) => (
-                <TableRow key={client.id} className="border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15">
-                  {!isKAM && !isHODUser && (
-                    <TableCell>
-                      <p className="text-sm font-medium text-foreground">{client.hodName || "N/A"}</p>
-                    </TableCell>
-                  )}
-                  {!isKAM && (
-                    <TableCell>
-                      <p className="text-sm font-medium text-foreground">{client.kamName || "N/A"}</p>
-                    </TableCell>
-                  )}
-                  <TableCell className="font-medium text-primary">{client.id}</TableCell>
-                  <TableCell>
-                    <div>
-                      <TruncatedText text={client.name} limit={25} className="font-medium block" />
-                      <p className="text-xs text-muted-foreground">{client.email}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {client.code ? (
-                      <Badge variant="outline">{client.code}</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Not Created</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <p className="text-sm">{client.phone}</p>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusColor(client.status)}>{client.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getComplianceColor(client.complianceStatus)}>{client.complianceStatus}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{client.totalOrders}</p>
-                      <p className="text-xs text-muted-foreground">₹{(client.totalValue / 100000).toFixed(1)}L</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Dialog>
+                <Dialog key={client.id}>
+                  <TableRow
+                    className="cursor-pointer border-b border-border/40 bg-white transition-all duration-200 even:bg-[#B92221]/5 hover:bg-[#78BE20]/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    {!isKAM && !isHODUser && (
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedClient(client)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <TableCell onClick={() => setSelectedClient(client)}>
+                          <p className="text-sm font-medium text-foreground">{client.hodName || "N/A"}</p>
+                        </TableCell>
                       </DialogTrigger>
-                      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+                    )}
+                    {!isKAM && (
+                      <DialogTrigger asChild>
+                        <TableCell onClick={() => setSelectedClient(client)}>
+                          <p className="text-sm font-medium text-foreground">{client.kamName || "N/A"}</p>
+                        </TableCell>
+                      </DialogTrigger>
+                    )}
+                    <DialogTrigger asChild>
+                      <TableCell onClick={() => setSelectedClient(client)} className="font-medium text-primary">{client.id}</TableCell>
+                    </DialogTrigger>
+                    <DialogTrigger asChild>
+                      <TableCell onClick={() => setSelectedClient(client)}>
+                        <div>
+                          <TruncatedText text={client.name} limit={25} className="font-medium block" />
+                          <p className="text-xs text-muted-foreground">{client.email}</p>
+                        </div>
+                      </TableCell>
+                    </DialogTrigger>
+                    <DialogTrigger asChild>
+                      <TableCell onClick={() => setSelectedClient(client)}>
+                        {client.code ? (
+                          <Badge variant="outline">{client.code}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Not Created</span>
+                        )}
+                      </TableCell>
+                    </DialogTrigger>
+                    <DialogTrigger asChild>
+                      <TableCell onClick={() => setSelectedClient(client)}>
+                        <p className="text-sm">{client.phone}</p>
+                      </TableCell>
+                    </DialogTrigger>
+                    <DialogTrigger asChild>
+                      <TableCell onClick={() => setSelectedClient(client)}>
+                        <Badge variant={getStatusColor(client.status)}>{client.status}</Badge>
+                      </TableCell>
+                    </DialogTrigger>
+                    <DialogTrigger asChild>
+                      <TableCell onClick={() => setSelectedClient(client)}>
+                        <Badge variant={getComplianceColor(client.complianceStatus)}>{client.complianceStatus}</Badge>
+                      </TableCell>
+                    </DialogTrigger>
+                    <DialogTrigger asChild>
+                      <TableCell onClick={() => setSelectedClient(client)}>
+                        <div>
+                          <p className="font-medium">{client.totalOrders}</p>
+                          <p className="text-xs text-muted-foreground">₹{(client.totalValue / 100000).toFixed(1)}L</p>
+                        </div>
+                      </TableCell>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
                         <DialogHeader className="flex-shrink-0">
                           <DialogTitle>Client Details</DialogTitle>
                           <DialogDescription>{selectedClient?.name}</DialogDescription>
@@ -482,14 +673,13 @@ export function ClientsContent() {
                             </div>
                           </div>
                         )}
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline">Edit Details</Button>
-                          <Button>Update Compliance</Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                </TableRow>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline">Edit Details</Button>
+                        <Button>Update Compliance</Button>
+                      </div>
+                    </DialogContent>
+                  </TableRow>
+                </Dialog>
               ))}
             </TableBody>
           </Table>

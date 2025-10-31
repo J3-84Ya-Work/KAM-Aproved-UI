@@ -14,38 +14,20 @@ interface NewChatWelcomeProps {
 
 export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: NewChatWelcomeProps) {
   const [inputValue, setInputValue] = useState("")
-  const [step, setStep] = useState<"initial" | "jobName" | "clientName">("initial")
-  const [jobName, setJobName] = useState("")
-  const [clientName, setClientName] = useState("")
   const router = useRouter()
 
   const handleStartChat = () => {
     const value = inputValue.trim()
     if (!value) return
 
-    if (step === "initial") {
-      // First input - move to job name step
-      setStep("jobName")
-      setInputValue("")
-    } else if (step === "jobName") {
-      // Second input - save job name and move to client name
-      setJobName(value)
-      setStep("clientName")
-      setInputValue("")
-    } else if (step === "clientName") {
-      // Third input - save client name and start chat
-      setClientName(value)
-      if (onStartChat) {
-        // Start chat with all collected information
-        const initialMessage = `I want costing for job: ${jobName}, client: ${value}`
-        onStartChat(initialMessage)
-      }
-      // Reset states
-      setInputValue("")
-      setStep("initial")
-      setJobName("")
-      setClientName("")
+    // Send the user's original input (will be displayed in chat)
+    // The chat component will handle sending "I want costing" to API
+    if (onStartChat) {
+      onStartChat(value)
     }
+
+    // Reset states
+    setInputValue("")
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -55,38 +37,28 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
     }
   }
 
-  const handleQuickSelect = () => {
-    // Start the job name collection flow
-    setStep("jobName")
-  }
-
   return (
     <div className="flex flex-col h-full">
       <div className="relative flex flex-1 max-w-[600px] mx-auto flex-col items-center justify-center bg-background px-4 md:px-6 pb-24 md:pb-6">
         <div className="w-full max-w-2xl space-y-6 md:space-y-8 text-center">
           <div className="space-y-2 md:space-y-3 message-fade-in">
-            <h1 className="text-xl md:text-3xl font-semibold text-foreground">
-              {step === "initial" && "How can I help you?"}
-              {step === "jobName" && "What is the Job Name?"}
-              {step === "clientName" && "What is the Client Name?"}
+            <p className="text-lg md:text-xl text-[#78BE20] font-semibold">
+              Hello, {userName}!
+            </p>
+            <h1 className="text-xl md:text-3xl font-semibold text-[#005180]">
+              How can I assist you today?
             </h1>
           </div>
 
           <div className="relative mx-auto w-full message-fade-in" style={{ animationDelay: "100ms" }}>
             <div className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3.5 md:py-3 shadow-sm input-focus-glow focus-within:border-primary">
-              <Mic className="h-5 w-5 text-muted-foreground shrink-0" />
+              <Mic className="h-5 w-5 text-[#005180] shrink-0" />
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={
-                  step === "initial"
-                    ? "Start your AI chat here..."
-                    : step === "jobName"
-                    ? "Enter job name..."
-                    : "Enter client name..."
-                }
-                className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder="Type here or press mic & speak"
+                className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground placeholder:truncate focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               {inputValue.trim() && (
                 <Button
@@ -99,25 +71,6 @@ export function NewChatWelcome({ onStartChat, onOpenChat, userName = "User" }: N
               )}
             </div>
           </div>
-
-          {step === "initial" && (
-            <div className="space-y-3 message-fade-in" style={{ animationDelay: "200ms" }}>
-              <div className="flex justify-center">
-                <Button
-                  variant="outline"
-                  onClick={handleQuickSelect}
-                  className="rounded-xl border-border px-5 py-3.5 md:py-3 text-sm button-hover-lift bg-transparent min-h-[44px]"
-                >
-                  Start AI Chat
-                </Button>
-              </div>
-            </div>
-          )}
-          {step !== "initial" && jobName && (
-            <div className="text-sm text-muted-foreground message-fade-in">
-              Job Name: <span className="font-semibold text-foreground">{jobName}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -1,17 +1,18 @@
 "use client"
 import { NotificationsPanel } from "@/components/notifications-panel"
 import Image from "next/image"
-import { ArrowLeft, Menu } from "lucide-react"
+import { ArrowLeft, Menu, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 interface AppHeaderProps {
   pageName?: string
   showBackButton?: boolean
+  onBackClick?: () => void
   onMenuClick?: () => void
 }
 
-export function AppHeader({ pageName, showBackButton = false, onMenuClick }: AppHeaderProps) {
+export function AppHeader({ pageName, showBackButton = false, onBackClick, onMenuClick }: AppHeaderProps) {
   const router = useRouter()
 
   return (
@@ -33,23 +34,34 @@ export function AppHeader({ pageName, showBackButton = false, onMenuClick }: App
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.back()}
+            onClick={onBackClick || (() => router.back())}
             className="h-8 w-8 md:h-9 md:w-9 hover:bg-gray-100 shrink-0"
           >
             <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         )}
-        <Image
-          src="/images/parkbuddy-logo.jpg"
-          alt="Park Buddy"
-          width={36}
-          height={36}
-          className="h-8 w-8 md:h-10 md:w-10 rounded-lg object-contain shrink-0"
-        />
+        {!showBackButton && (
+          <Image
+            src="/images/parkbuddy-logo.jpg"
+            alt="Park Buddy"
+            width={36}
+            height={36}
+            className="h-8 w-8 md:h-10 md:w-10 rounded-lg object-contain shrink-0"
+          />
+        )}
         {pageName && <h1 className="text-base md:text-lg font-semibold text-foreground truncate ml-1">{pageName}</h1>}
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => window.location.reload()}
+          className="h-8 w-8 md:h-9 md:w-9 hover:bg-gray-100"
+          title="Refresh page"
+        >
+          <RefreshCw className="h-4 w-4 md:h-5 md:w-5" />
+        </Button>
         <NotificationsPanel />
       </div>
     </header>

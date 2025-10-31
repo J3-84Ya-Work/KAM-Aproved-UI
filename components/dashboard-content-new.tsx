@@ -17,11 +17,11 @@ const baseKpiData: Record<string, any> = {
     {
       title: "Total Inquiries",
       value: "234",
-      change: "+12%",
-      trend: "up",
+      change: "-4%",
+      trend: "down",
       icon: FileText,
       color: "#005180",
-      bgGradient: "from-blue-50 to-blue-100",
+      bgGradient: "from-[#005180]/5 to-[#005180]/10",
       comparison: "vs last month",
     },
     {
@@ -31,17 +31,17 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: CheckCircle,
       color: "#78BE20",
-      bgGradient: "from-green-50 to-green-100",
+      bgGradient: "from-[#78BE20]/5 to-[#78BE20]/10",
       comparison: "vs last month",
     },
     {
       title: "Conversions",
       value: "142",
-      change: "+25%",
-      trend: "up",
+      change: "-6%",
+      trend: "down",
       icon: Package,
       color: "#005180",
-      bgGradient: "from-indigo-50 to-indigo-100",
+      bgGradient: "from-[#005180]/10 to-[#005180]/15",
       comparison: "conversion rate 60.7%",
     },
     {
@@ -50,8 +50,8 @@ const baseKpiData: Record<string, any> = {
       change: "+5%",
       trend: "up",
       icon: Users,
-      color: "#005180",
-      bgGradient: "from-violet-50 to-violet-100",
+      color: "#78BE20",
+      bgGradient: "from-[#78BE20]/10 to-[#78BE20]/15",
       comparison: "active this month",
     },
   ],
@@ -59,11 +59,11 @@ const baseKpiData: Record<string, any> = {
     {
       title: "Total Inquiries",
       value: "62",
-      change: "+15%",
-      trend: "up",
+      change: "-5%",
+      trend: "down",
       icon: FileText,
       color: "#005180",
-      bgGradient: "from-blue-50 to-blue-100",
+      bgGradient: "from-[#005180]/5 to-[#005180]/10",
       comparison: "vs last month",
     },
     {
@@ -73,17 +73,17 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: CheckCircle,
       color: "#78BE20",
-      bgGradient: "from-green-50 to-green-100",
+      bgGradient: "from-[#78BE20]/5 to-[#78BE20]/10",
       comparison: "vs last month",
     },
     {
       title: "Conversions",
       value: "38",
-      change: "+28%",
-      trend: "up",
+      change: "-8%",
+      trend: "down",
       icon: Package,
       color: "#005180",
-      bgGradient: "from-indigo-50 to-indigo-100",
+      bgGradient: "from-[#005180]/10 to-[#005180]/15",
       comparison: "conversion rate 61.3%",
     },
     {
@@ -92,8 +92,8 @@ const baseKpiData: Record<string, any> = {
       change: "+6%",
       trend: "up",
       icon: Users,
-      color: "#005180",
-      bgGradient: "from-violet-50 to-violet-100",
+      color: "#78BE20",
+      bgGradient: "from-[#78BE20]/10 to-[#78BE20]/15",
       comparison: "active this month",
     },
   ],
@@ -101,11 +101,11 @@ const baseKpiData: Record<string, any> = {
     {
       title: "Total Inquiries",
       value: "58",
-      change: "+10%",
-      trend: "up",
+      change: "-8%",
+      trend: "down",
       icon: FileText,
       color: "#005180",
-      bgGradient: "from-blue-50 to-blue-100",
+      bgGradient: "from-[#005180]/5 to-[#005180]/10",
       comparison: "vs last month",
     },
     {
@@ -115,17 +115,17 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: CheckCircle,
       color: "#78BE20",
-      bgGradient: "from-green-50 to-green-100",
+      bgGradient: "from-[#78BE20]/5 to-[#78BE20]/10",
       comparison: "vs last month",
     },
     {
       title: "Conversions",
       value: "35",
-      change: "+22%",
-      trend: "up",
+      change: "-10%",
+      trend: "down",
       icon: Package,
       color: "#005180",
-      bgGradient: "from-indigo-50 to-indigo-100",
+      bgGradient: "from-[#005180]/10 to-[#005180]/15",
       comparison: "conversion rate 60.3%",
     },
     {
@@ -135,7 +135,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: Users,
       color: "#005180",
-      bgGradient: "from-violet-50 to-violet-100",
+      bgGradient: "from-[#78BE20]/10 to-[#78BE20]/15",
       comparison: "active this month",
     },
   ],
@@ -147,17 +147,17 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: FileText,
       color: "#005180",
-      bgGradient: "from-blue-50 to-blue-100",
+      bgGradient: "from-[#005180]/5 to-[#005180]/10",
       comparison: "vs last month",
     },
     {
       title: "Completed",
       value: "52",
-      change: "+19%",
-      trend: "up",
+      change: "-5%",
+      trend: "down",
       icon: CheckCircle,
       color: "#78BE20",
-      bgGradient: "from-green-50 to-green-100",
+      bgGradient: "from-[#78BE20]/5 to-[#78BE20]/10",
       comparison: "vs last month",
     },
     {
@@ -167,17 +167,17 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: Package,
       color: "#005180",
-      bgGradient: "from-indigo-50 to-indigo-100",
+      bgGradient: "from-[#005180]/10 to-[#005180]/15",
       comparison: "conversion rate 60.0%",
     },
     {
       title: "Active Clients",
       value: "24",
-      change: "+5%",
-      trend: "up",
+      change: "-3%",
+      trend: "down",
       icon: Users,
       color: "#005180",
-      bgGradient: "from-violet-50 to-violet-100",
+      bgGradient: "from-[#78BE20]/10 to-[#78BE20]/15",
       comparison: "active this month",
     },
   ],
@@ -185,11 +185,11 @@ const baseKpiData: Record<string, any> = {
     {
       title: "Total Inquiries",
       value: "49",
-      change: "+8%",
-      trend: "up",
+      change: "-12%",
+      trend: "down",
       icon: FileText,
       color: "#005180",
-      bgGradient: "from-blue-50 to-blue-100",
+      bgGradient: "from-[#005180]/5 to-[#005180]/10",
       comparison: "vs last month",
     },
     {
@@ -199,27 +199,27 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: CheckCircle,
       color: "#78BE20",
-      bgGradient: "from-green-50 to-green-100",
+      bgGradient: "from-[#78BE20]/5 to-[#78BE20]/10",
       comparison: "vs last month",
     },
     {
       title: "Conversions",
       value: "30",
-      change: "+23%",
-      trend: "up",
+      change: "-7%",
+      trend: "down",
       icon: Package,
       color: "#005180",
-      bgGradient: "from-indigo-50 to-indigo-100",
+      bgGradient: "from-[#005180]/10 to-[#005180]/15",
       comparison: "conversion rate 61.2%",
     },
     {
       title: "Active Clients",
       value: "19",
-      change: "+5%",
-      trend: "up",
+      change: "-2%",
+      trend: "down",
       icon: Users,
       color: "#005180",
-      bgGradient: "from-violet-50 to-violet-100",
+      bgGradient: "from-[#78BE20]/10 to-[#78BE20]/15",
       comparison: "active this month",
     },
   ],
@@ -231,7 +231,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: FileText,
       color: "#005180",
-      bgGradient: "from-blue-50 to-blue-100",
+      bgGradient: "from-[#005180]/5 to-[#005180]/10",
       comparison: "vs last month",
     },
     {
@@ -241,7 +241,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: CheckCircle,
       color: "#78BE20",
-      bgGradient: "from-green-50 to-green-100",
+      bgGradient: "from-[#78BE20]/5 to-[#78BE20]/10",
       comparison: "vs last month",
     },
     {
@@ -251,7 +251,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: Package,
       color: "#005180",
-      bgGradient: "from-indigo-50 to-indigo-100",
+      bgGradient: "from-[#005180]/10 to-[#005180]/15",
       comparison: "conversion rate 60.8%",
     },
     {
@@ -261,7 +261,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: Users,
       color: "#005180",
-      bgGradient: "from-violet-50 to-violet-100",
+      bgGradient: "from-[#78BE20]/10 to-[#78BE20]/15",
       comparison: "active this month",
     },
   ],
@@ -273,7 +273,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: FileText,
       color: "#005180",
-      bgGradient: "from-blue-50 to-blue-100",
+      bgGradient: "from-[#005180]/5 to-[#005180]/10",
       comparison: "vs last month",
     },
     {
@@ -283,7 +283,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: CheckCircle,
       color: "#78BE20",
-      bgGradient: "from-green-50 to-green-100",
+      bgGradient: "from-[#78BE20]/5 to-[#78BE20]/10",
       comparison: "vs last month",
     },
     {
@@ -293,7 +293,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: Package,
       color: "#005180",
-      bgGradient: "from-indigo-50 to-indigo-100",
+      bgGradient: "from-[#005180]/10 to-[#005180]/15",
       comparison: "conversion rate 60.5%",
     },
     {
@@ -303,7 +303,7 @@ const baseKpiData: Record<string, any> = {
       trend: "up",
       icon: Users,
       color: "#005180",
-      bgGradient: "from-violet-50 to-violet-100",
+      bgGradient: "from-[#78BE20]/10 to-[#78BE20]/15",
       comparison: "active this month",
     },
   ],
@@ -484,9 +484,9 @@ const baseConversionFunnelData: Record<string, any> = {
 
 const projectsByTypeData = [
   { type: "SDO", count: 42, color: "#005180" },
-  { type: "JDO", count: 35, color: "#5a9518" },
-  { type: "Commercial", count: 58, color: "#991b1b" },
-  { type: "PN", count: 28, color: "#c2410c" },
+  { type: "JDO", count: 35, color: "#78BE20" },
+  { type: "Commercial", count: 58, color: "#B92221" },
+  { type: "PN", count: 28, color: "#005180" },
 ]
 
 const customerSegmentData = [
@@ -578,7 +578,7 @@ export function DashboardContent() {
     if (selectedHod !== "all" && selectedKam !== "all" && !availableKams.includes(selectedKam)) {
       setSelectedKam("all")
     }
-  }, [selectedHod])
+  }, [selectedHod, selectedKam, availableKams])
 
   // Auto-update HOD when KAM is selected (for Vertical Head only)
   useEffect(() => {
@@ -592,7 +592,7 @@ export function DashboardContent() {
         }
       }
     }
-  }, [selectedKam, isRestrictedUser])
+  }, [selectedKam, isRestrictedUser, hodKamMapping])
 
   // Auto-update KAM to "all" when "All HODs" is selected (for Vertical Head only)
   useEffect(() => {
@@ -708,32 +708,66 @@ export function DashboardContent() {
       )}
 
       {/* KPI Tiles - 4 Square Cards in 2 per row */}
-      <div className="grid grid-cols-2 gap-2">
-        {kpiData.map((kpi: any, index: number) => (
-          <Card key={kpi.title} className={`bg-gradient-to-br ${kpi.bgGradient} border-0 shadow-md hover:shadow-lg transition-all duration-300 animate-fade-in`} style={{ animationDelay: `${index * 50}ms` }}>
-            <CardContent className="p-3 h-full flex flex-col justify-between">
-              <div className="flex items-start justify-between">
-                <div className={`p-1.5 rounded-lg`} style={{ backgroundColor: `${kpi.color}15` }}>
-                  <kpi.icon className="h-4 w-4" style={{ color: kpi.color }} />
+      <div className="grid grid-cols-2 gap-3">
+        {kpiData.map((kpi: any, index: number) => {
+          // Define color scheme based on card type - using only brand colors with blue text for Card 2
+          const colorSchemes = [
+            { bg: "bg-gradient-to-br from-blue-50 to-[#005180]/10", iconBg: "bg-[#005180]/15", iconColor: "text-[#005180]", borderColor: "border-[#005180]/30", valueColor: "text-[#005180]", titleColor: "text-[#005180]/80" },
+            { bg: "bg-gradient-to-br from-emerald-50 to-[#78BE20]/10", iconBg: "bg-[#78BE20]/15", iconColor: "text-[#78BE20]", borderColor: "border-[#78BE20]/30", valueColor: "text-[#005180]", titleColor: "text-[#005180]/70" },
+            { bg: "bg-gradient-to-br from-cyan-50 to-[#005180]/5", iconBg: "bg-[#005180]/12", iconColor: "text-[#005180]", borderColor: "border-[#005180]/25", valueColor: "text-[#005180]", titleColor: "text-[#005180]/70" },
+            { bg: "bg-gradient-to-br from-slate-50 to-gray-100", iconBg: "bg-gray-500/15", iconColor: "text-gray-700", borderColor: "border-gray-300", valueColor: "text-gray-800", titleColor: "text-gray-600" },
+          ]
+          const scheme = colorSchemes[index]
+
+          return (
+            <Card
+              key={kpi.title}
+              className={`${scheme.bg} border-2 ${scheme.borderColor} shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] overflow-hidden relative`}
+            >
+              <CardContent className="p-4 h-full flex flex-col justify-between relative">
+                {/* Icon in top left */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`p-2.5 rounded-xl ${scheme.iconBg} ${scheme.iconColor} shadow-sm`}>
+                    <kpi.icon className="h-5 w-5" />
+                  </div>
+
+                  {/* Change percentage badge */}
+                  <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm ${
+                    kpi.trend === "up"
+                      ? "bg-[#78BE20]/20 text-[#78BE20] border border-[#78BE20]/40"
+                      : "bg-[#B92221]/20 text-[#B92221] border border-[#B92221]/40"
+                  }`}>
+                    {kpi.change}
+                    {kpi.trend === "up" ? (
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    ) : (
+                      <TrendingDown className="h-3.5 w-3.5" />
+                    )}
+                  </div>
                 </div>
-                <div className={`flex items-center gap-0.5 text-xs font-bold whitespace-nowrap ${kpi.trend === "up" ? "text-green-600" : "text-red-600"}`}>
-                  {kpi.change}
-                  {kpi.trend === "up" ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+
+                {/* Value and title */}
+                <div className="space-y-1.5">
+                  <h3 className={`text-3xl font-bold ${scheme.valueColor} leading-none tracking-tight`}>{kpi.value}</h3>
+                  <p className={`text-xs font-semibold ${scheme.titleColor} leading-tight`}>{kpi.title}</p>
                 </div>
-              </div>
-              <div className="space-y-0.5 mt-2">
-                <h3 className="text-2xl font-bold text-gray-900 leading-none">{kpi.value}</h3>
-                <p className="text-xs font-medium text-gray-700 leading-tight">{kpi.title}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {/* Charts Grid - Top 3 Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Chart 2: Sales vs Target */}
-        <Card className="border-0 shadow-md bg-white/80 backdrop-blur">
+        <Card
+          className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+          style={{
+            animationDelay: '400ms',
+            animationDuration: '600ms',
+            animationFillMode: 'forwards'
+          }}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-gray-900">Sales vs Target</CardTitle>
           </CardHeader>
@@ -755,7 +789,14 @@ export function DashboardContent() {
         </Card>
 
         {/* Chart 3: Conversion Funnel */}
-        <Card className="border-0 shadow-md bg-white/80 backdrop-blur">
+        <Card
+          className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+          style={{
+            animationDelay: '500ms',
+            animationDuration: '600ms',
+            animationFillMode: 'forwards'
+          }}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-gray-900">Conversion Funnel</CardTitle>
           </CardHeader>
@@ -779,7 +820,14 @@ export function DashboardContent() {
         </Card>
 
         {/* Chart 4: Projects by Type */}
-        <Card className="border-0 shadow-md bg-white/80 backdrop-blur">
+        <Card
+          className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+          style={{
+            animationDelay: '600ms',
+            animationDuration: '600ms',
+            animationFillMode: 'forwards'
+          }}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-gray-900">Projects by Type</CardTitle>
           </CardHeader>
@@ -804,7 +852,14 @@ export function DashboardContent() {
       </div>
 
       {/* Chart 1: Monthly Inquiries vs Conversions */}
-      <Card className="border-0 shadow-md bg-white/80 backdrop-blur">
+      <Card
+        className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.01]"
+        style={{
+          animationDelay: '700ms',
+          animationDuration: '600ms',
+          animationFillMode: 'forwards'
+        }}
+      >
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold text-gray-900">Monthly Inquiries vs Conversions</CardTitle>
         </CardHeader>
@@ -826,20 +881,35 @@ export function DashboardContent() {
       </Card>
 
       {/* Status Legends - At Bottom */}
-      <Card className="border-0 shadow-md bg-white/90 backdrop-blur">
+      <Card
+        className="border-0 shadow-md bg-white/90 backdrop-blur hover:shadow-lg transition-all duration-300"
+        style={{
+          animationDelay: '800ms',
+          animationDuration: '600ms',
+          animationFillMode: 'forwards'
+        }}
+      >
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold text-gray-900">Status Overview</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-2">
           <div className="grid grid-cols-1 gap-2">
-            {statusLegend.map((status) => (
-              <div key={status.name} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-gradient-to-r from-gray-50 to-white hover:shadow-sm transition-shadow">
+            {statusLegend.map((status, index) => (
+              <div
+                key={status.name}
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-gradient-to-r from-gray-50 to-white hover:shadow-md hover:scale-[1.02] transition-all duration-200 active:scale-95"
+                style={{
+                  animationDelay: `${900 + index * 80}ms`,
+                  animationDuration: '400ms',
+                  animationFillMode: 'forwards'
+                }}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="h-3 w-3 rounded-full shadow-sm" style={{ backgroundColor: status.color }} />
+                  <div className="h-3 w-3 rounded-full shadow-sm transition-transform duration-200 hover:scale-125" style={{ backgroundColor: status.color }} />
                   <span className="text-sm font-medium text-gray-700">{status.name}</span>
                 </div>
                 <Badge
-                  className="h-6 px-3 text-xs font-bold shadow-sm"
+                  className="h-6 px-3 text-xs font-bold shadow-sm transition-all duration-200 hover:scale-110"
                   style={{ backgroundColor: `${status.color}20`, color: status.color, border: `1px solid ${status.color}40` }}
                 >
                   {status.count}

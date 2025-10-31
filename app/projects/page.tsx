@@ -7,7 +7,7 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { useRouter } from "next/navigation"
 import { useState, useCallback } from "react"
-import { getViewableKAMs } from "@/lib/permissions"
+import { getViewableKAMs, isHOD, getCurrentUser } from "@/lib/permissions"
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -15,6 +15,9 @@ export default function ProjectsPage() {
 
   const viewableKams = getViewableKAMs()
   const isKAM = viewableKams.length === 1 // KAM can only see themselves
+  const isHODUser = isHOD()
+  const currentUser = getCurrentUser()
+  const isVerticalHead = currentUser?.role === "Vertical Head"
 
   const handleExport = () => {
     alert("Export functionality will download all projects as CSV/Excel")
@@ -60,10 +63,13 @@ export default function ProjectsPage() {
       { label: "Export", onClick: handleExport },
     ]
 
+    // Only KAM users can create new records
+    const showNewButtons = isKAM
+
     switch (activeTab) {
       case "sdo":
         return [
-          { label: "New SDO", onClick: handleNewSDO },
+          ...(showNewButtons ? [{ label: "New SDO", onClick: handleNewSDO }] : []),
           { label: "View JDO", onClick: handleViewJDO },
           { label: "View Commercial", onClick: handleViewCommercial },
           { label: "View PN", onClick: handleViewPN },
@@ -71,7 +77,7 @@ export default function ProjectsPage() {
         ]
       case "jdo":
         return [
-          { label: "New SDO", onClick: handleNewSDO },
+          ...(showNewButtons ? [{ label: "New JDO", onClick: handleNewJDO }] : []),
           { label: "View SDO", onClick: handleViewSDO },
           { label: "View Commercial", onClick: handleViewCommercial },
           { label: "View PN", onClick: handleViewPN },
@@ -79,7 +85,7 @@ export default function ProjectsPage() {
         ]
       case "commercial":
         return [
-          { label: "New SDO", onClick: handleNewSDO },
+          ...(showNewButtons ? [{ label: "New Commercial", onClick: handleNewCommercial }] : []),
           { label: "View SDO", onClick: handleViewSDO },
           { label: "View JDO", onClick: handleViewJDO },
           { label: "View PN", onClick: handleViewPN },
@@ -87,7 +93,7 @@ export default function ProjectsPage() {
         ]
       case "pn":
         return [
-          { label: "New SDO", onClick: handleNewSDO },
+          ...(showNewButtons ? [{ label: "New PN", onClick: handleNewPN }] : []),
           { label: "View SDO", onClick: handleViewSDO },
           { label: "View JDO", onClick: handleViewJDO },
           { label: "View Commercial", onClick: handleViewCommercial },

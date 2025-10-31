@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, SlidersHorizontal, Filter, Clock, RefreshCw } from "lucide-react"
+import { Search, SlidersHorizontal, Filter, Clock, Mic } from "lucide-react"
+import { useVoiceInput } from "@/hooks/use-voice-input"
 import {
   Dialog,
   DialogContent,
@@ -189,20 +190,20 @@ const inquiries = [
 ]
 
 const STATUS_BADGES: Record<string, string> = {
-  Approved: "bg-green-500/15 text-green-700 border-green-500/30",
-  Quoted: "bg-blue-500/15 text-blue-700 border-blue-500/30",
-  Costing: "bg-amber-400/20 text-amber-700 border-amber-400/30",
-  Pending: "bg-rose-500/15 text-rose-700 border-rose-500/30",
-  Clarified: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
-  "Pending Clarification": "bg-rose-500/15 text-rose-700 border-rose-500/30",
-  "Awaiting Customer": "bg-blue-500/15 text-blue-700 border-blue-500/30",
+  Approved: "bg-[#78BE20]/15 text-[#78BE20] border-[#78BE20]/30",
+  Quoted: "bg-[#78BE20]/20 text-green-700 border-[#78BE20]/40",
+  Costing: "bg-[#005180]/15 text-[#005180] border-[#005180]/30",
+  Pending: "bg-[#B92221]/15 text-[#B92221] border-[#B92221]/30",
+  Clarified: "bg-[#78BE20]/15 text-green-700 border-[#78BE20]/30",
+  "Pending Clarification": "bg-[#B92221]/15 text-[#B92221] border-[#B92221]/30",
+  "Awaiting Customer": "bg-[#005180]/15 text-[#005180] border-[#005180]/30",
   "Not Required": "bg-slate-200 text-slate-600 border-slate-300",
 }
 
 const PRIORITY_BADGES: Record<string, string> = {
-  high: "bg-rose-500/15 text-rose-700 border-rose-500/30",
-  medium: "bg-blue-500/15 text-blue-700 border-blue-500/30",
-  low: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+  high: "bg-[#B92221]/15 text-[#B92221] border-[#B92221]/30",
+  medium: "bg-[#005180]/15 text-[#005180] border-[#005180]/30",
+  low: "bg-[#78BE20]/15 text-[#78BE20] border-[#78BE20]/30",
 }
 
 function getStatusBadge(status: string) {
@@ -216,11 +217,11 @@ function getPriorityBadge(priority: string) {
 function getPriorityAccent(priority: string) {
   switch (priority) {
     case "high":
-      return "bg-rose-500"
+      return "bg-[#B92221]"
     case "medium":
-      return "bg-blue-500"
+      return "bg-[#005180]"
     default:
-      return "bg-emerald-500"
+      return "bg-[#78BE20]"
   }
 }
 
@@ -238,6 +239,17 @@ export function InquiriesContent() {
   const [sortBy, setSortBy] = useState("date-desc")
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
+
+  // Voice input hook
+  const { isListening, transcript, startListening, resetTranscript } = useVoiceInput()
+
+  // Update search query when voice transcript changes
+  useEffect(() => {
+    if (transcript) {
+      setSearchQuery(transcript)
+      resetTranscript()
+    }
+  }, [transcript, resetTranscript])
 
   // Filter data based on user role - KAMs can only see their own data
   const userFilteredInquiries = isRestrictedUser
@@ -300,23 +312,24 @@ export function InquiriesContent() {
 
   return (
     <div className="section-spacing">
-      <div className="relative w-full flex gap-2">
+      <div className="relative w-full flex gap-2 items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search inquiries, customers, job names, or SKU"
+            placeholder="Find your inquiries by customer, job, or SKU..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
           />
         </div>
-        <Button
-          onClick={() => window.location.reload()}
-          className="h-12 px-4 rounded-2xl bg-[#005180] hover:bg-[#004875] text-white shadow-lg transition-all"
-          title="Refresh page"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <Mic
+          onClick={isListening ? undefined : startListening}
+          className={`h-6 w-6 cursor-pointer transition-colors duration-200 flex-shrink-0 ${
+            isListening
+              ? 'text-[#B92221] animate-pulse'
+              : 'text-[#005180] hover:text-[#004875]'
+          }`}
+        />
       </div>
 
       <Card className="surface-elevated overflow-hidden">
@@ -426,8 +439,7 @@ export function InquiriesContent() {
                   <Dialog key={inquiry.id}>
                     <DialogTrigger asChild>
                       <TableRow
-                        className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
-                        style={{ animationDelay: `${index * 30}ms` }}
+                        className="group cursor-pointer border-b border-border/40 bg-white transition-all duration-200 even:bg-[#B92221]/5 hover:bg-[#78BE20]/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
                       >
                         {!isKAMUser && !isHODUser && (
                           <TableCell className="py-4">
@@ -440,13 +452,13 @@ export function InquiriesContent() {
                           </TableCell>
                         )}
                         <TableCell className="whitespace-nowrap py-4">
-                          <div className="space-y-0.5">
+                          <div className="leading-[1.15]">
                             <p className="text-sm font-semibold text-primary">{inquiry.id}</p>
                             <TruncatedText text={inquiry.customer} limit={25} className="text-sm font-medium text-foreground/80" />
                           </div>
                         </TableCell>
                         <TableCell className="py-4">
-                          <div className="space-y-0.5">
+                          <div className="leading-[1.15]">
                             <TruncatedText text={inquiry.job} limit={30} className="text-sm font-semibold text-foreground" />
                             <p className="text-xs text-muted-foreground">SKU {inquiry.sku}</p>
                           </div>
@@ -473,70 +485,79 @@ export function InquiriesContent() {
                       </TableRow>
                     </DialogTrigger>
                     <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
-                      <DialogHeader className="gap-1 border-b border-border/60 bg-primary-muted/60 px-6 py-5 flex-shrink-0">
-                        <DialogTitle className="text-lg font-semibold text-foreground">{inquiry.job}</DialogTitle>
-                        <DialogDescription className="text-sm text-muted-foreground">{inquiry.id}</DialogDescription>
+                      <DialogHeader className="border-b-0 bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-5 flex-shrink-0 text-center">
+                        <DialogTitle className="text-xl font-bold text-gray-900">{inquiry.job}</DialogTitle>
+                        <DialogDescription className="text-sm font-semibold text-gray-600">{inquiry.id}</DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-5 px-6 py-5 overflow-y-auto overflow-x-hidden flex-1">
-                        <div className="grid gap-4 sm:grid-cols-3">
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
-                            <p className="mt-1 text-sm font-medium text-foreground">{inquiry.customer}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</Label>
-                            <div className="mt-1">
-                              <Badge className={`${getStatusBadge(inquiry.status)} border`}>{inquiry.status}</Badge>
-                            </div>
-                          </div>
-                          {!isKAMUser && (
-                            <div>
-                              <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">KAM Name</Label>
-                              <p className="mt-1 text-sm font-medium text-foreground">{inquiry.kamName || "N/A"}</p>
-                            </div>
-                          )}
+                      <div className="space-y-0 overflow-y-auto overflow-x-hidden flex-1">
+                        {/* Customer Section */}
+                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Customer</Label>
+                          <p className="text-base font-semibold text-gray-900">{inquiry.customer}</p>
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-3">
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Clarification</Label>
-                            <p className="mt-1 text-sm text-foreground/80">{inquiry.clarificationStatus}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Job Type</Label>
-                            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">{inquiry.jobType}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Quantity Range</Label>
-                            <p className="mt-1 text-sm text-foreground/80">{inquiry.quantityRange}</p>
-                          </div>
+
+                        {/* Status Section */}
+                        <div className="bg-white px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Status</Label>
+                          <Badge className={`${getStatusBadge(inquiry.status)} border text-sm px-3 py-1`}>{inquiry.status}</Badge>
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Date</Label>
-                            <p className="mt-1 text-sm text-foreground/80">{inquiry.date}</p>
+
+                        {/* KAM Name Section */}
+                        {!isKAMUser && (
+                          <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">KAM Name</Label>
+                            <p className="text-base font-semibold text-gray-900">{inquiry.kamName || "N/A"}</p>
                           </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Due Date</Label>
-                            <p className="mt-1 text-sm text-foreground/80">{inquiry.dueDate}</p>
-                          </div>
+                        )}
+
+                        {/* Clarification Section */}
+                        <div className="bg-white px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Clarification</Label>
+                          <p className="text-base font-semibold text-gray-900">{inquiry.clarificationStatus}</p>
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Priority</Label>
-                            <div className="mt-1">
-                              <Badge className={`${getPriorityBadge(inquiry.priority)} border capitalize`}>
-                                {inquiry.priority}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">SKU</Label>
-                            <p className="mt-1 text-sm text-foreground/80">{inquiry.sku}</p>
-                          </div>
+
+                        {/* Job Type Section */}
+                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Job Type</Label>
+                          <p className="text-sm font-bold uppercase tracking-wider text-[#005180]">{inquiry.jobType}</p>
                         </div>
-                        <div>
-                          <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Notes</Label>
-                          <TruncatedText text={inquiry.notes} limit={200} className="mt-1 text-sm leading-relaxed text-foreground/80 block" />
+
+                        {/* Quantity Range Section */}
+                        <div className="bg-white px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Quantity Range</Label>
+                          <p className="text-base font-semibold text-gray-900">{inquiry.quantityRange}</p>
+                        </div>
+
+                        {/* Date Section */}
+                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Date</Label>
+                          <p className="text-base font-semibold text-gray-900">{inquiry.date}</p>
+                        </div>
+
+                        {/* Due Date Section */}
+                        <div className="bg-white px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Due Date</Label>
+                          <p className="text-base font-semibold text-gray-900">{inquiry.dueDate}</p>
+                        </div>
+
+                        {/* Priority Section */}
+                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Priority</Label>
+                          <Badge className={`${getPriorityBadge(inquiry.priority)} border capitalize text-sm px-3 py-1`}>
+                            {inquiry.priority}
+                          </Badge>
+                        </div>
+
+                        {/* SKU Section */}
+                        <div className="bg-white px-6 py-4 border-b border-gray-200">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">SKU</Label>
+                          <p className="text-base font-semibold text-gray-900">{inquiry.sku}</p>
+                        </div>
+
+                        {/* Notes Section */}
+                        <div className="bg-blue-50/50 px-6 py-4">
+                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Notes</Label>
+                          <TruncatedText text={inquiry.notes} limit={200} className="text-sm leading-relaxed text-gray-700 block" />
                         </div>
                       </div>
                     </DialogContent>

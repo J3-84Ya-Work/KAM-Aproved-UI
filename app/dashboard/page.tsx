@@ -29,7 +29,6 @@ export default function Page() {
   }
 
   const dashboardActions = [
-    { label: "Refresh", onClick: () => window.location.reload() },
     { label: "Export Report", onClick: handleExport },
   ]
 

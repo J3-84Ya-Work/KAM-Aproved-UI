@@ -1,0 +1,42 @@
+# Backend folder (not deployed to Vercel)
+backend/
+
+# Node modules
+node_modules/
+
+# Build cache
+.next/
+out/
+
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test
+coverage/
+
+# Database
+database/
+*.db
+*.sqlite
+
+# Temporary files
+.temp/
+temp/
+tmp/

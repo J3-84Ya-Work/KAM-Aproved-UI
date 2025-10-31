@@ -46,9 +46,12 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
+    // Convert email to lowercase for comparison
+    const emailLowerCase = formData.email.toLowerCase().trim()
+
     // Find matching user
     const user = USERS.find(
-      (u) => u.email === formData.email && u.password === formData.password
+      (u) => u.email === emailLowerCase && u.password === formData.password
     )
 
     if (!user) {
@@ -138,7 +141,7 @@ export default function LoginPage() {
                   type="text"
                   placeholder="Enter your email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })}
                   required
                   className="h-12 lg:h-14 text-base lg:text-lg border-gray-300 focus:border-[#005180] focus:ring-[#005180] focus:ring-2 rounded-lg"
                 />

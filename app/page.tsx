@@ -88,9 +88,14 @@ export default function Page() {
     if (!isAuthChecked) return
 
     const chatIdParam = searchParams.get("chatId")
+    const autoStartParam = searchParams.get("autoStart")
+
     if (chatIdParam) {
       console.log("[v0] Loading chat from URL param:", chatIdParam)
       handleOpenChat(chatIdParam)
+    } else if (autoStartParam === "true") {
+      console.log("[v0] Auto-starting new chat with 'I want costing'")
+      handleStartChat("I want costing")
     }
   }, [searchParams, isAuthChecked])
 

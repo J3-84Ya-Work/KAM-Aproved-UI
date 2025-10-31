@@ -12,6 +12,7 @@ import {
   ChevronRight,
   LogOut,
   UserCircle,
+  Home,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -36,6 +37,11 @@ import { getCurrentUser } from "@/lib/permissions"
 
 const roleBasedNavItems = {
   KAM: [
+    {
+      title: "Home",
+      url: "/",
+      icon: Home,
+    },
     {
       title: "Customer",
       url: "/clients",
