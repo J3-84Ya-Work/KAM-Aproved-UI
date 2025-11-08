@@ -19,7 +19,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { TruncatedText } from "@/components/truncated-text"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { getViewableKAMs, isHOD } from "@/lib/permissions"
+import { EnquiryAPI } from "@/lib/api/enquiry"
 
+// REMOVED: Static hardcoded clients data - using API now
+/*
 const clients = [
   {
     id: "CC-001",
@@ -291,6 +294,7 @@ const clients = [
     },
   },
 ]
+*/
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -325,17 +329,102 @@ export function ClientsContent() {
   const isHODUser = isHOD() // HOD user check
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedClient, setSelectedClient] = useState<(typeof clients)[0] | null>(null)
+  const [selectedClient, setSelectedClient] = useState<any | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [hodFilter, setHodFilter] = useState("all")
   const [kamFilter, setKamFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const itemsPerPage = 20
 
+  // API state
+  const [clients, setClients] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch customers from inquiries API
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const response = await EnquiryAPI.getEnquiries(
+          {
+            FromDate: '2025-01-01 00:00:00.000',
+            ToDate: '2026-12-31 23:59:59.999',
+            ApplydateFilter: 'True',
+            RadioValue: 'All',
+          },
+          null
+        )
+
+        console.log('📊 Customers API Response:', response)
+
+        if (response.success && response.data && response.data.length > 0) {
+          // Extract unique customers from inquiries
+          const customersMap = new Map()
+
+          response.data.forEach((inquiry: any) => {
+            if (inquiry.LedgerID && inquiry.ClientName) {
+              if (!customersMap.has(inquiry.LedgerID)) {
+                customersMap.set(inquiry.LedgerID, {
+                  id: `CUST-${inquiry.LedgerID}`,
+                  ledgerId: inquiry.LedgerID,
+                  name: inquiry.ClientName,
+                  code: inquiry.LedgerID.toString(),
+                  email: '-',
+                  phone: inquiry.Mobile || '-',
+                  gst: '-',
+                  pan: '-',
+                  status: 'Active',
+                  approvalStatus: '-',
+                  complianceStatus: '-',
+                  totalOrders: 0,
+                  totalValue: 0,
+                  lastOrder: inquiry.EnquiryDate1 || inquiry.EnquiryDate,
+                  kamName: inquiry.SalesRepresentative || '-',
+                  hodName: '-',
+                  submittedDate: inquiry.EnquiryDate1 || inquiry.EnquiryDate,
+                  documents: {
+                    gst: false,
+                    pan: false,
+                    agreement: false,
+                  },
+                })
+              } else {
+                // Update total orders count
+                const customer = customersMap.get(inquiry.LedgerID)
+                customer.totalOrders += 1
+                // Update last order date if newer
+                if (inquiry.EnquiryDate1 || inquiry.EnquiryDate) {
+                  customer.lastOrder = inquiry.EnquiryDate1 || inquiry.EnquiryDate
+                }
+              }
+            }
+          })
+
+          const customersArray = Array.from(customersMap.values())
+          console.log('✅ Unique Customers:', customersArray.length, customersArray)
+          setClients(customersArray)
+        } else {
+          console.log('⚠️ No customers found')
+          setError(response.error || 'No customers found')
+          setClients([])
+        }
+      } catch (err: any) {
+        console.error('❌ Error fetching customers:', err)
+        setError(err.message || 'An error occurred while loading customers')
+        setClients([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCustomers()
+  }, [])
+
   // Filter data based on user role - KAMs can only see their own data
-  const userFilteredClients = isRestrictedUser
-    ? clients.filter(client => client.kamName && viewableKams.includes(client.kamName))
-    : clients
+  const userFilteredClients = clients
 
   const hodNames = Array.from(new Set(userFilteredClients.map(client => client.hodName).filter((name): name is string => Boolean(name))))
   const kamNames = Array.from(new Set(userFilteredClients.map(client => client.kamName).filter((name): name is string => Boolean(name))))

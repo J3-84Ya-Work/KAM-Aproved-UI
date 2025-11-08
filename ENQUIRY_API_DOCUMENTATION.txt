@@ -1,0 +1,802 @@
+================================================================================
+                    ENQUIRY MODULE - API DOCUMENTATION
+================================================================================
+
+Project: Indus Estimo ERP
+Module: Enquiry Management
+Base URL: https://api.indusanalytics.co.in
+Authentication: Basic Auth (Username + Password in headers)
+Last Updated: October 31, 2025
+
+================================================================================
+                         TABLE OF CONTENTS
+================================================================================
+
+1. AUTHENTICATION & HEADERS
+2. ENQUIRY MANAGEMENT APIs
+   2.1 Get Enquiries List
+   2.2 Get Enquiry Number
+   2.3 Get Allowed Processes
+   2.4 Get Enquiry Categories
+   2.5 Save Basic Enquiry
+   2.6 Save Detailed Enquiry
+3. SUPPORTING MASTER DATA APIs
+   3.1 Get Production Units
+   3.2 Get Clients
+   3.3 Get Sales Persons
+   3.4 Get Content Items
+   3.5 Get Qualities
+   3.6 Get GSM Data
+   3.7 Get Mill Data
+   3.8 Get Finish Data
+
+================================================================================
+                    1. AUTHENTICATION & HEADERS
+================================================================================
+
+All API requests require the following headers:
+
+Required Headers:
+  - CompanyID: <company_id>
+  - UserID: <user_id>
+  - Fyear: <financial_year> (e.g., "2025-2026")
+  - Authorization: Basic <base64(username:password)>
+  - Content-Type: application/json
+
+Example:
+  CompanyID: 1
+  UserID: 123
+  Fyear: 2025-2026
+  Authorization: Basic cGFya3NvbnNuZXc6cGFya3NvbnNuZXc=
+
+Note: CompanyID, UserID, and Fyear are obtained from NextAuth session.
+
+================================================================================
+                    2. ENQUIRY MANAGEMENT APIs
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 GET ENQUIRIES LIST
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/enquiry/getmshowlistdata
+Purpose: Retrieve all enquiries with date and status filters
+Used In: Enquiry listing page
+
+Request Body:
+{
+  "FromDate": "2025-01-01 00:00:00.000",
+  "ToDate": "2025-12-31 23:59:59.999",
+  "ApplydateFilter": "True",
+  "RadioValue": "All"
+}
+
+Request Fields:
+  - FromDate (string, required): Start date in "YYYY-MM-DD HH:mm:ss.SSS" format
+  - ToDate (string, required): End date in "YYYY-MM-DD HH:mm:ss.SSS" format
+  - ApplydateFilter (string, required): "True" to apply date filter, "False" to ignore
+  - RadioValue (string, required): Status filter - "All" or specific status
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "EnquiryID": 528,
+      "EnquiryNo": "EQ00528",
+      "EnquiryDate": "29 Oct 2025",
+      "EnquiryDate1": "2025-10-29T00:00:00",
+      "Fyear": "2025-2026",
+      "CompanyID": 1,
+      "CompanyName": "Indus Parksons",
+      "LedgerID": 12345,
+      "ClientName": "ABC Electronics Ltd",
+      "JobName": "Packaging Boxes",
+      "CategoryID": 1,
+      "CategoryName": "Rigid Box",
+      "ProductCode": "RB-001",
+      "Quantity": "5000",
+      "EstimationUnit": "PCS",
+      "ProductionUnitID": 5,
+      "ProductionUnitName": "Unit A - Offset",
+      "EmployeeID": 101,
+      "SalesRepresentative": "John Doe",
+      "UserName": "admin",
+      "Status": "Pending",
+      "TypeOfJob": "New",
+      "TypeOfPrinting": "Offset",
+      "EnquiryType": "Basic",
+      "SalesType": "Direct",
+      "SegmentID": 1,
+      "SegmentName": "Packaging Division",
+      "ExpectCompletion": 7,
+      "Remark": "Urgent requirement",
+      "Mobile": "9876543210",
+      "ConcernPersonID": 234,
+      "FileName": ""
+    }
+  ]
+}
+
+Response (Error):
+{
+  "success": false,
+  "error": "Failed to fetch enquiries: <error_message>",
+  "data": []
+}
+
+Usage Example:
+  const request = {
+    FromDate: EnquiryAPI.formatDateForAPI(new Date('2025-01-01')),
+    ToDate: EnquiryAPI.formatDateForAPI(new Date()),
+    ApplydateFilter: "True",
+    RadioValue: "All"
+  }
+  const response = await EnquiryAPI.getEnquiries(request, session)
+
+--------------------------------------------------------------------------------
+2.2 GET ENQUIRY NUMBER
+--------------------------------------------------------------------------------
+
+Endpoint: GET /api/enquiry/getenquiryno
+Purpose: Generate next sequential enquiry number
+Used In: New enquiry modal initialization
+
+Request: No body required (GET request)
+
+Response (Success):
+{
+  "success": true,
+  "data": "EQ00529"
+}
+
+Response (Error):
+{
+  "success": false,
+  "error": "Failed to fetch enquiry number: <error_message>",
+  "data": ""
+}
+
+Usage Example:
+  const response = await EnquiryAPI.getEnquiryNo(session)
+  const enquiryNo = response.data // "EQ00529"
+
+--------------------------------------------------------------------------------
+2.3 GET ALLOWED PROCESSES
+--------------------------------------------------------------------------------
+
+Endpoint: GET /api/enquiry/editprocessgrid
+Purpose: Get list of processes allowed for enquiry
+Used In: Detailed enquiry modal - process selection
+
+Request: No body required (GET request)
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "ProcessID": 10447,
+      "ProcessName": "Die Cutting",
+      "ProcessGroup": "Finishing",
+      "IsDefault": true
+    },
+    {
+      "ProcessID": 10452,
+      "ProcessName": "Gluing",
+      "ProcessGroup": "Finishing",
+      "IsDefault": false
+    }
+  ]
+}
+
+Response (Error):
+{
+  "success": false,
+  "error": "Failed to fetch allowed processes: <error_message>",
+  "data": []
+}
+
+Usage Example:
+  const response = await EnquiryAPI.getAllowedProcesses(session)
+  const processes = response.data
+
+--------------------------------------------------------------------------------
+2.4 GET ENQUIRY CATEGORIES
+--------------------------------------------------------------------------------
+
+Endpoint: GET /api/enquiry/getsbcategory
+Purpose: Get categories with segment/division information
+Used In: Enquiry modal - category/division dropdown
+
+Request: No body required (GET request)
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "CategoryID": 1,
+      "CategoryName": "Rigid Box",
+      "SegmentID": 1,
+      "SegmentName": "Packaging Division",
+      "IsActive": true
+    },
+    {
+      "CategoryID": 2,
+      "CategoryName": "Corrugated Box",
+      "SegmentID": 1,
+      "SegmentName": "Packaging Division",
+      "IsActive": true
+    }
+  ]
+}
+
+Response (Error):
+{
+  "success": false,
+  "error": "Failed to fetch enquiry categories: <error_message>",
+  "data": []
+}
+
+Usage Example:
+  const response = await EnquiryAPI.getEnquiryCategories(session)
+  const categories = response.data
+
+--------------------------------------------------------------------------------
+2.5 SAVE BASIC ENQUIRY
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/enquiry/saveeqdata
+Purpose: Save basic enquiry with minimal information
+Used In: Enquiry modal - basic mode save
+
+Request Body (Array with single object):
+[
+  {
+    "LedgerID": 12345,
+    "JobName": "Packaging Boxes",
+    "CategoryID": 1,
+    "ProductCode": "RB-001",
+    "Quantity": "5000",
+    "EstimationUnit": "PCS",
+    "ProductionUnitID": 5,
+    "EmployeeID": 101,
+    "TypeOfJob": "New",
+    "TypeOfPrinting": "Offset",
+    "ExpectCompletion": 7,
+    "Remark": "Urgent requirement"
+  }
+]
+
+Request Fields:
+  - EnquiryNo (string, required): Enquiry number from getEnquiryNo API
+  - EnquiryDate (string, required): Formatted date "DD MMM YYYY"
+  - Fyear (string, required): Financial year
+  - LedgerID (number, required): Client ledger ID
+  - JobName (string, required): Job/product name
+  - CategoryID (number, required): Product category ID
+  - ProductCode (string, optional): Product code/SKU
+  - Quantity (string, required): Quantity as string
+  - EstimationUnit (string, required): "PCS", "KG", or "PKT"
+  - ProductionUnitID (number, required): Production unit ID
+  - EmployeeID (number, required): Sales person employee ID
+  - TypeOfJob (string, optional): Job type
+  - TypeOfPrinting (string, optional): Printing type
+  - ExpectCompletion (number, optional): Expected days to complete
+  - Remark (string, optional): Additional remarks
+
+Response (Success):
+{
+  "success": true,
+  "data": "Enquiry saved successfully"
+}
+
+Response (Error):
+{
+  "success": false,
+  "error": "Failed to save basic enquiry: <error_message>"
+}
+
+Usage Example:
+  const basicEnquiryData = [
+    {
+      EnquiryNo: formData.enquiryNo,
+      EnquiryDate: EnquiryAPI.formatDateForDisplay(formData.enquiryDate),
+      Fyear: session.Fyear,
+      LedgerID: formData.clientId,
+      JobName: formData.jobName,
+      CategoryID: formData.categoryId,
+      Quantity: formData.quantity.toString(),
+      EstimationUnit: formData.unit,
+      ProductionUnitID: formData.productionUnitId,
+      EmployeeID: formData.salesPersonId
+    }
+  ]
+  const response = await EnquiryAPI.saveBasicEnquiry(basicEnquiryData, session)
+
+--------------------------------------------------------------------------------
+2.6 SAVE DETAILED ENQUIRY
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/enquiry/SaveMultipleEnquiry
+Purpose: Save detailed enquiry with multiple data sections
+Used In: Enquiry modal - detailed mode save (with content, specifications, processes)
+
+Request Body:
+{
+  "MainData": [
+    {
+      "EnquiryNo": "EQ00528",
+      "EnquiryDate": "29 Oct 2025",
+      "Fyear": "2025-2026",
+      "LedgerID": 12345,
+      "JobName": "Packaging Boxes",
+      "CategoryID": 1,
+      "ProductCode": "RB-001",
+      "Quantity": "5000",
+      "EstimationUnit": "PCS",
+      "ProductionUnitID": 5,
+      "EmployeeID": 101,
+      "TypeOfJob": "New",
+      "TypeOfPrinting": "Offset",
+      "ExpectCompletion": 7,
+      "Remark": "Urgent requirement"
+    }
+  ],
+  "DetailsData": [
+    {
+      "EnquiryNo": "EQ00528",
+      "ContentName": "Reverse Tuck In",
+      "Length": 150,
+      "Width": 100,
+      "Height": 50,
+      "Quality": "Duplex Board",
+      "GSM": 300,
+      "Mill": "JK Paper",
+      "Finish": "Matt",
+      "FColor": 4,
+      "BColor": 0,
+      "SfColor": 0,
+      "SbColor": 0,
+      "Coating": "UV Coating",
+      "Remark": "High quality finish required"
+    }
+  ],
+  "ProcessData": [
+    {
+      "EnquiryNo": "EQ00528",
+      "ProcessID": 10447,
+      "ProcessName": "Die Cutting",
+      "Remark": ""
+    },
+    {
+      "EnquiryNo": "EQ00528",
+      "ProcessID": 10452,
+      "ProcessName": "Gluing",
+      "Remark": ""
+    }
+  ]
+}
+
+Request Structure:
+  - MainData (array, required): Basic enquiry information (same as basic save)
+  - DetailsData (array, required): Content and specifications
+  - ProcessData (array, required): Selected processes for the enquiry
+
+DetailsData Fields:
+  - EnquiryNo (string, required): Enquiry number
+  - ContentName (string, required): Content/product type name
+  - Length (number, optional): Dimension in mm
+  - Width (number, optional): Dimension in mm
+  - Height (number, optional): Dimension in mm
+  - Quality (string, optional): Paper/board quality
+  - GSM (number, optional): Grams per square meter
+  - Mill (string, optional): Paper mill name
+  - Finish (string, optional): Paper finish type
+  - FColor (number, optional): Front colors count
+  - BColor (number, optional): Back colors count
+  - SfColor (number, optional): Special front colors count
+  - SbColor (number, optional): Special back colors count
+  - Coating (string, optional): Coating type
+  - Remark (string, optional): Additional notes
+
+ProcessData Fields:
+  - EnquiryNo (string, required): Enquiry number
+  - ProcessID (number, required): Process ID
+  - ProcessName (string, required): Process name
+  - Remark (string, optional): Process-specific notes
+
+Response (Success):
+{
+  "success": true,
+  "data": "Enquiry saved successfully"
+}
+
+Response (Error):
+{
+  "success": false,
+  "error": "Failed to save detailed enquiry: <error_message>"
+}
+
+Usage Example:
+  const detailedEnquiryData = {
+    MainData: [{ /* basic enquiry data */ }],
+    DetailsData: [{ /* content specifications */ }],
+    ProcessData: [{ /* selected processes */ }]
+  }
+  const response = await EnquiryAPI.saveDetailedEnquiry(detailedEnquiryData, session)
+
+================================================================================
+                    3. SUPPORTING MASTER DATA APIs
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 GET PRODUCTION UNITS
+--------------------------------------------------------------------------------
+
+Endpoint: GET /api/master/getproductionunits
+Purpose: Get list of production units/facilities
+Used In: Enquiry modal - production unit dropdown
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "ProductionUnitID": 1,
+      "ProductionUnitName": "Unit A - Offset",
+      "Location": "Mumbai",
+      "IsActive": true
+    },
+    {
+      "ProductionUnitID": 2,
+      "ProductionUnitName": "Unit B - Flexo",
+      "Location": "Pune",
+      "IsActive": true
+    }
+  ]
+}
+
+Usage:
+  const response = await ProductionUnitsAPI.getProductionUnits(session)
+
+--------------------------------------------------------------------------------
+3.2 GET CLIENTS
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/common/getledgerdata
+Purpose: Get list of client ledgers
+Used In: Enquiry modal - client dropdown
+
+Request Body:
+{
+  "LedgerGroupId": 1,
+  "SearchValue": "",
+  "SearchType": "Party"
+}
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "LedgerID": 12345,
+      "LedgerName": "ABC Electronics Ltd",
+      "Mobile": "9876543210",
+      "Email": "abc@example.com",
+      "Address": "Mumbai, India"
+    }
+  ]
+}
+
+Usage:
+  const response = await getClientsAPI(session)
+
+--------------------------------------------------------------------------------
+3.3 GET SALES PERSONS
+--------------------------------------------------------------------------------
+
+Endpoint: GET /api/common/getsalesperson
+Purpose: Get list of sales representatives
+Used In: Enquiry modal - sales person dropdown
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "EmployeeID": 101,
+      "EmployeeName": "John Doe",
+      "Department": "Sales",
+      "IsActive": true
+    }
+  ]
+}
+
+Usage:
+  const response = await getSalesPersonsAPI(session)
+
+--------------------------------------------------------------------------------
+3.4 GET CONTENT ITEMS
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/planning/getcontentdata
+Purpose: Get list of content types (products) for a category
+Used In: Enquiry modal - content selection
+
+Request Body:
+{
+  "CategoryID": 1
+}
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "ContentID": 1,
+      "ContentName": "Reverse Tuck In",
+      "ContentCode": "RTI",
+      "ContentDomainType": "Offset",
+      "ContentSizes": "SizeLength,SizeWidth,SizeHeight",
+      "CategoryID": 1,
+      "IsActive": true
+    }
+  ]
+}
+
+Usage:
+  const response = await ContentAPI.getDisplayContents(categoryID, session)
+
+--------------------------------------------------------------------------------
+3.5 GET QUALITIES
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/planning/getitemqualitydata
+Purpose: Get paper/board quality options for content type
+Used In: Enquiry modal - quality dropdown
+
+Request Body:
+{
+  "ContentType": "Offset",
+  "Thickness": ""
+}
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "Quality": "Duplex Board",
+      "Thickness": ""
+    },
+    {
+      "Quality": "Art Card",
+      "Thickness": ""
+    }
+  ]
+}
+
+Usage:
+  const response = await getQualitiesAPI(contentType, session)
+
+--------------------------------------------------------------------------------
+3.6 GET GSM DATA
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/planning/getgsmdata
+Purpose: Get GSM (paper weight) options for quality
+Used In: Enquiry modal - GSM dropdown
+
+Request Body:
+{
+  "ContentType": "Offset",
+  "Quality": "Duplex Board",
+  "Thickness": ""
+}
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "GSM": 250,
+      "Quality": "Duplex Board"
+    },
+    {
+      "GSM": 300,
+      "Quality": "Duplex Board"
+    }
+  ]
+}
+
+Usage:
+  const response = await getGSMAPI(contentType, quality, thickness, session)
+
+--------------------------------------------------------------------------------
+3.7 GET MILL DATA
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/planning/getmilldata
+Purpose: Get paper mill options for quality + GSM
+Used In: Enquiry modal - mill dropdown
+
+Request Body:
+{
+  "ContentType": "Offset",
+  "Quality": "Duplex Board",
+  "GSM": 300,
+  "Thickness": ""
+}
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "Mill": "JK Paper",
+      "GSM": 300,
+      "Quality": "Duplex Board"
+    },
+    {
+      "Mill": "West Coast Paper",
+      "GSM": 300,
+      "Quality": "Duplex Board"
+    }
+  ]
+}
+
+Usage:
+  const response = await getMillAPI(contentType, quality, gsm, thickness, session)
+
+--------------------------------------------------------------------------------
+3.8 GET FINISH DATA
+--------------------------------------------------------------------------------
+
+Endpoint: POST /api/planning/getfinishdata
+Purpose: Get paper finish options
+Used In: Enquiry modal - finish dropdown
+
+Request Body:
+{
+  "Quality": "Duplex Board",
+  "GSM": 300,
+  "Mill": "JK Paper"
+}
+
+Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "Finish": "Matt",
+      "Mill": "JK Paper",
+      "GSM": 300
+    },
+    {
+      "Finish": "Gloss",
+      "Mill": "JK Paper",
+      "GSM": 300
+    }
+  ]
+}
+
+Usage:
+  const response = await getFinishAPI(quality, gsm, mill, session)
+
+================================================================================
+                         HELPER FUNCTIONS
+================================================================================
+
+Date Formatting:
+-----------------
+1. formatDateForAPI(date: Date): string
+   Converts JavaScript Date to "YYYY-MM-DD HH:mm:ss.SSS" format
+
+   Example:
+     const apiDate = EnquiryAPI.formatDateForAPI(new Date())
+     // Returns: "2025-10-31 14:30:45.123"
+
+2. formatDateForDisplay(dateString: string): string
+   Converts "YYYY-MM-DD" to "DD MMM YYYY" format
+
+   Example:
+     const displayDate = EnquiryAPI.formatDateForDisplay("2025-10-31")
+     // Returns: "31 Oct 2025"
+
+================================================================================
+                         CONSTANT OPTIONS
+================================================================================
+
+TYPE_OF_PRINTING_OPTIONS:
+  - Offset
+  - Flexo
+  - Digital
+  - Outsource
+  - Others
+
+UOM_OPTIONS (Unit of Measurement):
+  - PCS (Pieces)
+  - KG (Kilograms)
+  - PKT (Packets)
+
+================================================================================
+                         ERROR HANDLING
+================================================================================
+
+All APIs return a consistent response format:
+
+Success Response:
+{
+  "success": true,
+  "data": <response_data>
+}
+
+Error Response:
+{
+  "success": false,
+  "error": "<error_message>",
+  "data": <default_value> // [] for arrays, "" for strings, etc.
+}
+
+Common Error Scenarios:
+1. Authentication failure (401)
+2. Missing required headers (CompanyID, UserID, Fyear)
+3. Invalid date format
+4. Network timeout (60 seconds)
+5. Server error (500)
+
+Error Handling Example:
+  const response = await EnquiryAPI.getEnquiries(request, session)
+  if (response.success) {
+    console.log('Enquiries:', response.data)
+  } else {
+    console.error('Error:', response.error)
+  }
+
+================================================================================
+                         WORKFLOW OVERVIEW
+================================================================================
+
+Basic Enquiry Flow:
+1. Get enquiry number (getEnquiryNo)
+2. Get categories (getEnquiryCategories)
+3. Get production units (getProductionUnits)
+4. Get clients (getClients)
+5. Get sales persons (getSalesPersons)
+6. Save basic enquiry (saveBasicEnquiry)
+
+Detailed Enquiry Flow:
+1-5. Same as basic flow
+6. Get content items (getDisplayContents)
+7. Get qualities (getQualitiesAPI)
+8. Get GSM (getGSMAPI)
+9. Get mill (getMillAPI)
+10. Get finish (getFinishAPI)
+11. Get allowed processes (getAllowedProcesses)
+12. Save detailed enquiry (saveDetailedEnquiry)
+
+Enquiry Listing Flow:
+1. Get enquiries with filters (getEnquiries)
+2. Display in grid/table
+3. Filter by date range and status
+
+================================================================================
+                         NOTES & BEST PRACTICES
+================================================================================
+
+1. Always include session data (CompanyID, UserID, Fyear) in API calls
+2. Use helper functions for date formatting
+3. Validate required fields before API calls
+4. Handle both success and error responses
+5. Show loading states during API calls
+6. Display user-friendly error messages
+7. Cache master data (categories, production units) where possible
+8. Use TypeScript interfaces for type safety
+9. Log API calls for debugging (with sensitive data removed)
+10. Set appropriate timeout values for long-running operations
+
+================================================================================
+                         END OF DOCUMENTATION
+================================================================================

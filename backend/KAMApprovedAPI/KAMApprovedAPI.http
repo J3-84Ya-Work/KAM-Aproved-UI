@@ -1,6 +1,0 @@
-@KAMApprovedAPI_HostAddress = http://localhost:5043
-
-GET {{KAMApprovedAPI_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

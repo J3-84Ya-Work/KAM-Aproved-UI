@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, SlidersHorizontal, Filter, Clock, Mic } from "lucide-react"
+import { Search, SlidersHorizontal, Filter, Clock, Mic, CalendarIcon, Pencil } from "lucide-react"
 import { useVoiceInput } from "@/hooks/use-voice-input"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -20,8 +21,16 @@ import {
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
 import { getViewableKAMs, isHOD } from "@/lib/permissions"
+import { EnquiryAPI, type EnquiryItem, formatDateForAPI, formatDateForDisplay } from "@/lib/api/enquiry"
+import { NewInquiryForm } from "@/components/new-inquiry-form"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
-const inquiries = [
+// REMOVED: Static data - using only API data now
+/*
+const staticInquiries = [
   { id: "INQ-2024-001", customer: "Tata Industries", job: "Custom Packaging Box", sku: "PKG-001", jobType: "Monocarton", quantityRange: "5000-10000", status: "Costing", priority: "high", date: "2024-01-15", dueDate: "2024-01-18", clarificationStatus: "Pending Clarification", notes: "Urgent requirement for Q1 launch", kamName: "Rajesh Kumar", hodName: "Suresh Menon" },
   { id: "INQ-2024-002", customer: "Reliance Retail", job: "Printed Labels", sku: "LBL-045", jobType: "Fluted Box", quantityRange: "10000-15000", status: "Quoted", priority: "medium", date: "2024-01-14", dueDate: "2024-01-20", clarificationStatus: "Clarified", notes: "Repeat order with minor modifications", kamName: "Priya Sharma", hodName: "Kavita Reddy" },
   { id: "INQ-2024-003", customer: "Mahindra Logistics", job: "Corrugated Sheets", sku: "COR-023", jobType: "Rigid Box", quantityRange: "2000-5000", status: "Pending", priority: "low", date: "2024-01-13", dueDate: "2024-01-25", clarificationStatus: "Awaiting Customer", notes: "New customer inquiry", kamName: "Amit Patel", hodName: "Suresh Menon" },
@@ -188,6 +197,7 @@ const inquiries = [
   { id: "INQ-2023-002", customer: "Edelrid India", job: "Harness Packaging", sku: "HRP-234", jobType: "Rigid Box", quantityRange: "18000-22000", status: "Costing", priority: "high", date: "2023-03-09", dueDate: "2024-02-06", clarificationStatus: "Clarified", notes: "Harness packaging solutions" },
   { id: "INQ-2023-001", customer: "Beal India", job: "Dynamic Rope Boxes", sku: "DRB-567", jobType: "Fluted Box", quantityRange: "10000-12000", status: "Approved", priority: "high", date: "2023-03-07", dueDate: "2024-02-02", clarificationStatus: "Not Required", notes: "Dynamic rope packaging approved" },
 ]
+*/
 
 const STATUS_BADGES: Record<string, string> = {
   Approved: "bg-[#78BE20]/15 text-[#78BE20] border-[#78BE20]/30",
@@ -225,11 +235,23 @@ function getPriorityAccent(priority: string) {
   }
 }
 
+// Helper function to get first 2 lines of email
+function getEmailPreview(emailBody: string): string {
+  if (!emailBody) return ''
+  const lines = emailBody.split('\n').filter(line => line.trim().length > 0)
+  return lines.slice(0, 2).join('\n')
+}
+
 export function InquiriesContent() {
   const viewableKams = getViewableKAMs()
   const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
   const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
   const isHODUser = isHOD() // HOD user check
+
+  // API state
+  const [inquiries, setInquiries] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -240,8 +262,125 @@ export function InquiriesContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
 
+  // Date range for filtering inquiries - default to 2025-2026
+  const [fromDate, setFromDate] = useState<Date | undefined>(new Date(2025, 0, 1)) // Jan 1, 2025
+  const [toDate, setToDate] = useState<Date | undefined>(new Date(2026, 11, 31)) // Dec 31, 2026
+  const [dateFilterOpen, setDateFilterOpen] = useState(false)
+
   // Voice input hook
   const { isListening, transcript, startListening, resetTranscript } = useVoiceInput()
+
+  // Email body state
+  const [emailBodies, setEmailBodies] = useState<Record<string, string>>({}) // Store email bodies by inquiry ID
+  const [fullEmailDialogOpen, setFullEmailDialogOpen] = useState(false)
+  const [selectedEmail, setSelectedEmail] = useState<{id: string, body: string} | null>(null)
+
+  // Edit inquiry state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingInquiry, setEditingInquiry] = useState<any>(null)
+  const [loadingEnquiryDetails, setLoadingEnquiryDetails] = useState(false)
+
+  // Fetch inquiries from API
+  useEffect(() => {
+    const fetchInquiries = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // Format dates for API (YYYY-MM-DD HH:mm:ss.SSS)
+        const formatDateForAPICall = (date: Date | undefined): string => {
+          if (!date) return '2025-01-01 00:00:00.000'
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day} 00:00:00.000`
+        }
+
+        const formatEndDate = (date: Date | undefined): string => {
+          if (!date) return '2026-12-31 23:59:59.999'
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day} 23:59:59.999`
+        }
+
+        const requestData = {
+          FromDate: formatDateForAPICall(fromDate),
+          ToDate: formatEndDate(toDate),
+          ApplydateFilter: 'True',
+          RadioValue: 'All',
+        }
+
+        console.log('📅 Fetching inquiries with request:', requestData)
+
+        const response = await EnquiryAPI.getEnquiries(requestData, null)
+
+        console.log('📊 API Response:', {
+          success: response.success,
+          totalInquiries: response.data?.length || 0,
+          error: response.error
+        })
+
+        if (response.success && response.data && response.data.length > 0) {
+          console.log('📋 Raw API Data (first 3 inquiries):', response.data.slice(0, 3))
+          console.log('📋 All API Data:', response.data)
+          console.log('🏷️ Category Data Check:', response.data.map((item: any) => ({
+            id: item.EnquiryNo,
+            CategoryID: item.CategoryID,
+            CategoryName: item.CategoryName
+          })))
+
+          // Transform API data to match component structure
+          const transformedData = response.data.map((item: any) => ({
+            id: item.EnquiryNo,
+            enquiryId: item.EnquiryID || item.EnquiryId || 0, // Numeric EnquiryID for updates
+            customer: item.ClientName,
+            job: item.JobName,
+            sku: item.ProductCode || '',
+            jobType: item.TypeOfJob || '',
+            quantityRange: item.Quantity,
+            unit: item.EstimationUnit || 'PCS',
+            categoryName: item.CategoryName || '',
+            categoryId: item.CategoryID || null,
+            segmentName: item.SegmentName || '',
+            status: item.Status1 || item.Status || 'Pending', // Use Status1 from API
+            priority: 'medium', // API doesn't provide priority, default to medium
+            date: item.EnquiryDate1 || item.EnquiryDate,
+            dueDate: item.EnquiryDate1 || item.EnquiryDate,
+            expectCompletion: item.ExpectCompletion || '',
+            clarificationStatus: 'Not Required', // API doesn't provide this
+            notes: item.Remark || '',
+            kamName: item.SalesRepresentative,
+            salesEmployeeId: item.SalesEmployeeID || null,
+            ledgerId: item.LedgerID || null,
+            hodName: '', // API doesn't provide HOD name
+            productionUnitName: item.ProductionUnitName || '',
+            productionUnitId: item.ProductionUnitID || null,
+            Source: item.Source || '', // Add Source field for Email Scraper detection
+            EmailEnquiryId: item.EmailEnquiryId || null, // Add EmailEnquiryId for fetching raw email body
+            // Store the full raw item for detailed edit form
+            rawData: item,
+          }))
+
+          console.log('✅ Transformed Data:', transformedData)
+          console.log('✅ Total transformed inquiries:', transformedData.length)
+
+          setInquiries(transformedData)
+        } else {
+          console.log('⚠️ No inquiries found or API failed')
+          setError(response.error || 'No inquiries found')
+          setInquiries([])
+        }
+      } catch (err: any) {
+        setError(err.message || 'An error occurred while loading inquiries')
+        setInquiries([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchInquiries()
+  }, [fromDate, toDate])
 
   // Update search query when voice transcript changes
   useEffect(() => {
@@ -251,10 +390,119 @@ export function InquiriesContent() {
     }
   }, [transcript, resetTranscript])
 
+  // Handle edit inquiry - fetch detailed data first
+  const handleEditInquiry = async (inquiry: any) => {
+    try {
+      setLoadingEnquiryDetails(true)
+
+      console.log('📝 Opening edit for inquiry:', inquiry.id, 'EnquiryID:', inquiry.enquiryId)
+
+      // Fetch detailed enquiry data including dimensions and processes
+      if (inquiry.enquiryId) {
+        const response = await (EnquiryAPI as any).getEnquiryDetails(inquiry.enquiryId, null)
+
+        if (response.success && response.data) {
+          console.log('✅ Fetched detailed enquiry data:', response.data)
+
+          // Merge the detailed data with the inquiry
+          const detailedInquiry = {
+            ...inquiry,
+            detailedData: response.data,
+          }
+
+          setEditingInquiry(detailedInquiry)
+          setEditDialogOpen(true)
+        } else {
+          console.error('❌ Failed to fetch enquiry details:', response.error)
+          // Open with basic data if detailed fetch fails
+          setEditingInquiry(inquiry)
+          setEditDialogOpen(true)
+        }
+      } else {
+        // No enquiryId, open with basic data
+        setEditingInquiry(inquiry)
+        setEditDialogOpen(true)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching enquiry details:', error)
+      // Open with basic data on error
+      setEditingInquiry(inquiry)
+      setEditDialogOpen(true)
+    } finally {
+      setLoadingEnquiryDetails(false)
+    }
+  }
+
+  // Fetch email body for an inquiry
+  const fetchEmailBody = async (inquiry: any) => {
+    // Only fetch if source is "Email Scraper"
+    if (inquiry.Source !== "Email Scraper") {
+      console.log('❌ Source is not Email Scraper:', inquiry.Source)
+      return
+    }
+
+    // Check if inquiry has EmailEnquiryId
+    if (!inquiry.EmailEnquiryId) {
+      console.warn('❌ No EmailEnquiryId for inquiry:', inquiry.id)
+      return
+    }
+
+    // Check if already fetched
+    if (emailBodies[inquiry.id]) {
+      console.log('✅ Email body already fetched for:', inquiry.id)
+      return
+    }
+
+    try {
+      console.log('📧 Fetching email body for inquiry:', inquiry.id, 'EmailEnquiryId:', inquiry.EmailEnquiryId)
+      const response = await (EnquiryAPI as any).getRawEmailBody(inquiry.EmailEnquiryId, null)
+
+      console.log('📧 Email body response:', response)
+
+      if (response.success && response.data) {
+        // Extract the actual email body text from the response
+        const emailBodyText = typeof response.data === 'string'
+          ? response.data
+          : response.data.rawEmailBody || response.data.RawEmailBody || ''
+
+        console.log('✅ Setting email body:', emailBodyText)
+
+        setEmailBodies(prev => ({
+          ...prev,
+          [inquiry.id]: emailBodyText
+        }))
+      } else {
+        console.error('❌ Failed to fetch email body:', response.error)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching email body:', error)
+    }
+  }
+
   // Filter data based on user role - KAMs can only see their own data
-  const userFilteredInquiries = isRestrictedUser
-    ? inquiries.filter(inq => inq.kamName && viewableKams.includes(inq.kamName))
-    : inquiries
+  // Unassigned inquiries (kamName is null) are visible to all users
+  // DISABLED: Showing all inquiries regardless of user role
+  const userFilteredInquiries = inquiries
+
+  // Original filtering logic (commented out):
+  // const userFilteredInquiries = isRestrictedUser
+  //   ? inquiries.filter(inq => {
+  //       // Show if no KAM assigned (null/undefined/empty)
+  //       if (!inq.kamName || inq.kamName === '') return true
+  //       // Show if KAM name is in viewable list
+  //       if (viewableKams.includes(inq.kamName)) return true
+  //       // Otherwise hide
+  //       return false
+  //     })
+  //   : inquiries
+
+  console.log('🔍 User Role Filtering:', {
+    totalInquiries: inquiries.length,
+    afterUserFilter: userFilteredInquiries.length,
+    isRestrictedUser,
+    viewableKams,
+    filtered: inquiries.length - userFilteredInquiries.length
+  })
 
   // Get unique HOD and KAM names for filters
   const hodNames = Array.from(new Set(userFilteredInquiries.map(inq => inq.hodName).filter((name): name is string => Boolean(name))))
@@ -265,22 +513,37 @@ export function InquiriesContent() {
       // Exclude Draft status inquiries
       if (inquiry.status === "Draft") return false
 
-      const matchesSearch =
-        inquiry.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inquiry.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inquiry.job.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inquiry.quantityRange.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inquiry.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inquiry.jobType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      const matchesSearch = !searchQuery ||
+        inquiry.customer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inquiry.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inquiry.job?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inquiry.quantityRange?.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inquiry.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inquiry.jobType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (inquiry.kamName && inquiry.kamName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (inquiry.hodName && inquiry.hodName.toLowerCase().includes(searchQuery.toLowerCase()))
-      const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter
-      const matchesPriority = priorityFilter === "all" || inquiry.priority === priorityFilter
-      const matchesHod = hodFilter === "all" || inquiry.hodName === hodFilter
-      const matchesKam = kamFilter === "all" || inquiry.kamName === kamFilter
+      const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter || !inquiry.status || inquiry.status === ""
+      const matchesPriority = priorityFilter === "all" || inquiry.priority === priorityFilter || !inquiry.priority
+      const matchesHod = hodFilter === "all" || inquiry.hodName === hodFilter || !inquiry.hodName || inquiry.hodName === ""
+      const matchesKam = kamFilter === "all" || inquiry.kamName === kamFilter || !inquiry.kamName || inquiry.kamName === ""
 
       return matchesSearch && matchesStatus && matchesPriority && matchesHod && matchesKam
     })
+
+  console.log('📊 Final Filtering:', {
+    afterUserFilter: userFilteredInquiries.length,
+    afterAllFilters: filteredInquiries.length,
+    filters: {
+      searchQuery,
+      statusFilter,
+      priorityFilter,
+      hodFilter,
+      kamFilter,
+      sortBy
+    }
+  })
+
+  const sortedInquiries = filteredInquiries
     .sort((a, b) => {
       switch (sortBy) {
         case "date-desc":
@@ -300,10 +563,17 @@ export function InquiriesContent() {
     })
 
   // Pagination calculations
-  const totalPages = Math.ceil(filteredInquiries.length / itemsPerPage)
+  const totalPages = Math.ceil(sortedInquiries.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const paginatedInquiries = filteredInquiries.slice(startIndex, endIndex)
+  const paginatedInquiries = sortedInquiries.slice(startIndex, endIndex)
+
+  console.log('📄 Pagination:', {
+    totalInquiries: sortedInquiries.length,
+    currentPage,
+    totalPages,
+    showing: paginatedInquiries.length
+  })
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -385,6 +655,15 @@ export function InquiriesContent() {
                   <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     Job Type
                   </TableHead>
+                  <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    Category
+                  </TableHead>
+                  <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    Quantity
+                  </TableHead>
+                  <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    Production Unit
+                  </TableHead>
                   <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     <div className="flex items-center justify-between">
                       <span>Status</span>
@@ -404,38 +683,143 @@ export function InquiriesContent() {
                   </TableHead>
                   <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
                     <div className="flex items-center justify-between">
-                      <span>Priority / Due Date</span>
-                      <div className="flex items-center gap-2">
-                        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                            <Filter className="h-4 w-4 text-white" />
-                          </SelectTrigger>
-                          <SelectContent align="start" className="min-w-[130px]">
-                            <SelectItem value="all">All Priority</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="low">Low</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={sortBy} onValueChange={setSortBy}>
-                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                            <SlidersHorizontal className="h-4 w-4 text-white" />
-                          </SelectTrigger>
-                          <SelectContent align="start" className="min-w-[130px]">
-                            <SelectItem value="date-desc">Newest First</SelectItem>
-                            <SelectItem value="date-asc">Oldest First</SelectItem>
-                            <SelectItem value="due-asc">Due Date ↑</SelectItem>
-                            <SelectItem value="due-desc">Due Date ↓</SelectItem>
-                            <SelectItem value="priority">By Priority</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <span>Date Range</span>
+                      <Dialog open={dateFilterOpen} onOpenChange={setDateFilterOpen}>
+                        <DialogTrigger asChild>
+                          <button className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all">
+                            <CalendarIcon className="h-4 w-4 text-white" />
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[500px]">
+                          <DialogHeader>
+                            <DialogTitle className="text-[#005180]">Filter Inquiries by Date</DialogTitle>
+                            <DialogDescription>
+                              Select a date range to filter the inquiries list
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-6 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="from-date" className="text-sm font-medium text-[#005180]">
+                                From Date
+                              </Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    id="from-date"
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full justify-start text-left font-normal",
+                                      !fromDate && "text-muted-foreground"
+                                    )}
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {fromDate ? format(fromDate, "PPP") : <span>Pick a date</span>}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={fromDate}
+                                    onSelect={setFromDate}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="to-date" className="text-sm font-medium text-[#005180]">
+                                To Date
+                              </Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    id="to-date"
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full justify-start text-left font-normal",
+                                      !toDate && "text-muted-foreground"
+                                    )}
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {toDate ? format(toDate, "PPP") : <span>Pick a date</span>}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={toDate}
+                                    onSelect={setToDate}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2">
+                              <div className="text-sm text-muted-foreground">
+                                {isLoading ? 'Loading...' : `${inquiries.length} inquiries found`}
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => {
+                                    setFromDate(new Date(2025, 0, 1))
+                                    setToDate(new Date(2026, 11, 31))
+                                  }}
+                                  variant="outline"
+                                >
+                                  Reset
+                                </Button>
+                                <Button
+                                  onClick={() => setDateFilterOpen(false)}
+                                  className="bg-[#005180] hover:bg-[#004875] text-white"
+                                >
+                                  Apply
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedInquiries.map((inquiry, index) => (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={13} className="h-32 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#005180] border-t-transparent"></div>
+                        <p className="text-sm text-muted-foreground">Loading inquiries...</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : error ? (
+                  <TableRow>
+                    <TableCell colSpan={13} className="h-32 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <p className="text-sm text-[#B92221] font-medium">Failed to load inquiries</p>
+                        <p className="text-xs text-muted-foreground">{error}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.location.reload()}
+                          className="mt-2"
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedInquiries.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={13} className="h-32 text-center">
+                      <p className="text-sm text-muted-foreground">No inquiries found</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedInquiries.map((inquiry, index) => (
                   <Dialog key={inquiry.id}>
                     <DialogTrigger asChild>
                       <TableRow
@@ -469,17 +853,27 @@ export function InquiriesContent() {
                           </p>
                         </TableCell>
                         <TableCell className="py-4">
+                          <p className="text-xs text-muted-foreground">
+                            {inquiry.categoryName || '-'}
+                          </p>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <p className="text-sm font-medium">
+                            {inquiry.quantityRange} <span className="text-xs text-muted-foreground">{inquiry.unit}</span>
+                          </p>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <p className="text-xs text-muted-foreground">
+                            {inquiry.productionUnitName || '-'}
+                          </p>
+                        </TableCell>
+                        <TableCell className="py-4">
                           <Badge className={`${getStatusBadge(inquiry.status)} border`}>{inquiry.status}</Badge>
                         </TableCell>
                         <TableCell className="py-4">
-                          <div className="space-y-1.5">
-                            <Badge className={`${getPriorityBadge(inquiry.priority)} border capitalize`}>
-                              {inquiry.priority}
-                            </Badge>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Clock className="h-3.5 w-3.5 text-muted-foreground/80" />
-                              <span>{inquiry.dueDate}</span>
-                            </div>
+                          <div className="flex items-center gap-1.5">
+                            <CalendarIcon className="h-4 w-4 text-[#005180]" />
+                            <span className="text-sm font-medium text-gray-700">{inquiry.date}</span>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -496,73 +890,128 @@ export function InquiriesContent() {
                           <p className="text-base font-semibold text-gray-900">{inquiry.customer}</p>
                         </div>
 
-                        {/* Status Section */}
-                        <div className="bg-white px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Status</Label>
-                          <Badge className={`${getStatusBadge(inquiry.status)} border text-sm px-3 py-1`}>{inquiry.status}</Badge>
+                        {/* Row 1: Status & Priority */}
+                        <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Status</Label>
+                            <Badge className={`${getStatusBadge(inquiry.status)} border text-sm px-3 py-1`}>{inquiry.status}</Badge>
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Priority</Label>
+                            <Badge className={`${getPriorityBadge(inquiry.priority)} border capitalize text-sm px-3 py-1`}>
+                              {inquiry.priority}
+                            </Badge>
+                          </div>
                         </div>
 
-                        {/* KAM Name Section */}
-                        {!isKAMUser && (
+                        {/* Row 2: KAM Name & Clarification */}
+                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                          {!isKAMUser && (
+                            <div>
+                              <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">KAM Name</Label>
+                              <p className="text-base font-semibold text-gray-900">{inquiry.kamName || "N/A"}</p>
+                            </div>
+                          )}
+                          <div className={!isKAMUser ? "" : "col-span-2"}>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Clarification</Label>
+                            <p className="text-base font-semibold text-gray-900">{inquiry.clarificationStatus}</p>
+                          </div>
+                        </div>
+
+                        {/* Row 3: Job Type & SKU */}
+                        <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Job Type</Label>
+                            <p className="text-sm font-bold uppercase tracking-wider text-[#005180]">{inquiry.jobType}</p>
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">SKU</Label>
+                            <p className="text-base font-semibold text-gray-900">{inquiry.sku}</p>
+                          </div>
+                        </div>
+
+                        {/* Row 4: Quantity & Unit */}
+                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Quantity</Label>
+                            <p className="text-base font-semibold text-gray-900">{inquiry.quantityRange} <span className="text-xs text-muted-foreground">{inquiry.unit}</span></p>
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Category</Label>
+                            <p className="text-base font-semibold text-gray-900">{inquiry.categoryName || '-'}</p>
+                          </div>
+                        </div>
+
+                        {/* Row 5: Date & Due Date */}
+                        <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Date</Label>
+                            <p className="text-base font-semibold text-gray-900">{inquiry.date}</p>
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Due Date</Label>
+                            <p className="text-base font-semibold text-gray-900">{inquiry.dueDate}</p>
+                          </div>
+                        </div>
+
+                        {/* Email Body Section - Only show if Source is "Email Scraper" */}
+                        {inquiry.Source === "Email Scraper" && (
                           <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">KAM Name</Label>
-                            <p className="text-base font-semibold text-gray-900">{inquiry.kamName || "N/A"}</p>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Email Body</Label>
+                            {emailBodies[inquiry.id] ? (
+                              <div className="space-y-2">
+                                <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                  {getEmailPreview(emailBodies[inquiry.id])}
+                                </p>
+                                {emailBodies[inquiry.id].split('\n').filter((l: string) => l.trim()).length > 2 && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedEmail({ id: inquiry.id, body: emailBodies[inquiry.id] })
+                                      setFullEmailDialogOpen(true)
+                                    }}
+                                    className="text-xs"
+                                  >
+                                    Read Full Email
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => fetchEmailBody(inquiry)}
+                                className="bg-[#005180] hover:bg-[#004170] text-white"
+                              >
+                                View Email Body
+                              </Button>
+                            )}
                           </div>
                         )}
 
-                        {/* Clarification Section */}
-                        <div className="bg-white px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Clarification</Label>
-                          <p className="text-base font-semibold text-gray-900">{inquiry.clarificationStatus}</p>
-                        </div>
-
-                        {/* Job Type Section */}
-                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Job Type</Label>
-                          <p className="text-sm font-bold uppercase tracking-wider text-[#005180]">{inquiry.jobType}</p>
-                        </div>
-
-                        {/* Quantity Range Section */}
-                        <div className="bg-white px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Quantity Range</Label>
-                          <p className="text-base font-semibold text-gray-900">{inquiry.quantityRange}</p>
-                        </div>
-
-                        {/* Date Section */}
-                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Date</Label>
-                          <p className="text-base font-semibold text-gray-900">{inquiry.date}</p>
-                        </div>
-
-                        {/* Due Date Section */}
-                        <div className="bg-white px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Due Date</Label>
-                          <p className="text-base font-semibold text-gray-900">{inquiry.dueDate}</p>
-                        </div>
-
-                        {/* Priority Section */}
-                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Priority</Label>
-                          <Badge className={`${getPriorityBadge(inquiry.priority)} border capitalize text-sm px-3 py-1`}>
-                            {inquiry.priority}
-                          </Badge>
-                        </div>
-
-                        {/* SKU Section */}
-                        <div className="bg-white px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">SKU</Label>
-                          <p className="text-base font-semibold text-gray-900">{inquiry.sku}</p>
-                        </div>
-
                         {/* Notes Section */}
-                        <div className="bg-blue-50/50 px-6 py-4">
+                        <div className="bg-white px-6 py-4">
                           <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Notes</Label>
                           <TruncatedText text={inquiry.notes} limit={200} className="text-sm leading-relaxed text-gray-700 block" />
                         </div>
                       </div>
+
+                      {/* Dialog Footer with Edit Button */}
+                      <DialogFooter className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex-shrink-0">
+                        <Button
+                          onClick={() => handleEditInquiry(inquiry)}
+                          disabled={loadingEnquiryDetails}
+                          className="bg-[#005180] hover:bg-[#004170] text-white"
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          {loadingEnquiryDetails ? 'Loading...' : 'Edit Enquiry'}
+                        </Button>
+                      </DialogFooter>
                     </DialogContent>
                   </Dialog>
-                ))}
+                ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -608,6 +1057,49 @@ export function InquiriesContent() {
           </div>
         )}
       </Card>
+
+      {/* Full Email Body Dialog */}
+      <Dialog open={fullEmailDialogOpen} onOpenChange={setFullEmailDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Full Email Body</DialogTitle>
+            <DialogDescription>
+              {selectedEmail?.id}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            <pre className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">
+              {selectedEmail?.body}
+            </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Inquiry Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-7xl max-h-[95vh] p-0 flex flex-col">
+          <DialogHeader className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-slate-100 to-gray-100 flex-shrink-0">
+            <DialogTitle className="text-xl font-bold text-gray-900">Edit Enquiry</DialogTitle>
+            <DialogDescription className="text-sm font-semibold text-gray-600">
+              {editingInquiry?.id} - {editingInquiry?.job}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-6">
+            {editingInquiry && (
+              <NewInquiryForm
+                editMode={true}
+                initialData={editingInquiry}
+                onSaveSuccess={() => {
+                  setEditDialogOpen(false)
+                  setEditingInquiry(null)
+                  // Refresh inquiry list
+                  window.location.reload()
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

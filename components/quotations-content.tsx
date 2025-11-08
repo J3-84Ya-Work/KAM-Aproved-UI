@@ -18,7 +18,10 @@ import {
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
 import { isHOD, isVerticalHead, isKAM, getViewableKAMs } from "@/lib/permissions"
+import { QuotationsAPI } from "@/lib/api/enquiry"
 
+// REMOVED: Static data - using API now
+/*
 const quotations = [
   {
     id: "QUO-2024-045",
@@ -136,6 +139,7 @@ const quotations = [
     ],
   },
 ]
+*/
 
 const STATUS_BADGES: Record<string, string> = {
   Quoted: "bg-[#78BE20]/15 text-[#78BE20] border-[#78BE20]/30",
@@ -192,20 +196,134 @@ export function QuotationsContent() {
   const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
   const isHODUser = isHOD() // HOD user check
 
+  // API state
+  const [quotations, setQuotations] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [internalStatusFilter, setInternalStatusFilter] = useState("all")
   const [hodFilter, setHodFilter] = useState("all")
   const [kamFilter, setKamFilter] = useState("all")
   const [sortBy, setSortBy] = useState("date-desc")
-  const [selectedQuotation, setSelectedQuotation] = useState<(typeof quotations)[0] | null>(null)
+  const [selectedQuotation, setSelectedQuotation] = useState<any | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [userIsHOD, setUserIsHOD] = useState(false)
   const [userIsVerticalHead, setUserIsVerticalHead] = useState(false)
   const [userIsKAM, setUserIsKAM] = useState(false)
   const [internalStatusMap, setInternalStatusMap] = useState<Record<string, string>>({})
   const [internalStatusNoteMap, setInternalStatusNoteMap] = useState<Record<string, string>>({})
+  const [isSendingForApproval, setIsSendingForApproval] = useState(false)
   const itemsPerPage = 20
+
+  // Fetch quotations from API
+  const fetchQuotations = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const response = await QuotationsAPI.getQuotations(
+          {
+            FilterSTR: 'All',
+            FromDate: '2024-10-01',
+            ToDate: '2026-10-10',
+          },
+          null
+        )
+
+        console.log('📊 Quotations API Response:', {
+          success: response.success,
+          dataLength: response.data?.length || 0,
+          error: response.error
+        })
+
+        if (response.data && response.data.length > 0) {
+          console.log('📊 First quotation raw data:', response.data[0])
+          console.log('📊 All quotation field keys:', Object.keys(response.data[0]))
+        }
+
+        if (response.success && response.data && response.data.length > 0) {
+          // Transform API data
+          const transformedData = response.data.map((item: any) => {
+            // Extract numeric values from QuotedCost (remove "INR" and parse)
+            const quotedCostStr = item.QuotedCost || '0'
+            const quotedCost = typeof quotedCostStr === 'string'
+              ? parseFloat(quotedCostStr.replace(/[^\d.]/g, ''))
+              : quotedCostStr
+
+            const finalCost = item.FinalCost || 0
+
+            // Use Margin from API (already a percentage)
+            const marginPercent = item.Margin || 0
+
+            console.log(`📊 Quotation ${item.BookingNo} - Margin from API:`, item.Margin, 'Using:', marginPercent)
+
+            // Calculate validTill: createdDate + 10 days
+            let validTill = '-'
+            if (item.CreatedDate) {
+              try {
+                const createdDate = new Date(item.CreatedDate)
+                const validTillDate = new Date(createdDate)
+                validTillDate.setDate(validTillDate.getDate() + 10)
+
+                // Format as DD-MMM-YYYY
+                const day = String(validTillDate.getDate()).padStart(2, '0')
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                const month = months[validTillDate.getMonth()]
+                const year = validTillDate.getFullYear()
+                validTill = `${day}-${month}-${year}`
+              } catch (e) {
+                validTill = '-'
+              }
+            }
+
+            return {
+              id: item.BookingNo,
+              inquiryId: item.EnquiryNo || '-',
+              customer: item.ClientName,
+              job: item.JobName,
+              amount: finalCost,
+              quotedCost: quotedCost,
+              quotedCostDisplay: item.QuotedCost || '0 INR',
+              finalCost: finalCost,
+              margin: marginPercent,
+              validTill: validTill,
+              status: item.Status || 'Quoted', // Use Status from API
+              internalStatus: item.IsInternalApproved ? 'Approved' : item.IsSendForInternalApproval ? 'Pending Approval' : 'Not Updated',
+              internalStatusNote: item.RemarkInternalApproved || '',
+              approvalLevel: '-',
+              createdDate: item.CreatedDate,
+              notes: item.QuoteRemark || '',
+              kamName: item.SalesEmployeeName || '-',
+              hodName: '-',
+              history: [],
+              // Raw data for reference
+              rawData: item
+            }
+          })
+
+          console.log('✅ Transformed quotations:', transformedData.length)
+          console.log('✅ First transformed quotation:', transformedData[0])
+          console.log('📊 First quotation margin specifically:', transformedData[0]?.margin)
+          console.log('📊 First quotation raw margin:', transformedData[0]?.rawData?.Margin)
+          console.log('📊 All quotation statuses:', transformedData.map(q => ({ id: q.id, status: q.status })))
+          setQuotations(transformedData)
+        } else {
+          setError(response.error || 'No quotations found')
+          setQuotations([])
+        }
+      } catch (err: any) {
+        setError(err.message || 'An error occurred while loading quotations')
+        setQuotations([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+  useEffect(() => {
+    fetchQuotations()
+  }, [])
 
   useEffect(() => {
     // Check user role on component mount
@@ -214,10 +332,54 @@ export function QuotationsContent() {
     setUserIsKAM(isKAM())
   }, [])
 
+  // Handle sending quotation for approval
+  const handleSendForApproval = async (bookingId: string, approvalType: 'HOD' | 'VerticalHead') => {
+    if (!bookingId) {
+      alert('Invalid quotation ID')
+      return
+    }
+
+    setIsSendingForApproval(true)
+    try {
+      console.log(`📤 Sending quotation ${bookingId} to ${approvalType}`)
+
+      const response = await QuotationsAPI.sendForApproval({
+        BookingID: bookingId,
+        ApprovalType: approvalType
+      }, null)
+
+      console.log('📥 API Response:', response)
+
+      if (response.success) {
+        alert(`✅ Quotation sent to ${approvalType} successfully!\nThe quotation will now appear in the ${approvalType} approvals page.`)
+        setSelectedQuotation(null)
+
+        // Refresh the quotations list to show updated status
+        console.log('🔄 Refreshing quotations list...')
+        await fetchQuotations()
+        console.log('✅ Quotations list refreshed')
+      } else {
+        console.error('❌ API Error:', response.error)
+        alert(`❌ Failed to send quotation to ${approvalType}: ${response.error}`)
+      }
+    } catch (error: any) {
+      console.error(`❌ Error sending quotation to ${approvalType}:`, error)
+      alert(`❌ Error: ${error.message}`)
+    } finally {
+      setIsSendingForApproval(false)
+    }
+  }
+
   // Filter data based on user role - KAMs can only see their own data
-  const userFilteredQuotations = isRestrictedUser
-    ? quotations.filter(q => q.kamName && viewableKams.includes(q.kamName))
-    : quotations
+  // DISABLED: Show all quotations for now
+  const userFilteredQuotations = quotations
+
+  console.log('📊 Quotations filtering:', {
+    totalQuotations: quotations.length,
+    isRestrictedUser,
+    viewableKams,
+    userFilteredCount: userFilteredQuotations.length
+  })
 
   // Get unique HOD and KAM names for filters
   const hodNames = Array.from(new Set(userFilteredQuotations.map(q => q.hodName).filter((name): name is string => Boolean(name))))
@@ -434,32 +596,72 @@ export function QuotationsContent() {
                         </TableCell>
                         {isKAMUser && (
                           <TableCell className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  alert(`Sending ${quotation.id} to HOD`)
-                                }}
-                              >
-                                <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                Send to HOD
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  alert(`Sharing ${quotation.id} with customer`)
-                                }}
-                              >
-                                <Share2 className="h-3 w-3 mr-1" />
-                                Share
-                              </Button>
-                            </div>
+                            {/* Show different actions based on status */}
+                            {quotation.status === 'Approved' ? (
+                              // Approved quotations: Show Send to Customer and Share
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    alert(`Sending ${quotation.id} to customer`)
+                                  }}
+                                >
+                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                  Send to Customer
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    alert(`Sharing ${quotation.id}`)
+                                  }}
+                                >
+                                  <Share2 className="h-3 w-3 mr-1" />
+                                  Share
+                                </Button>
+                              </div>
+                            ) : quotation.status === 'Sent to HOD' || quotation.status === 'Sent to Vertical Head' ? (
+                              // Pending approval: Show status text
+                              <span className="text-xs text-muted-foreground italic">Pending Approval</span>
+                            ) : quotation.status === 'Disapproved' ? (
+                              // Disapproved: Show status text
+                              <span className="text-xs text-rose-600 font-medium italic">Disapproved</span>
+                            ) : (
+                              // Other statuses (Costing, Quoted, etc.): Show Send to HOD and Share based on margin
+                              <div className="flex justify-end gap-2">
+                                {quotation.margin < 10 && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      alert(`Sending ${quotation.id} to HOD`)
+                                    }}
+                                  >
+                                    <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                    Send to HOD
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    alert(`Sharing ${quotation.id} with customer`)
+                                  }}
+                                >
+                                  <Share2 className="h-3 w-3 mr-1" />
+                                  Share
+                                </Button>
+                              </div>
+                            )}
                           </TableCell>
                         )}
                         <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
@@ -520,9 +722,25 @@ export function QuotationsContent() {
                       </TableRow>
                     </DialogTrigger>
                     <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
-                      <DialogHeader className="border-b-0 bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-5 flex-shrink-0 text-center">
-                        <DialogTitle className="text-xl font-bold text-gray-900">{selectedQuotation?.job}</DialogTitle>
-                        <DialogDescription className="text-sm font-semibold text-gray-600">{selectedQuotation?.id}</DialogDescription>
+                      <DialogHeader className="border-b-0 bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-5 flex-shrink-0">
+                        <div className="flex items-start justify-between gap-4 pr-8">
+                          <div className="flex-1 text-left">
+                            <DialogTitle className="text-xl font-bold text-gray-900">{selectedQuotation?.job}</DialogTitle>
+                            <DialogDescription className="text-sm font-semibold text-gray-600 mt-1">
+                              {selectedQuotation?.id}
+                            </DialogDescription>
+                          </div>
+                          <div className="flex flex-col items-end gap-2 mr-2">
+                            <div className="text-sm font-semibold text-gray-600">
+                              {selectedQuotation?.createdDate}
+                            </div>
+                            {selectedQuotation && (
+                              <Badge className={`${getStatusBadge(selectedQuotation.status)} border text-xs px-3 py-1`}>
+                                {selectedQuotation.status}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </DialogHeader>
                       {selectedQuotation && (
                         <div className="space-y-0 overflow-y-auto overflow-x-hidden flex-1">
@@ -532,30 +750,36 @@ export function QuotationsContent() {
                             <p className="text-base font-semibold text-gray-900">{selectedQuotation.customer}</p>
                           </div>
 
-                          {/* Status Section */}
-                          <div className="bg-white px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Status</Label>
-                            <Badge className={`${getStatusBadge(selectedQuotation.status)} border text-sm px-3 py-1`}>
-                              {selectedQuotation.status}
-                            </Badge>
-                          </div>
-
                           {/* KAM Name Section */}
-                          <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                          <div className="bg-white px-6 py-4 border-b border-gray-200">
                             <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">KAM Name</Label>
                             <p className="text-base font-semibold text-gray-900">{selectedQuotation.kamName || "N/A"}</p>
                           </div>
 
-                          {/* Approval Level Section */}
+                          {/* Quoted Cost Section */}
                           <div className="bg-white px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Approval Level</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.approvalLevel}</p>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Quoted Cost</Label>
+                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.quotedCostDisplay}</p>
                           </div>
 
-                          {/* Inquiry Section */}
+                          {/* Final Cost Section */}
                           <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Inquiry</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.inquiryId}</p>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Final Cost</Label>
+                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.finalCost.toFixed(2)} INR</p>
+                          </div>
+
+                          {/* Margin Percentage Section */}
+                          <div className="bg-white px-6 py-4 border-b border-gray-200">
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Margin %</Label>
+                            <Badge className={`${getMarginBadge(selectedQuotation.margin)} border text-sm px-3 py-1`}>
+                              {selectedQuotation.margin.toFixed(2)}%
+                            </Badge>
+                          </div>
+
+                          {/* Approval Level Section */}
+                          <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Approval Level</Label>
+                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.approvalLevel}</p>
                           </div>
 
                           {/* Valid Till Section */}
@@ -564,10 +788,10 @@ export function QuotationsContent() {
                             <p className="text-base font-semibold text-gray-900">{selectedQuotation.validTill}</p>
                           </div>
 
-                          {/* Created Date Section */}
+                          {/* Inquiry Section */}
                           <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Created Date</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.createdDate}</p>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Inquiry</Label>
+                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.inquiryId}</p>
                           </div>
 
                           {/* Journey Section */}
@@ -575,7 +799,7 @@ export function QuotationsContent() {
                             <div className="bg-white px-6 py-4 border-b border-gray-200">
                               <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-3 block">Journey</Label>
                               <div className="space-y-3">
-                                {selectedQuotation.history.map((step, stepIndex) => {
+                                {selectedQuotation.history.map((step: any, stepIndex: number) => {
                                   const isCurrent =
                                     stepIndex === selectedQuotation.history.length - 1 &&
                                     step.stage === selectedQuotation.status
@@ -599,15 +823,85 @@ export function QuotationsContent() {
                         </div>
                       )}
                       <div className="flex justify-end gap-2 border-t border-border/60 bg-muted/30 px-6 py-4">
-                        {selectedQuotation?.status === "Quoted" && (
-                          <Button variant="outline" size="sm" className="rounded-lg border-border/60 text-primary">
-                            <ArrowUpCircle className="mr-2 h-4 w-4" /> Send to HOD
-                          </Button>
-                        )}
-                        {selectedQuotation?.status === "Approved" && (
-                          <Button size="sm" className="rounded-lg bg-primary text-white hover:bg-primary/90">
-                            <Share2 className="mr-2 h-4 w-4" /> Share with Customer
-                          </Button>
+                        {selectedQuotation && (
+                          <>
+                            {/* Show different actions based on status */}
+                            {selectedQuotation.status === 'Approved' ? (
+                              // Approved: Show Send to Customer and Share
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="rounded-lg bg-[#78BE20] text-white hover:bg-[#78BE20]/90"
+                                  onClick={() => {
+                                    alert(`Sending ${selectedQuotation.id} to customer`)
+                                  }}
+                                >
+                                  <ArrowUpCircle className="mr-2 h-4 w-4" />
+                                  Send to Customer
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-lg border-border/60"
+                                  onClick={() => {
+                                    alert(`Sharing ${selectedQuotation.id}`)
+                                  }}
+                                >
+                                  <Share2 className="mr-2 h-4 w-4" />
+                                  Share
+                                </Button>
+                              </>
+                            ) : selectedQuotation.status === 'Sent to HOD' || selectedQuotation.status === 'Sent to Vertical Head' ? (
+                              // Pending approval: No actions
+                              <span className="text-sm text-muted-foreground italic">Awaiting approval...</span>
+                            ) : selectedQuotation.status === 'Disapproved' ? (
+                              // Disapproved: Show message
+                              <span className="text-sm text-rose-600 font-medium">This quotation was disapproved</span>
+                            ) : (
+                              // Other statuses: Show approval workflow buttons based on margin
+                              <>
+                                {/* Margin < 8%: Send to HOD */}
+                                {selectedQuotation.margin < 8 && selectedQuotation.margin >= 5 && (
+                                  <Button
+                                    size="sm"
+                                    className="rounded-lg bg-[#B92221] text-white hover:bg-[#B92221]/90"
+                                    onClick={() => handleSendForApproval(selectedQuotation.id, 'HOD')}
+                                    disabled={isSendingForApproval}
+                                  >
+                                    <ArrowUpCircle className="mr-2 h-4 w-4" />
+                                    {isSendingForApproval ? 'Sending...' : 'Send to HOD'}
+                                  </Button>
+                                )}
+
+                                {/* Margin < 5%: Send to Vertical Head */}
+                                {selectedQuotation.margin < 5 && (
+                                  <Button
+                                    size="sm"
+                                    className="rounded-lg bg-[#005180] text-white hover:bg-[#005180]/90"
+                                    onClick={() => handleSendForApproval(selectedQuotation.id, 'VerticalHead')}
+                                    disabled={isSendingForApproval}
+                                  >
+                                    <ArrowUpCircle className="mr-2 h-4 w-4" />
+                                    {isSendingForApproval ? 'Sending...' : 'Send to Vertical Head'}
+                                  </Button>
+                                )}
+
+                                {/* Margin between 8% and 10%: Show Send to HOD option */}
+                                {selectedQuotation.margin >= 8 && selectedQuotation.margin < 10 && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg border-[#B92221] text-[#B92221] hover:bg-[#B92221]/10"
+                                    onClick={() => handleSendForApproval(selectedQuotation.id, 'HOD')}
+                                    disabled={isSendingForApproval}
+                                  >
+                                    <ArrowUpCircle className="mr-2 h-4 w-4" />
+                                    {isSendingForApproval ? 'Sending...' : 'Send to HOD'}
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </>
                         )}
                       </div>
                     </DialogContent>

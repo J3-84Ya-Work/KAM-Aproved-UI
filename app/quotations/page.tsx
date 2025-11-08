@@ -14,14 +14,7 @@ export default function QuotationsPage() {
     alert("Export functionality will download all quotations as CSV/Excel")
   }
 
-  const handleCompareQuantity = () => {
-    // Navigate to compare quantity page or open dialog
-    alert("Compare Quantity feature - Compare pricing across different quantities")
-    // TODO: Implement compare quantity functionality
-  }
-
   const actions = [
-    { label: "Compare Quantity", onClick: handleCompareQuantity },
     { label: "Export", onClick: handleExport },
   ]
 

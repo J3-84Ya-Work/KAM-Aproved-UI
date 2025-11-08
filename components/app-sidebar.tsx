@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { getCurrentUser } from "@/lib/permissions"
+import { EnquiryAPI, QuotationsAPI } from "@/lib/api/enquiry"
 
 const roleBasedNavItems = {
   KAM: [
@@ -160,6 +161,8 @@ export function AppSidebar() {
   const [userRole, setUserRole] = useState<string>("")
   const [userName, setUserName] = useState<string>("")
   const [navItems, setNavItems] = useState(roleBasedNavItems.KAM) // Default to KAM
+  const [inquiryCount, setInquiryCount] = useState<number>(0)
+  const [quotationCount, setQuotationCount] = useState<number>(0)
 
   useEffect(() => {
     // Get current user info
@@ -170,6 +173,44 @@ export function AppSidebar() {
       // Set navigation items based on role
       setNavItems(roleBasedNavItems[user.role as keyof typeof roleBasedNavItems] || roleBasedNavItems.KAM)
     }
+
+    // Fetch inquiry count
+    const fetchInquiryCount = async () => {
+      try {
+        const response = await EnquiryAPI.getEnquiries({
+          FromDate: '2025-01-01 00:00:00.000',
+          ToDate: '2026-12-31 23:59:59.999',
+          ApplydateFilter: 'True',
+          RadioValue: 'All',
+        }, null)
+
+        if (response.success && response.data) {
+          setInquiryCount(response.data.length)
+        }
+      } catch (error) {
+        console.error('Failed to fetch inquiry count:', error)
+      }
+    }
+
+    // Fetch quotation count
+    const fetchQuotationCount = async () => {
+      try {
+        const response = await QuotationsAPI.getQuotations({
+          FilterSTR: 'All',
+          FromDate: '2024-11-02 00:00:00.000',
+          ToDate: '2025-11-02 00:00:00.000',
+        }, null)
+
+        if (response.success && response.data) {
+          setQuotationCount(response.data.length)
+        }
+      } catch (error) {
+        console.error('Failed to fetch quotation count:', error)
+      }
+    }
+
+    fetchInquiryCount()
+    fetchQuotationCount()
   }, [])
 
   const handleLogout = () => {
@@ -242,27 +283,37 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sm">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.url}
-                    tooltip={isCollapsed ? item.title : undefined}
-                  >
-                    <Link href={item.url} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <item.icon className="h-6 w-6" />
-                        <span className="text-base font-bold">{item.title}</span>
-                      </div>
-                      {item.badge && !isCollapsed && (
-                        <Badge variant="secondary" className="ml-auto h-5 px-2 text-xs font-bold">
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {navItems.map((item) => {
+                // Get dynamic count for specific items
+                let displayCount: number | undefined = item.badge
+                if (item.title === 'Inquiries') {
+                  displayCount = inquiryCount
+                } else if (item.title === 'Quotations') {
+                  displayCount = quotationCount
+                }
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.url}
+                      tooltip={isCollapsed ? item.title : undefined}
+                    >
+                      <Link href={item.url} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <item.icon className="h-6 w-6" />
+                          <span className="text-base font-bold">{item.title}</span>
+                        </div>
+                        {displayCount !== undefined && displayCount > 0 && !isCollapsed && (
+                          <Badge variant="secondary" className="ml-auto h-5 px-2 text-xs font-bold">
+                            {displayCount}
+                          </Badge>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

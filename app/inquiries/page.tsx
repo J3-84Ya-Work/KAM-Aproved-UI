@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MessageSquare, FileText } from "lucide-react"
+import { MessageSquare, FileText, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useCallback, useEffect } from "react"
 import { canCreate, isHOD } from "@/lib/permissions"
@@ -46,11 +46,14 @@ export default function InquiriesPage() {
     setShowInquiryTypeDialog(true)
   }
 
-  const handleInquiryTypeSelection = (type: "manual" | "chat") => {
+  const handleInquiryTypeSelection = (type: "manual" | "chat" | "dynamic") => {
     setShowInquiryTypeDialog(false)
     if (type === "manual") {
       // Navigate to manual inquiry form page
-      router.push("/new-inquiry")
+      router.push("/inquiries/new?mode=manual")
+    } else if (type === "dynamic") {
+      // Navigate to dynamic fill costing wizard
+      router.push("/inquiries/new?mode=dynamic")
     } else {
       // Navigate to main chat page with autoStart parameter to begin "I want costing" chat
       router.push("/?autoStart=true")
@@ -147,6 +150,20 @@ export default function InquiriesPage() {
               <div className="text-left flex-1">
                 <p className="font-semibold">Manual Form</p>
                 <p className="text-xs text-[#B92221]/70">Fill out form manually</p>
+              </div>
+            </Button>
+
+            <Button
+              onClick={() => handleInquiryTypeSelection("dynamic")}
+              variant="outline"
+              className="h-auto py-4 flex items-center justify-start gap-3 border-2 border-[#005180] text-[#005180] hover:bg-[#005180]/10 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <div className="bg-[#005180]/10 p-2 rounded">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="text-left flex-1">
+                <p className="font-semibold">Dynamic Fill</p>
+                <p className="text-xs text-[#005180]/70">Complete costing wizard</p>
               </div>
             </Button>
           </div>

@@ -18,9 +18,11 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
-import { getApprovalLevel, getViewableKAMs, isHOD } from "@/lib/permissions"
+import { getApprovalLevel, getViewableKAMs, isHOD, isVerticalHead } from "@/lib/permissions"
+import { QuotationsAPI } from "@/lib/api/enquiry"
 
-const pendingApprovals = [
+// REMOVED: Hardcoded data - Now using only API data
+/* const pendingApprovals = [
   {
     id: "CUST-2024-001",
     type: "Customer Creation",
@@ -257,7 +259,7 @@ const approvalHistory = [
     kamNote: "Urgent requirement. Customer needs quotation by EOD. Strategic account with potential for repeat orders.",
     approvalRemark: "Approved urgently. Good margin and strategic importance. Fast-track this quotation.",
   },
-]
+] */
 
 function getMarginColor(margin: number) {
   if (margin >= 15) return "text-green font-bold"
@@ -291,30 +293,218 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
   const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
   const isHODUser = isHOD() // HOD user check
+  const isVerticalHeadUser = isVerticalHead() // Vertical Head user check
 
   const [search, setSearch] = useState("")
   const [hodFilter, setHodFilter] = useState("all")
   const [kamFilter, setKamFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [selectedApproval, setSelectedApproval] = useState<(typeof pendingApprovals)[0] | null>(null)
+  const [selectedApproval, setSelectedApproval] = useState<(typeof allPendingApprovals)[0] | null>(null)
   const [remark, setRemark] = useState("")
   const [page, setPage] = useState(1)
   const [userLevel, setUserLevel] = useState<"L1" | "L2" | null>(null)
   const itemsPerPage = 20
 
+  // API state for quotations
+  const [quotationsForApproval, setQuotationsForApproval] = useState<any[]>([])
+  const [isLoadingQuotations, setIsLoadingQuotations] = useState(true)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+
+  // Fetch quotations that need approval
+  const fetchQuotationsForApproval = async () => {
+      try {
+        setIsLoadingQuotations(true)
+        const response = await QuotationsAPI.getQuotations({
+          FilterSTR: 'All',
+          FromDate: '2024-11-02 00:00:00.000',
+          ToDate: '2025-11-02 00:00:00.000',
+        }, null)
+
+        console.log('📋 Fetched quotations for approval:', response.data?.length || 0)
+
+        if (response.success && response.data) {
+          console.log('📊 Sample quotation for debugging:', response.data[0])
+
+          // Log the approval status fields for debugging
+          const approvalStatusBreakdown = response.data.map((item: any) => ({
+            id: item.BookingNo,
+            Status: item.Status,
+            Margin: item.Margin,
+            IsSendForInternalApproval: item.IsSendForInternalApproval,
+            IsInternalApproved: item.IsInternalApproved,
+            JobApproved: item.JobApproved
+          }))
+          console.log('📋 Approval status breakdown:', approvalStatusBreakdown)
+
+          // Filter quotations that need approval
+          // Show quotations with Status = "Sent to HOD" or "Sent to Vertical Head"
+          const pendingQuotations = response.data
+            .filter((item: any) => {
+              // Show quotations that are sent for approval (not yet approved)
+              const shouldShow = (item.Status === 'Sent to HOD' || item.Status === 'Sent to Vertical Head') && item.IsInternalApproved !== true
+
+              console.log(`🔍 Checking quotation ${item.BookingNo}:`, {
+                Status: item.Status,
+                StatusType: typeof item.Status,
+                IsSentToHOD: item.Status === 'Sent to HOD',
+                IsSentToVH: item.Status === 'Sent to Vertical Head',
+                IsInternalApproved: item.IsInternalApproved,
+                ShouldShow: shouldShow
+              })
+
+              if (shouldShow) {
+                console.log('✅ Including quotation:', item.BookingNo, 'Status:', item.Status, 'Margin:', item.Margin)
+              }
+              return shouldShow
+            })
+            .map((item: any) => {
+              // Extract numeric values from QuotedCost
+              const quotedCostStr = item.QuotedCost || '0'
+              const quotedCost = typeof quotedCostStr === 'string'
+                ? parseFloat(quotedCostStr.replace(/[^\d.]/g, ''))
+                : quotedCostStr
+
+              const finalCost = item.FinalCost || 0
+
+              // Use Margin from API (already a percentage)
+              const marginPercent = item.Margin || 0
+
+              // Calculate validTill: createdDate + 10 days
+              let validTill = '-'
+              if (item.CreatedDate) {
+                try {
+                  const createdDate = new Date(item.CreatedDate)
+                  const validTillDate = new Date(createdDate)
+                  validTillDate.setDate(validTillDate.getDate() + 10)
+
+                  const day = String(validTillDate.getDate()).padStart(2, '0')
+                  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                  const month = months[validTillDate.getMonth()]
+                  const year = validTillDate.getFullYear()
+                  validTill = `${day}-${month}-${year}`
+                } catch (e) {
+                  validTill = '-'
+                }
+              }
+
+              // Determine approval level based on margin from API and Status
+              // Margin < 5% -> Sent to Vertical Head -> Level L2
+              // Margin 5-10% -> Sent to HOD -> Level L1
+              let level = 'L1' // Default: HOD approval
+              if (item.Status === 'Sent to Vertical Head') {
+                level = 'L2' // Vertical Head approval
+              } else if (item.Status === 'Sent to HOD') {
+                level = 'L1' // HOD approval
+              } else if (marginPercent < 5) {
+                level = 'L2' // Low margin -> Vertical Head
+              }
+
+              return {
+                id: item.BookingNo,
+                type: 'Quotation',
+                inquiryId: item.EnquiryNo || '-',
+                customer: item.ClientName,
+                job: item.JobName,
+                amount: finalCost,
+                margin: marginPercent, // Use margin from API
+                validTill: validTill,
+                status: item.Status || 'Costing', // Use Status from API
+                level: level,
+                kamName: item.SalesEmployeeName || '-',
+                hodName: '-', // Not available in API
+                requestedBy: item.SalesEmployeeName || '-',
+                requestedDate: item.CreatedDate,
+                createdDate: item.CreatedDate,
+                urgency: marginPercent < 10 ? 'high' : 'normal',
+                kamNote: item.QuoteRemark || '',
+                quotedCost: quotedCost,
+                quotedCostDisplay: item.QuotedCost || '0 INR',
+                finalCost: finalCost,
+                rawData: item
+              }
+            })
+
+          console.log('✅ Quotations pending approval:', pendingQuotations.length)
+          console.log('📊 First pending quotation:', pendingQuotations[0])
+
+          setQuotationsForApproval(pendingQuotations)
+        }
+      } catch (error) {
+        console.error('❌ Error fetching quotations for approval:', error)
+      } finally {
+        setIsLoadingQuotations(false)
+      }
+    }
+
   useEffect(() => {
     // Get user's approval level (HOD = L1, Vertical Head = L2)
-    setUserLevel(getApprovalLevel())
+    const level = getApprovalLevel()
+    console.log('👤 Current user approval level:', level, '(L1 = HOD, L2 = Vertical Head)')
+    setUserLevel(level)
+    fetchQuotationsForApproval()
   }, [])
 
-  // Filter data based on user role - KAMs can only see their own data
-  const userFilteredPending = isRestrictedUser
-    ? pendingApprovals.filter(a => a.kamName && viewableKams.includes(a.kamName))
-    : pendingApprovals
+  // Handle approval/rejection
+  const handleApprovalAction = async (bookingId: string, status: 'Approved' | 'Disapproved') => {
+    if (!bookingId) {
+      alert('Invalid quotation ID')
+      return
+    }
 
-  const userFilteredHistory = isRestrictedUser
-    ? approvalHistory.filter(a => a.kamName && viewableKams.includes(a.kamName))
-    : approvalHistory
+    setIsUpdatingStatus(true)
+    try {
+      console.log(`🔄 ${status === 'Approved' ? 'Approving' : 'Rejecting'} quotation:`, bookingId)
+
+      const response = await QuotationsAPI.updateQuotationStatus({
+        BookingID: bookingId,
+        Status: status
+      }, null)
+
+      if (response.success) {
+        alert(`✅ Quotation ${status.toLowerCase()} successfully!${remark ? `\nRemark: ${remark}` : ''}`)
+        setRemark("")
+        setSelectedApproval(null)
+
+        // Refresh the data
+        await fetchQuotationsForApproval()
+      } else {
+        alert(`❌ Failed to ${status.toLowerCase()} quotation: ${response.error}`)
+      }
+    } catch (error: any) {
+      console.error(`❌ Error ${status.toLowerCase()} quotation:`, error)
+      alert(`❌ Error: ${error.message}`)
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  // Use only API quotations (no hardcoded data)
+  const allPendingApprovals = quotationsForApproval
+
+  console.log('🔄 Pending approvals (API only):', {
+    quotationsFromAPI: quotationsForApproval.length,
+    total: allPendingApprovals.length
+  })
+
+  // Filter data based on user role
+  // HOD and Vertical Head users should see ALL quotations sent to them (no KAM filtering)
+  // Only KAM users are restricted to their own data
+  const userFilteredPending = (isRestrictedUser && !isHODUser && !isVerticalHeadUser)
+    ? allPendingApprovals.filter(a => a.kamName && viewableKams.includes(a.kamName))
+    : allPendingApprovals
+
+  console.log('👤 User filtered pending approvals:', {
+    isRestrictedUser,
+    isHODUser,
+    isVerticalHeadUser,
+    viewableKams,
+    filteredCount: userFilteredPending.length,
+    userLevel,
+    note: (isHODUser || isVerticalHeadUser) ? 'HOD/VH sees all quotations' : 'KAM filtering applied'
+  })
+
+  // For now, history is empty (only showing pending approvals from API)
+  const userFilteredHistory: any[] = []
 
   // Select data source based on showHistory prop
   const currentData = showHistory ? userFilteredHistory : userFilteredPending
@@ -372,11 +562,22 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
         />
       </div>
 
+      {/* Loading State */}
+      {isLoadingQuotations && (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <Clock className="h-8 w-8 animate-spin text-[#005180] mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Loading approvals...</p>
+          </div>
+        </div>
+      )}
+
       {/* Approvals Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
+      {!isLoadingQuotations && (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
               <TableRow className="bg-gradient-to-r from-[#003d63] via-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#003d63] hover:via-[#005180] hover:to-[#004875]">
                 {!isKAMUser && (
                   <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
@@ -503,23 +704,33 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                                 variant="outline"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  alert(`Disapproving ${approval.id}`)
+                                  if (approval.type === 'Quotation') {
+                                    handleApprovalAction(approval.id, 'Disapproved')
+                                  } else {
+                                    alert(`Disapproving ${approval.id}`)
+                                  }
                                 }}
-                                className="text-xs bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700 hover:scale-110 active:scale-95 transition-all duration-200"
+                                disabled={isUpdatingStatus}
+                                className="text-xs bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <XCircle className="h-3 w-3 mr-1" />
-                                Disapprove
+                                {isUpdatingStatus ? 'Wait...' : 'Reject'}
                               </Button>
                               <Button
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  alert(`Approving ${approval.id}`)
+                                  if (approval.type === 'Quotation') {
+                                    handleApprovalAction(approval.id, 'Approved')
+                                  } else {
+                                    alert(`Approving ${approval.id}`)
+                                  }
                                 }}
-                                className="text-xs bg-emerald-600 text-white hover:bg-emerald-700 hover:scale-110 active:scale-95 transition-all duration-200"
+                                disabled={isUpdatingStatus}
+                                className="text-xs bg-emerald-600 text-white hover:bg-emerald-700 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Approve
+                                {isUpdatingStatus ? 'Wait...' : 'Approve'}
                               </Button>
                             </div>
                           ) : (
@@ -667,22 +878,32 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                                     variant="outline"
                                     className="bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700"
                                     onClick={() => {
-                                      alert(`Disapproving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
-                                      setRemark("")
+                                      if (selectedApproval.type === 'Quotation') {
+                                        handleApprovalAction(selectedApproval.id, 'Disapproved')
+                                      } else {
+                                        alert(`Disapproving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
+                                        setRemark("")
+                                      }
                                     }}
+                                    disabled={isUpdatingStatus}
                                   >
                                     <XCircle className="mr-2 h-4 w-4" />
-                                    Disapprove
+                                    {isUpdatingStatus ? 'Processing...' : 'Disapprove'}
                                   </Button>
                                   <Button
                                     className="bg-emerald-600 text-white hover:bg-emerald-700"
                                     onClick={() => {
-                                      alert(`Approving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
-                                      setRemark("")
+                                      if (selectedApproval.type === 'Quotation') {
+                                        handleApprovalAction(selectedApproval.id, 'Approved')
+                                      } else {
+                                        alert(`Approving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
+                                        setRemark("")
+                                      }
                                     }}
+                                    disabled={isUpdatingStatus}
                                   >
                                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                                    Approve
+                                    {isUpdatingStatus ? 'Processing...' : 'Approve'}
                                   </Button>
                                 </div>
                               </>
@@ -736,6 +957,24 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
           </div>
         )}
       </Card>
+      )}
+
+      {/* Empty State */}
+      {!isLoadingQuotations && paginatedApprovals.length === 0 && (
+        <Card>
+          <CardContent className="p-8">
+            <div className="text-center">
+              <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No Approvals Found</h3>
+              <p className="text-sm text-muted-foreground">
+                {search || statusFilter !== 'all' || kamFilter !== 'all' || hodFilter !== 'all'
+                  ? 'Try adjusting your filters to see more results.'
+                  : 'There are no pending approvals at the moment.'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
