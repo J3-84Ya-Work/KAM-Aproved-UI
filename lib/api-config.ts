@@ -5,6 +5,8 @@ export const API_CONFIG = {
   password: process.env.NEXT_PUBLIC_API_PASSWORD || 'parksonsnew',
   companyId: process.env.NEXT_PUBLIC_COMPANY_ID || '2',
   userId: process.env.NEXT_PUBLIC_USER_ID || '2',
+  fyear: process.env.NEXT_PUBLIC_FYEAR || '2025-2026',
+  productionUnitId: process.env.NEXT_PUBLIC_PRODUCTION_UNIT_ID || '1',
 }
 
 // Safe base64 encoder available in both browser and Node
@@ -30,8 +32,10 @@ export const getAuthHeader = () => {
 // Get default headers for API requests
 export const getDefaultHeaders = () => ({
   'Authorization': getAuthHeader(),
-  'CompanyId': API_CONFIG.companyId,
-  'UserId': API_CONFIG.userId,
+  'CompanyID': API_CONFIG.companyId,
+  'UserID': API_CONFIG.userId,
+  'Fyear': API_CONFIG.fyear,
+  'ProductionUnitID': API_CONFIG.productionUnitId,
   'Content-Type': 'application/json',
 })
 
