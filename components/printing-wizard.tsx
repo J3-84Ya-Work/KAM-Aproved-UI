@@ -409,7 +409,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       setMillError(null)
       const { getMillAPI } = await import('@/lib/api-config')
       const contentType = (contents.find((c: any) => c.ContentName === content)?.ContentName) ?? content
+      console.log('Loading mills with:', { contentType, quality, gsm, thickness })
       const res = await getMillAPI(contentType, String(quality), String(gsm), String(thickness))
+      console.log('Mill API response:', res)
       if (Array.isArray(res) && res.length > 0) setMills(res)
       else setMills([])
       return Array.isArray(res) ? res : []
@@ -1190,10 +1192,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       </div>
 
       <div className="space-y-4">
-        {/* Paper Quality and Finish in one row */}
+        {/* Paper Quality and GSM in first row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-lg p-3 border border-slate-200">
-            <Label className="text-sm font-medium text-slate-700 mb-2 block">Paper Quality</Label>
+            <Label className="text-sm font-medium text-slate-700 mb-2 block">Quality</Label>
             <Select
               value={String(jobData.paperDetails.qualityId ?? jobData.paperDetails.quality)}
               onValueChange={(value) => {
@@ -1252,28 +1254,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </div>
 
           <div className="bg-white rounded-lg p-3 border border-slate-200">
-            <Label className="text-sm font-medium text-slate-700 mb-2 block">Finish</Label>
-            <Select
-              value={jobData.paperDetails.finish}
-              onValueChange={(value) =>
-                setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, finish: value } })
-              }
-            >
-              <SelectTrigger className="h-8">
-                <SelectValue className="truncate" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Coated">Coated</SelectItem>
-                <SelectItem value="Uncoated">Uncoated</SelectItem>
-                <SelectItem value="Matt">Matt</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* GSM and Mill */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-lg p-3 border border-slate-200">
             <Label className="text-sm font-medium text-slate-700 mb-2 block">GSM</Label>
             <div className="flex items-center gap-2">
               <Select
@@ -1320,7 +1300,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               </div>
             </div>
           </div>
+        </div>
 
+        {/* Mill and Finish in second row */}
+        <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-lg p-3 border border-slate-200">
             <Label className="text-sm font-medium text-slate-700 mb-2 block">Mill</Label>
             <div className="flex items-center gap-2">
@@ -1370,6 +1353,25 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="bg-white rounded-lg p-3 border border-slate-200">
+            <Label className="text-sm font-medium text-slate-700 mb-2 block">Finish</Label>
+            <Select
+              value={jobData.paperDetails.finish}
+              onValueChange={(value) =>
+                setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, finish: value } })
+              }
+            >
+              <SelectTrigger className="h-8">
+                <SelectValue placeholder="Select finish" className="truncate" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Coated">Coated</SelectItem>
+                <SelectItem value="Uncoated">Uncoated</SelectItem>
+                <SelectItem value="Matt">Matt</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
