@@ -235,12 +235,15 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [qualities, setQualities] = useState<Array<{ Quality?: string; QualityID?: number }>>([])
   const [gsms, setGsms] = useState<Array<{ GSM?: string; GSMID?: number }>>([])
   const [mills, setMills] = useState<Array<{ Mill?: string; MillID?: number }>>([])
+  const [finishes, setFinishes] = useState<Array<{ Finish?: string; FinishID?: number }>>([])
   const [loadingQualities, setLoadingQualities] = useState(false)
   const [loadingGsm, setLoadingGsm] = useState(false)
   const [loadingMill, setLoadingMill] = useState(false)
+  const [loadingFinish, setLoadingFinish] = useState(false)
   const [qualitiesError, setQualitiesError] = useState<string | null>(null)
   const [gsmError, setGsmError] = useState<string | null>(null)
   const [millError, setMillError] = useState<string | null>(null)
+  const [finishError, setFinishError] = useState<string | null>(null)
   const [lastQualitiesContentType, setLastQualitiesContentType] = useState<string | null>(null)
 
   // Persist jobData to localStorage (debounced)
@@ -439,6 +442,53 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       }
     }
   }, [mills, jobData.paperDetails.mill])
+
+  // Load Finish options for selected quality, gsm and mill
+  const loadFinishForSelection = useCallback(async (overrideQuality?: string, overrideGsm?: string, overrideMill?: string) => {
+    const quality = overrideQuality ?? jobData.paperDetails.quality
+    const gsm = overrideGsm ?? jobData.paperDetails.gsm
+    const mill = overrideMill ?? jobData.paperDetails.mill
+
+    if (!quality || !gsm || !mill) {
+      setFinishes([])
+      setFinishError(null)
+      return []
+    }
+
+    try {
+      setLoadingFinish(true)
+      setFinishError(null)
+      const { getFinishAPI } = await import('@/lib/api-config')
+      console.log('Loading finishes with:', { quality, gsm, mill })
+      const res = await getFinishAPI(String(quality), String(gsm), String(mill))
+      console.log('Finish API response:', res)
+      if (Array.isArray(res) && res.length > 0) setFinishes(res)
+      else setFinishes([])
+      return Array.isArray(res) ? res : []
+    } catch (err: any) {
+      console.error('Failed to load finishes', err)
+      setFinishes([])
+      setFinishError(err?.message ? String(err.message) : 'Failed to load finishes')
+      return []
+    } finally {
+      setLoadingFinish(false)
+    }
+  }, [jobData.paperDetails.quality, jobData.paperDetails.gsm, jobData.paperDetails.mill])
+
+  useEffect(() => {
+    // refresh finishes when quality, gsm or mill changes
+    loadFinishForSelection()
+  }, [jobData.paperDetails.quality, jobData.paperDetails.gsm, jobData.paperDetails.mill, loadFinishForSelection])
+
+  // If selected finish is not present in the fetched finishes, clear it
+  useEffect(() => {
+    if (jobData.paperDetails.finish && finishes && finishes.length > 0) {
+      const found = finishes.find((f) => String(f.Finish) === String(jobData.paperDetails.finish) || String(f.FinishID) === String(jobData.paperDetails.finish))
+      if (!found) {
+        setJobData((prev) => ({ ...prev, paperDetails: { ...prev.paperDetails, finish: '' } }))
+      }
+    }
+  }, [finishes, jobData.paperDetails.finish])
 
   // Load operations when user navigates to Processes step
   useEffect(() => {
@@ -1357,21 +1407,53 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           <div className="bg-white rounded-lg p-3 border border-slate-200">
             <Label className="text-sm font-medium text-slate-700 mb-2 block">Finish</Label>
-            <Select
-              value={jobData.paperDetails.finish}
-              onValueChange={(value) =>
-                setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, finish: value } })
-              }
-            >
-              <SelectTrigger className="h-8">
-                <SelectValue placeholder="Select finish" className="truncate" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Coated">Coated</SelectItem>
-                <SelectItem value="Uncoated">Uncoated</SelectItem>
-                <SelectItem value="Matt">Matt</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select
+                value={jobData.paperDetails.finish}
+                onValueChange={(value) =>
+                  setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, finish: value } })
+                }
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue placeholder="Select finish" className="truncate" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {loadingFinish ? (
+                    <SelectItem value="__loading" disabled>Loading...</SelectItem>
+                  ) : finishes && finishes.length > 0 ? (
+                    finishes.map((f) => {
+                      const finishValue = String(f.Finish ?? f.FinishID ?? '')
+                      // Skip if empty or invalid
+                      if (!finishValue || finishValue === '' || finishValue === 'undefined' || finishValue === 'null') {
+                        return null
+                      }
+                      return (
+                        <SelectItem key={String(f.FinishID ?? f.Finish ?? Math.random())} value={finishValue} className="truncate">
+                          <span className="truncate block">{f.Finish ?? `Finish ${f.FinishID}`}</span>
+                        </SelectItem>
+                      )
+                    }).filter(Boolean)
+                  ) : (
+                    <>
+                      <SelectItem value="Coated">Coated</SelectItem>
+                      <SelectItem value="Uncoated">Uncoated</SelectItem>
+                      <SelectItem value="Matt">Matt</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+
+              <div className="text-xs text-red-600">
+                {finishError && (
+                  <div className="flex items-center gap-2">
+                    <div>{finishError}</div>
+                    <Button size="sm" variant="ghost" onClick={() => loadFinishForSelection()}>
+                      Retry
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
