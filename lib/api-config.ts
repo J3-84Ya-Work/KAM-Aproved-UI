@@ -135,7 +135,7 @@ export async function fetchQualities(contentType: string) {
     throw new Error('contentType is required')
   }
 
-  const endpoint = `api/planwindow/quality/${encodeURIComponent(String(contentType))}`
+  const endpoint = `api/planwindow/quality/${String(contentType)}`
   return apiClient.get(endpoint)
 }
 
@@ -144,7 +144,7 @@ export async function fetchGSM(contentType: string, quality: string, thickness =
   if (!contentType) throw new Error('contentType is required')
   if (!quality) throw new Error('quality is required')
 
-  const endpoint = `api/planwindow/gsm/${encodeURIComponent(String(contentType))}/${encodeURIComponent(String(quality))}/${encodeURIComponent(String(thickness))}`
+  const endpoint = `api/planwindow/gsm/${String(contentType)}/${String(quality)}/${String(thickness)}`
   return apiClient.get(endpoint)
 }
 
@@ -173,7 +173,7 @@ export async function fetchMill(contentType: string, quality: string, gsm: strin
   if (!quality) throw new Error('quality is required')
   if (!gsm) throw new Error('gsm is required')
 
-  const endpoint = `api/planwindow/mill/${encodeURIComponent(String(contentType))}/${encodeURIComponent(String(quality))}/${encodeURIComponent(String(gsm))}/${encodeURIComponent(String(thickness))}`
+  const endpoint = `api/planwindow/mill/${String(contentType)}/${String(quality)}/${String(gsm)}/${String(thickness)}`
   return apiClient.get(endpoint)
 }
 
@@ -194,6 +194,35 @@ export async function getMillAPI(contentType: string, quality: string, gsm: stri
   }
 
   return items.map((it) => ({ Mill: it.Mill ?? it.mill ?? it.Name ?? it.name ?? String(it), MillID: it.MillID ?? it.MillId ?? it.id ?? it.ID }))
+}
+
+// Helper: fetch Finish options for a given quality, gsm and mill
+export async function fetchFinish(quality: string, gsm: string, mill: string) {
+  if (!quality) throw new Error('quality is required')
+  if (!gsm) throw new Error('gsm is required')
+  if (!mill) throw new Error('mill is required')
+
+  const endpoint = `api/planwindow/finish/${String(quality)}/${String(gsm)}/${String(mill)}`
+  return apiClient.get(endpoint)
+}
+
+// Stable wrapper expected by UI: getFinishAPI
+// Returns an array normalized to [{ Finish, FinishID }, ...]
+export async function getFinishAPI(quality: string, gsm: string, mill: string) {
+  const res = await fetchFinish(quality, gsm, mill)
+
+  let items: any[] = []
+  if (!res) return items
+  if (Array.isArray(res)) items = res
+  else if (res?.data && Array.isArray(res.data)) items = res.data
+  else if (res?.Data && Array.isArray(res.Data)) items = res.Data
+  else if (res?.d && Array.isArray(res.d)) items = res.d
+  else if (typeof res === 'object') {
+    const firstArray = Object.values(res).find((v) => Array.isArray(v))
+    if (Array.isArray(firstArray)) items = firstArray as any[]
+  }
+
+  return items.map((it) => ({ Finish: it.Finish ?? it.finish ?? it.Name ?? it.name ?? String(it), FinishID: it.FinishID ?? it.FinishId ?? it.id ?? it.ID }))
 }
 
 // Stable wrapper expected by UI: getQualitiesAPI
@@ -262,8 +291,8 @@ export async function getQualitiesAPI(contentType: string) {
 // Helper: fetch operations for a domain type (LoadOperations)
 export async function fetchLoadOperations(domainType: string, processPurpose?: string) {
   if (!domainType) throw new Error('domainType is required')
-  const qp = processPurpose ? `?ProcessPurpose=${encodeURIComponent(String(processPurpose))}` : ''
-  const endpoint = `api/planwindow/LoadOperations/${encodeURIComponent(String(domainType))}${qp}`
+  const qp = processPurpose ? `?ProcessPurpose=${String(processPurpose)}` : ''
+  const endpoint = `api/planwindow/LoadOperations/${String(domainType)}${qp}`
   return apiClient.get(endpoint)
 }
 
