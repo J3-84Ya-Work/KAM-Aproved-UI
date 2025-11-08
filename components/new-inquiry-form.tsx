@@ -1602,14 +1602,20 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     {gsmOptions.length > 0 ? (
                       gsmOptions.map((gsm, index) => {
                         // GSM can be a number directly or an object with gsm/GSM field
-                        const gsmValue = typeof gsm === 'object' ? (gsm.gsm || gsm.GSM) : gsm
-                        const gsmDisplay = gsmValue?.toString() || gsm
+                        const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
+                        const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
+
+                        // Skip if empty or invalid
+                        if (!gsmDisplay || gsmDisplay === '' || gsmDisplay === 'undefined' || gsmDisplay === 'null') {
+                          return null
+                        }
+
                         return (
                           <SelectItem key={index} value={gsmDisplay}>
                             {gsmDisplay}
                           </SelectItem>
                         )
-                      })
+                      }).filter(Boolean)
                     ) : (
                       <SelectItem value="loading" disabled>
                         {planDetails.ItemPlanQuality ? 'Loading GSM...' : 'Select quality first'}
@@ -1637,12 +1643,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       millOptions.map((mill, index) => {
                         try {
                           // Mill can be a string directly or an object with Mill/mill field
-                          const millValue = typeof mill === 'object' ? (mill.Mill || mill.mill) : mill
-                          const millDisplay = millValue?.toString() || String(mill)
+                          const millValue = typeof mill === 'object' ? ((mill as any).Mill || (mill as any).mill) : mill
+                          const millDisplay = millValue?.toString() || (typeof mill === 'object' ? JSON.stringify(mill) : String(mill))
 
                           // Skip if we still have an object (shouldn't happen but safety check)
                           if (typeof millDisplay === 'object') {
                             console.error('Mill item is still an object:', mill)
+                            return null
+                          }
+
+                          // Skip if empty or invalid
+                          if (!millDisplay || millDisplay === '' || millDisplay === 'undefined' || millDisplay === 'null') {
                             return null
                           }
 
@@ -1655,7 +1666,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                           console.error('Error rendering mill item:', mill, error)
                           return null
                         }
-                      })
+                      }).filter(Boolean)
                     ) : (
                       <SelectItem value="loading" disabled>
                         {planDetails.ItemPlanGsm ? 'Loading mills...' : 'Select GSM first'}
@@ -1678,14 +1689,20 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     {finishOptions.length > 0 ? (
                       finishOptions.map((finish, index) => {
                         // Finish can be a string directly or an object with Finish/finish field
-                        const finishValue = typeof finish === 'object' ? (finish.Finish || finish.finish) : finish
-                        const finishDisplay = finishValue?.toString() || finish
+                        const finishValue = typeof finish === 'object' ? ((finish as any).Finish || (finish as any).finish) : finish
+                        const finishDisplay = finishValue?.toString() || (typeof finish === 'object' ? JSON.stringify(finish) : String(finish))
+
+                        // Skip if empty or invalid
+                        if (!finishDisplay || finishDisplay === '' || finishDisplay === 'undefined' || finishDisplay === 'null') {
+                          return null
+                        }
+
                         return (
                           <SelectItem key={index} value={finishDisplay}>
                             {finishDisplay}
                           </SelectItem>
                         )
-                      })
+                      }).filter(Boolean)
                     ) : (
                       <SelectItem value="loading" disabled>
                         {planDetails.ItemPlanMill ? 'Loading finishes...' : 'Select mill first'}

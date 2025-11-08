@@ -1214,15 +1214,22 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
                 {qualities && qualities.length > 0 ? (
-                  qualities.map((q) => (
-                    <SelectItem
-                      key={String(q.QualityID ?? q.Quality ?? Math.random())}
-                      value={String(q.QualityID ?? q.Quality)}
-                      className="truncate max-w-[250px]"
-                    >
-                      <span className="truncate block">{q.Quality ?? `Quality ${q.QualityID}`}</span>
-                    </SelectItem>
-                  ))
+                  qualities.map((q) => {
+                    const qualityValue = String(q.QualityID ?? q.Quality ?? '')
+                    // Skip if empty or invalid
+                    if (!qualityValue || qualityValue === '' || qualityValue === 'undefined' || qualityValue === 'null') {
+                      return null
+                    }
+                    return (
+                      <SelectItem
+                        key={String(q.QualityID ?? q.Quality ?? Math.random())}
+                        value={qualityValue}
+                        className="truncate max-w-[250px]"
+                      >
+                        <span className="truncate block">{q.Quality ?? `Quality ${q.QualityID}`}</span>
+                      </SelectItem>
+                    )
+                  }).filter(Boolean)
                 ) : (
                   <>
                     <SelectItem value="Art Paper">Art Paper</SelectItem>
@@ -1280,11 +1287,18 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   {loadingGsm ? (
                     <SelectItem value="__loading" disabled>Loading...</SelectItem>
                   ) : gsms && gsms.length > 0 ? (
-                    gsms.map((g) => (
-                      <SelectItem key={String(g.GSMID ?? g.GSM ?? Math.random())} value={String(g.GSM ?? g.GSMID)} className="truncate">
-                        <span className="truncate block">{g.GSM ?? `GSM ${g.GSMID}`}</span>
-                      </SelectItem>
-                    ))
+                    gsms.map((g) => {
+                      const gsmValue = String(g.GSM ?? g.GSMID ?? '')
+                      // Skip if empty or invalid
+                      if (!gsmValue || gsmValue === '' || gsmValue === 'undefined' || gsmValue === 'null') {
+                        return null
+                      }
+                      return (
+                        <SelectItem key={String(g.GSMID ?? g.GSM ?? Math.random())} value={gsmValue} className="truncate">
+                          <span className="truncate block">{g.GSM ?? `GSM ${g.GSMID}`}</span>
+                        </SelectItem>
+                      )
+                    }).filter(Boolean)
                   ) : (
                     <>
                       <SelectItem value="130">130</SelectItem>
@@ -1323,11 +1337,18 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   {loadingMill ? (
                     <SelectItem value="__loading" disabled>Loading...</SelectItem>
                   ) : mills && mills.length > 0 ? (
-                    mills.map((m) => (
-                      <SelectItem key={String(m.MillID ?? m.Mill ?? Math.random())} value={String(m.Mill ?? m.MillID)} className="truncate">
-                        <span className="truncate block">{m.Mill ?? `Mill ${m.MillID}`}</span>
-                      </SelectItem>
-                    ))
+                    mills.map((m) => {
+                      const millValue = String(m.Mill ?? m.MillID ?? '')
+                      // Skip if empty or invalid
+                      if (!millValue || millValue === '' || millValue === 'undefined' || millValue === 'null') {
+                        return null
+                      }
+                      return (
+                        <SelectItem key={String(m.MillID ?? m.Mill ?? Math.random())} value={millValue} className="truncate">
+                          <span className="truncate block">{m.Mill ?? `Mill ${m.MillID}`}</span>
+                        </SelectItem>
+                      )
+                    }).filter(Boolean)
                   ) : (
                     <>
                       <SelectItem value="Ballapur">Ballapur</SelectItem>
