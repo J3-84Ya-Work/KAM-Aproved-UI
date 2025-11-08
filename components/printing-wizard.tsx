@@ -104,7 +104,6 @@ const steps = [
   "Size",
   "Paper & Color",
   "Processes",
-  "Machines",
   "Best Plans",
   "Final Cost",
 ]
@@ -498,13 +497,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     }
   }, [currentStep, loadOperationsForDomain])
 
-  // Load machines when user navigates to Machines step
+  // Machines step removed - load machines on mount if needed
   useEffect(() => {
-    const machinesIndex = steps.indexOf('Machines')
-    if (currentStep === machinesIndex) {
-      loadMachines()
-    }
-  }, [currentStep, loadMachines])
+    loadMachines()
+  }, [loadMachines])
 
   // Fetch categories once on mount
   useEffect(() => {
@@ -577,11 +573,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
   const nextStep = async () => {
     if (currentStep < steps.length - 1) {
-      const machinesIndex = steps.indexOf('Machines')
+      const processesIndex = steps.indexOf('Processes')
       const bestPlansIndex = steps.indexOf('Best Plans')
 
-      // If we're on Machines and moving to Best Plans, run planning first and wait
-      if (currentStep === machinesIndex) {
+      // If we're on Processes and moving to Best Plans, run planning first and wait
+      if (currentStep === processesIndex) {
         try {
           setPlanningError(null)
           const ok = await runPlanning()
@@ -590,7 +586,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             setCurrentStep(newStep)
             onStepChange?.(steps[newStep])
           } else {
-            // planning failed, remain on machines step
+            // planning failed, remain on processes step
           }
         } catch (e: any) {
           console.error('Planning failed during nextStep navigation', e)
@@ -609,10 +605,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
   useEffect(() => {
     const prev = prevStepRef.current
-    const machinesIndex = steps.indexOf('Machines')
+    const processesIndex = steps.indexOf('Processes')
     const bestPlansIndex = steps.indexOf('Best Plans')
-    // If user moved from Machines -> Best Plans, run planning/costing automatically
-    if (prev === machinesIndex && currentStep === bestPlansIndex) {
+    // If user moved from Processes -> Best Plans, run planning/costing automatically
+    if (prev === processesIndex && currentStep === bestPlansIndex) {
       // runPlanning is declared later but will be initialized before this effect runs
       try {
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -654,11 +650,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   }
 
   const handleStepClick = async (stepIndex: number) => {
-    const machinesIndex = steps.indexOf('Machines')
+    const processesIndex = steps.indexOf('Processes')
     const bestPlansIndex = steps.indexOf('Best Plans')
 
-    // If user clicks directly from Machines -> Best Plans, run planning first
-    if (stepIndex === bestPlansIndex && currentStep === machinesIndex) {
+    // If user clicks directly from Processes -> Best Plans, run planning first
+    if (stepIndex === bestPlansIndex && currentStep === processesIndex) {
       try {
         setPlanningError(null)
         const ok = await runPlanning()
@@ -1457,6 +1453,29 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </div>
         </div>
 
+        {/* Grain Direction */}
+        <div className="bg-white rounded-lg p-4 border border-slate-200">
+          <Label className="text-sm font-medium text-slate-700 mb-3 block">Grain Direction</Label>
+          <div className="flex gap-2">
+            {[
+              { label: 'Both', value: 'both' },
+              { label: 'With Grain', value: 'along' },
+              { label: 'Across Grain', value: 'across' },
+            ].map((d) => (
+              <Button
+                key={d.value}
+                variant={jobData.grainDirection === d.value ? 'default' : 'outline'}
+                onClick={() => setJobData({ ...jobData, grainDirection: d.value as 'along' | 'across' | 'both' })}
+                className={`flex-1 h-10 text-sm font-medium transition-all duration-300 ${
+                  jobData.grainDirection === d.value ? 'bg-[#005180] text-white' : 'border border-slate-300 hover:border-[#005180]'
+                }`}
+              >
+                {d.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Color Details Section */}
         <div className="bg-[#005180] text-white p-3 rounded-t-lg">
           <h3 className="font-semibold text-sm">Color Details</h3>
@@ -1726,148 +1745,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     </div>
   )
   }
-
-  const renderMachines = () => (
-    <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-      {renderStepHeader("Machine Selection", false)}
-      <div className="text-center py-1">
-        <p className="text-slate-600 text-sm">Configure your printing setup</p>
-      </div>
-
-      <div>
-        <Label className="text-sm font-medium text-slate-700 mb-3 block">Select Machine</Label>
-        <div className="flex items-center gap-2">
-          <Select
-            value={(!jobData.machineId && !jobData.machine) ? '__all__' : String(jobData.machineId ?? jobData.machine ?? '')}
-            onValueChange={(value) => {
-              // Handle "All Machines" option (empty MachineId)
-              if (value === '__all__') {
-                setJobData({ ...jobData, machine: '', machineId: '', machineName: '' })
-                return
-              }
-
-              const found = machinesList.find((m) => {
-                const id = String(m.MachineID ?? m.MachineId ?? m.Id ?? m.MachineName ?? m.Name ?? '')
-                const name = String(m.MachineName ?? m.Name ?? id)
-                return id === String(value) || name === String(value)
-              })
-
-              if (found) {
-                const id = String(found.MachineID ?? found.MachineId ?? found.Id ?? found.MachineName ?? found.Name ?? '')
-                const name = String(found.MachineName ?? found.Name ?? id)
-                setJobData({ ...jobData, machine: name, machineId: id, machineName: name })
-              } else {
-                setJobData({ ...jobData, machine: String(value), machineId: String(value), machineName: String(value) })
-              }
-            }}
-          >
-            <SelectTrigger className="h-8 w-64">
-              <SelectValue placeholder="Select machine or all machines" />
-            </SelectTrigger>
-            <SelectContent>
-              {/* All Machines option - sends empty MachineId */}
-              <SelectItem value="__all__">
-                <span className="font-semibold text-[#005180]">All Machines (Auto-select best)</span>
-              </SelectItem>
-              {loadingMachines ? (
-                <SelectItem value="__loading" disabled>Loading...</SelectItem>
-              ) : machinesList && machinesList.length > 0 ? (
-                machinesList.map((m, idx) => {
-                  const id = String(m.MachineID ?? m.MachineId ?? m.Id ?? m.MachineName ?? m.Name ?? idx)
-                  const name = String(m.MachineName ?? m.Name ?? id)
-                  const key = `${id}-${idx}`
-                  return (
-                    <SelectItem key={key} value={id} className="truncate">
-                      <span className="truncate block">{name}</span>
-                    </SelectItem>
-                  )
-                })
-              ) : (
-                // fallback buttons as before
-                <>
-                  <SelectItem value="Komori">Komori</SelectItem>
-                  <SelectItem value="Lithron">Lithron</SelectItem>
-                  <SelectItem value="Mitsubishi">Mitsubishi</SelectItem>
-                  <SelectItem value="RMGT">RMGT</SelectItem>
-                </>
-              )}
-            </SelectContent>
-          </Select>
-
-          <div className="text-xs text-red-600">
-            {machinesError && (
-              <div className="flex items-center gap-2">
-                <div>{machinesError}</div>
-                <Button size="sm" variant="ghost" onClick={() => loadMachines()}>
-                  Retry
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <Label className="text-sm font-medium text-slate-700 mb-3 block">Wastage Percentage</Label>
-        <Card className="p-4 bg-slate-50">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between text-sm text-slate-600">
-              <span>1%</span>
-              <span>25%</span>
-              <span>5%</span>
-            </div>
-            <Slider
-              value={[jobData.wastage]}
-              onValueChange={(value) => setJobData({ ...jobData, wastage: value[0] })}
-              max={25}
-              min={1}
-              step={1}
-              className="w-full"
-            />
-            <div className="text-center">
-              <span className="text-lg font-bold text-[#005180]">{jobData.wastage}%</span>
-            </div>
-
-            <div className="flex items-center gap-2 justify-center">
-              <Label className="text-sm text-slate-600">Or enter manually:</Label>
-              <Input
-                type="number"
-                min="1"
-                max="25"
-                value={jobData.wastage}
-                onChange={(e) => setJobData({ ...jobData, wastage: Number.parseInt(e.target.value) || 1 })}
-                className="w-16 h-8 text-center text-sm"
-              />
-              <span className="text-sm text-slate-600">%</span>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* ... existing code ... */}
-      <div>
-        <Label className="text-sm font-medium text-slate-700 mb-3 block">Grain Direction</Label>
-        <div className="flex gap-2">
-          {[
-            { label: 'Both', value: 'both' },
-            { label: 'With Grain', value: 'along' },
-            { label: 'Across Grain', value: 'across' },
-          ].map((d) => (
-            <Button
-              key={d.value}
-              variant={jobData.grainDirection === d.value ? 'default' : 'outline'}
-              onClick={() => setJobData({ ...jobData, grainDirection: d.value as 'along' | 'across' | 'both' })}
-              className={`flex-1 h-10 text-sm font-medium transition-all duration-300 ${
-                jobData.grainDirection === d.value ? 'bg-[#005180] text-white' : 'border border-slate-300 hover:border-[#005180]'
-              }`}
-            >
-              {d.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
 
 
 
@@ -3040,10 +2917,8 @@ Generated with KAM Printing Wizard
       case 4:
         return renderProcesses()
       case 5:
-        return renderMachines()
-      case 6:
         return renderBestPlans()
-      case 7:
+      case 6:
         return renderFinalCost()
       default:
         return renderJobDetails()
@@ -3156,8 +3031,8 @@ Generated with KAM Printing Wizard
                 </svg>
                 <span>Costing...</span>
               </>
-            ) : currentStep === steps.indexOf('Machines') ? (
-              'Costing'
+            ) : currentStep === steps.indexOf('Processes') ? (
+              'Get Plans'
             ) : (
               'Next'
             )}
