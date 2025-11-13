@@ -1360,6 +1360,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             onClick={() => {
               if (confirm('This will clear all stored data and reset the form. Continue?')) {
                 localStorage.removeItem(LOCAL_STORAGE_KEY)
+                localStorage.removeItem('printingWizard.enquiryNumber') // Remove enquiry number from localStorage
                 setJobData(DEFAULT_JOB_DATA)
                 setCurrentStep(0)
                 setEnquiryNumber(null) // Reset enquiry number
@@ -2474,7 +2475,39 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [planningError, setPlanningError] = useState<string | null>(null)
   const [quotationNumber, setQuotationNumber] = useState<string | null>(null)
   const [quotationData, setQuotationData] = useState<any | null>(null)
-  const [enquiryNumber, setEnquiryNumber] = useState<string | null>(null) // Track SaveMultipleEnquiry response
+  // Track SaveMultipleEnquiry response - load from localStorage if available
+  const [enquiryNumber, setEnquiryNumber] = useState<string | null>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('printingWizard.enquiryNumber')
+        if (saved) {
+          console.log('📦 Loaded enquiry number from localStorage:', saved)
+          return saved
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load enquiryNumber from localStorage', e)
+    }
+    return null
+  })
+
+  // Persist enquiryNumber to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (enquiryNumber) {
+          localStorage.setItem('printingWizard.enquiryNumber', enquiryNumber)
+          console.log('💾 Saved enquiry number to localStorage:', enquiryNumber)
+        } else {
+          localStorage.removeItem('printingWizard.enquiryNumber')
+          console.log('🗑️ Removed enquiry number from localStorage')
+        }
+      }
+    } catch (e) {
+      console.error('Failed to save enquiryNumber to localStorage', e)
+    }
+  }, [enquiryNumber])
+
   const quotationPrintRef = useRef<HTMLDivElement>(null)
 
   // Print handler using ref directly
