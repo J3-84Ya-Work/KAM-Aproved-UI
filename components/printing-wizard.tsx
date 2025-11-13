@@ -1523,10 +1523,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
   const renderSize = () => (
     <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-      {renderStepHeader("Box Size", false)}
-      <div className="text-center py-2">
-        <p className="text-slate-600 text-sm">Enter your box measurements</p>
-      </div>
+      {renderStepHeader("Box Size (mm)", false)}
 
       <div className="space-y-3">
         {
@@ -4230,58 +4227,52 @@ Generated with KAM Printing Wizard
         </div>
       )}
 
-      {/* Toast Notification */}
+      {/* Toast Notification - Centered */}
       {toast && (
-        <div className="fixed top-4 right-4 z-[100] animate-in slide-in-from-top-2 duration-300">
-          <div className={`rounded-lg shadow-2xl p-4 min-w-[320px] max-w-md border-l-4 ${
-            toast.type === 'error' ? 'bg-red-50 border-red-500' :
-            toast.type === 'success' ? 'bg-green-50 border-green-500' :
-            'bg-yellow-50 border-yellow-500'
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+          <div className={`bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all duration-300 scale-100 ${
+            toast.type === 'error' ? 'border-2 border-red-500' :
+            toast.type === 'success' ? 'border-2 border-green-500' :
+            'border-2 border-yellow-500'
           }`}>
-            <div className="flex items-start gap-3">
+            <div className="text-center">
               {toast.type === 'error' && (
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
-                  <X className="w-4 h-4 text-white" />
+                <div className="mx-auto w-12 h-12 rounded-full bg-red-500 flex items-center justify-center mb-4">
+                  <X className="w-6 h-6 text-white" />
                 </div>
               )}
               {toast.type === 'success' && (
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-white" />
+                <div className="mx-auto w-12 h-12 rounded-full bg-green-500 flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-6 h-6 text-white" />
                 </div>
               )}
               {toast.type === 'warning' && (
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">!</span>
+                <div className="mx-auto w-12 h-12 rounded-full bg-yellow-500 flex items-center justify-center mb-4">
+                  <span className="text-white text-2xl font-bold">!</span>
                 </div>
               )}
-              <div className="flex-1">
-                <p className={`text-sm font-semibold ${
-                  toast.type === 'error' ? 'text-red-900' :
-                  toast.type === 'success' ? 'text-green-900' :
-                  'text-yellow-900'
-                }`}>
-                  {toast.type === 'error' ? 'Required Fields Missing' :
-                   toast.type === 'success' ? 'Success' :
-                   'Warning'}
-                </p>
-                <p className={`text-sm mt-1 ${
-                  toast.type === 'error' ? 'text-red-700' :
-                  toast.type === 'success' ? 'text-green-700' :
-                  'text-yellow-700'
-                }`}>
-                  {toast.message}
-                </p>
-              </div>
-              <button
+              <p className={`text-lg font-bold mb-2 ${
+                toast.type === 'error' ? 'text-red-600' :
+                toast.type === 'success' ? 'text-green-600' :
+                'text-yellow-600'
+              }`}>
+                {toast.type === 'error' ? 'Required Fields Missing' :
+                 toast.type === 'success' ? 'Success' :
+                 'Warning'}
+              </p>
+              <p className="text-slate-700 text-sm mb-4">
+                {toast.message}
+              </p>
+              <Button
                 onClick={() => setToast(null)}
-                className={`flex-shrink-0 ${
-                  toast.type === 'error' ? 'text-red-400 hover:text-red-600' :
-                  toast.type === 'success' ? 'text-green-400 hover:text-green-600' :
-                  'text-yellow-400 hover:text-yellow-600'
-                }`}
+                className={`w-full ${
+                  toast.type === 'error' ? 'bg-red-500 hover:bg-red-600' :
+                  toast.type === 'success' ? 'bg-green-500 hover:bg-green-600' :
+                  'bg-yellow-500 hover:bg-yellow-600'
+                } text-white`}
               >
-                <X className="w-4 h-4" />
-              </button>
+                OK
+              </Button>
             </div>
           </div>
         </div>
