@@ -855,7 +855,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           console.log('API CALL #1: DirectCosting (to get BookingID)')
           console.log('='.repeat(80))
           console.log('Endpoint: POST /api/parksons/directcosting')
-          console.log('Request Body:')
+          console.log('='.repeat(80))
+          console.log('\n📤 REQUEST BODY - CostingParams:')
+          console.log(JSON.stringify(costingParams, null, 2))
+          console.log('\n📤 REQUEST BODY - EnquiryData:')
+          console.log(JSON.stringify(enquiryData, null, 2))
+          console.log('\n📤 FULL REQUEST BODY:')
           console.log(JSON.stringify({
             CostignParams: costingParams,
             EnquiryData: enquiryData
