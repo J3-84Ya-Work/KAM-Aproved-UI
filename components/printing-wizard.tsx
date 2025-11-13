@@ -2070,7 +2070,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   <div className="flex flex-col min-w-0 flex-1">
                     <Label htmlFor={key} className="text-sm font-medium text-slate-700 truncate">{name}</Label>
                     <div className="flex gap-4 text-xs text-slate-500 mt-1">
-                      <span className="truncate">Type: {typeOfCharge}</span>
+                      <span className="truncate">{typeOfCharge}</span>
                       <span className="truncate">Rate: {rate}</span>
                     </div>
                   </div>
