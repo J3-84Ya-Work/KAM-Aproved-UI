@@ -1752,8 +1752,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 }
               }}
             >
-              <SelectTrigger className="h-8 overflow-hidden">
-                <SelectValue placeholder="Select quality" className="truncate block overflow-hidden text-ellipsis" />
+              <SelectTrigger className="h-8 w-full">
+                <SelectValue placeholder="Select quality" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
                 {qualities && qualities.length > 0 ? (
@@ -1987,6 +1987,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 <Label className="text-sm font-medium text-slate-700 mb-2 block">{label}</Label>
                 <Input
                   className="h-8 text-sm"
+                  placeholder="0"
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
                   onChange={(e) =>
                     setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: e.target.value } })
@@ -2005,6 +2006,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 <Label className="text-sm font-medium text-slate-700 mb-2 block">{label}</Label>
                 <Input
                   className="h-8 text-sm"
+                  placeholder="0"
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
                   onChange={(e) =>
                     setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: e.target.value } })
