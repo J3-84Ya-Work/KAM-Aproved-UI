@@ -2834,8 +2834,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           console.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
         }
       } else {
-        console.log('=== Using existing Enquiry Number:', currentEnquiryNumber, '===')
-        console.log('=== Skipping SaveMultipleEnquiry call (already called) ===')
+        console.log('\n' + '='.repeat(80))
+        console.log('✅ ENQUIRY ALREADY EXISTS - SKIPPING API CALL')
+        console.log('='.repeat(80))
+        console.log('Existing Enquiry ID:', currentEnquiryNumber)
+        console.log('Action: Skipping SaveMultipleEnquiry API call')
+        console.log('Reason: Enquiry already created for this session')
+        console.log('Next: Will proceed directly to ShirinJob API')
+        console.log('='.repeat(80) + '\n')
       }
 
       // Call Shirin Job API when Get Plan is clicked
