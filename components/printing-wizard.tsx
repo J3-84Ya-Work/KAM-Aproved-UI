@@ -173,8 +173,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
   const [showDetailedCosting, setShowDetailedCosting] = useState<number | null>(null)
-  const [showDieDetails, setShowDieDetails] = useState(false)
-  const [showAdditionalSettings, setShowAdditionalSettings] = useState(false)
   const stepNavRef = useRef<HTMLDivElement>(null)
   const stepRefs = useRef<(HTMLDivElement | null)[]>([])
   // Local storage key for persistence
@@ -265,7 +263,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     return DEFAULT_JOB_DATA
   })
 
-  const [show3DModal, setShow3DModal] = useState(false)
   const [showQuantityDialog, setShowQuantityDialog] = useState(false)
   const [newQuantity, setNewQuantity] = useState("")
   const [showOnlyDifferences, setShowOnlyDifferences] = useState(false)
@@ -1490,22 +1487,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         <p className="text-slate-600 text-sm">Enter your box measurements</p>
       </div>
 
-      {/* Reducing modal padding for mobile */}
-      <div
-        className="bg-gradient-to-r from-[#005180]/10 to-slate-50 rounded-xl p-4 text-center cursor-pointer hover:shadow-md transition-all"
-        onClick={() => setShow3DModal(true)}
-      >
-        <img
-          src="/placeholder.svg?height=80&width=120"
-          alt="3D Box View"
-          className="w-32 h-20 object-contain mx-auto"
-        />
-        <div className="flex items-center justify-center gap-2 mt-2 text-sm text-[#005180] font-medium">
-          <Calculator className="w-4 h-4" />
-          <span>Show 3D View</span>
-        </div>
-      </div>
-
       <div className="flex items-center justify-center gap-4">
         <RadioGroup
           value={jobData.dimensions.unit}
@@ -1713,43 +1694,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             </div>
           ))}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full mt-3 h-8 text-xs bg-transparent hover:bg-[#005180]/10"
-          onClick={() => setShowDieDetails(true)}
-        >
-          <Settings className="w-3 h-3 mr-1" />
-          Select Die Details
-        </Button>
       </Card>
 
-      {show3DModal && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/20 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-xl p-4 sm:p-6 max-w-sm w-full">
-            <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h3 className="font-semibold text-slate-800">3D Box Preview</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShow3DModal(false)} className="p-1">
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="bg-gradient-to-br from-[#005180]/10 to-slate-100 rounded-lg p-8 text-center">
-              <img
-                src="/placeholder.svg?height=200&width=300"
-                alt="Detailed 3D Box View"
-                className="w-full h-48 object-contain mx-auto"
-              />
-              <div className="mt-4 text-sm text-slate-600">
-                <div>
-                  Dimensions: {jobData.dimensions.length} × {jobData.dimensions.width} × {jobData.dimensions.height}{" "}
-                  {jobData.dimensions.unit}
-                </div>
-                <div className="mt-1">Interactive 3D preview</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 
@@ -2043,74 +1989,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             ))}
           </div>
 
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAdditionalSettings(true)}
-              className="text-[#005180] border-[#005180] hover:bg-[#005180]/10"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Additional Settings
-            </Button>
-          </div>
         </div>
       </div>
-
-      {/* Reducing additional settings modal padding */}
-      {showAdditionalSettings && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/20 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm space-y-3 sm:space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-slate-800">Additional Settings</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowAdditionalSettings(false)} className="p-1">
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium text-slate-700 mb-2 block">Stripping</Label>
-              <div className="grid grid-cols-4 gap-2">
-                {["T", "B", "L", "R"].map((side) => (
-                  <Button key={side} variant="outline" size="sm" className="h-8 text-xs bg-transparent">
-                    {side}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-sm font-medium text-slate-700 mb-2 block">Gripper</Label>
-                <Input className="h-8 text-sm" placeholder="Gripper" />
-              </div>
-              <div>
-                <Label className="text-sm font-medium text-slate-700 mb-2 block">Color Strip</Label>
-                <Input className="h-8 text-sm" placeholder="Color Strip" />
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium text-slate-700 mb-2 block">Printing Style</Label>
-              <Select defaultValue="choose-best">
-                <SelectTrigger className="h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  <SelectItem value="choose-best">Choose Best</SelectItem>
-                  <SelectItem value="single-side">Single Side</SelectItem>
-                  <SelectItem value="front-back">Front Back</SelectItem>
-                  <SelectItem value="work-tumble">Work & tumble</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button onClick={() => setShowAdditionalSettings(false)} className="w-full bg-[#005180] hover:bg-[#004875]">
-              Save
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   )
 
@@ -4114,103 +3994,6 @@ Generated with KAM Printing Wizard
     )
   }
 
-  const renderDieDetails = () => (
-    <div className="p-4 space-y-6 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => setShowDieDetails(false)} className="hover:bg-[#005180]/10">
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h2 className="font-serif text-xl font-bold text-slate-800">Available Die Details</h2>
-          <p className="text-slate-600 text-sm">Select from available dies</p>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {[
-          {
-            name: "Lux Box Die",
-            impressions: 45000,
-            ups: 8,
-            type: "Automatic",
-            dimensions: { h: 40, l: 30, w: 15 },
-            allocated: true,
-          },
-          {
-            name: "Lux Box Die",
-            impressions: 45000,
-            ups: 8,
-            type: "Automatic",
-            dimensions: { h: 40, l: 30, w: 15 },
-            allocated: true,
-          },
-          {
-            name: "Lux Box Die",
-            impressions: 45000,
-            ups: 8,
-            type: "Automatic",
-            dimensions: { h: 40, l: 30, w: 15 },
-            allocated: true,
-          },
-        ].map((die, index) => (
-          <Card
-            key={index}
-            className="p-4 border border-slate-200 cursor-pointer hover:border-[#005180] transition-colors"
-          >
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="font-medium text-slate-800">Reference Job Name:</span>
-                <span className="text-slate-600">{die.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-slate-800">Total Impressions:</span>
-                <span className="text-slate-600">{die.impressions.toLocaleString()}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex justify-between">
-                  <span className="font-medium text-slate-800">Total Ups:</span>
-                  <span className="text-slate-600">{die.ups}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-slate-800">Die Type:</span>
-                  <span className="text-slate-600">{die.type}</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="font-medium text-slate-800">H:</span>
-                  <span className="text-slate-600 ml-1">{die.dimensions.h}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-slate-800">Job Allocated:</span>
-                  <span className="text-green-600 ml-1">{die.allocated ? "Yes" : "No"}</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="font-medium text-slate-800">L:</span>
-                  <span className="text-slate-600 ml-1">{die.dimensions.l}</span>
-                </div>
-                <div></div>
-              </div>
-              <div>
-                <span className="font-medium text-slate-800">W:</span>
-                <span className="text-slate-600 ml-1">{die.dimensions.w}</span>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <Button
-        variant="outline"
-        className="w-full h-10 border border-slate-300 hover:border-[#005180] font-medium text-sm bg-transparent"
-      >
-        Sort & Filter
-      </Button>
-    </div>
-  )
-
   const renderRoadmapNavigation = () => (
     <div ref={stepNavRef} className="flex items-center gap-0.5 sm:gap-1 px-1 overflow-x-auto scrollbar-hide max-w-full scroll-smooth">
       {steps.map((step, index) => (
@@ -4250,10 +4033,6 @@ Generated with KAM Printing Wizard
   // ... existing code for other render functions ...
 
   const renderCurrentStep = () => {
-    if (showDieDetails) {
-      return renderDieDetails()
-    }
-
     switch (currentStep) {
       case 0:
         return (
@@ -4437,103 +4216,6 @@ Generated with KAM Printing Wizard
       </div>
 
 
-
-      {/* Die Details Modal */}
-      {showDieDetails && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/20 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
-            <div className="bg-black text-white p-4 flex items-center justify-between">
-              <h3 className="font-semibold">Available Die Details</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowDieDetails(false)} className="p-1">
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="overflow-y-auto p-4">
-              {[
-                {
-                  name: "Lux Box Die",
-                  impressions: 45000,
-                  ups: 8,
-                  type: "Automatic",
-                  dimensions: { h: 40, l: 30, w: 15 },
-                  allocated: true,
-                },
-                {
-                  name: "Lux Box Die",
-                  impressions: 45000,
-                  ups: 8,
-                  type: "Automatic",
-                  dimensions: { h: 40, l: 30, w: 15 },
-                  allocated: true,
-                },
-                {
-                  name: "Lux Box Die",
-                  impressions: 45000,
-                  ups: 8,
-                  type: "Automatic",
-                  dimensions: { h: 40, l: 30, w: 15 },
-                  allocated: true,
-                },
-              ].map((die, index) => (
-                <Card
-                  key={index}
-                  className="p-4 border border-slate-200 cursor-pointer hover:border-[#005180] transition-colors mb-3"
-                >
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="font-medium text-slate-800">Reference Job Name:</span>
-                      <span className="text-slate-600">{die.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium text-slate-800">Total Impressions:</span>
-                      <span className="text-slate-600">{die.impressions.toLocaleString()}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-slate-800">Total Ups:</span>
-                        <span className="text-slate-600">{die.ups}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-slate-800">Die Type:</span>
-                        <span className="text-slate-600">{die.type}</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="font-medium text-slate-800">H:</span>
-                        <span className="text-slate-600 ml-1">{die.dimensions.h}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-slate-800">Job Allocated:</span>
-                        <span className="text-green-600 ml-1">{die.allocated ? "Yes" : "No"}</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="font-medium text-slate-800">L:</span>
-                        <span className="text-slate-600 ml-1">{die.dimensions.l}</span>
-                      </div>
-                      <div></div>
-                    </div>
-                    <div>
-                      <span className="font-medium text-slate-800">W:</span>
-                      <span className="text-slate-600 ml-1">{die.dimensions.w}</span>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-            <div className="p-4">
-              <Button
-                variant="outline"
-                className="w-full h-10 border border-slate-300 hover:border-[#005180] font-medium text-sm bg-transparent"
-              >
-                Sort & Filter
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Quantity Dialog */}
       {showQuantityDialog && (
