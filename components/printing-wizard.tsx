@@ -1487,53 +1487,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         <p className="text-slate-600 text-sm">Enter your box measurements</p>
       </div>
 
-      <div className="flex items-center justify-center gap-4">
-        <RadioGroup
-          value={jobData.dimensions.unit}
-          onValueChange={(value: "mm" | "cm") =>
-            setJobData({ ...jobData, dimensions: { ...jobData.dimensions, unit: value } })
-          }
-          className="flex gap-6 justify-center bg-slate-50 rounded-lg p-3"
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="cm" id="cm" />
-            <Label htmlFor="cm" className="text-sm font-medium">
-              cm
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="mm" id="mm" />
-            <Label htmlFor="mm" className="text-sm font-medium">
-              mm
-            </Label>
-          </div>
-        </RadioGroup>
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-3 text-xs bg-white border-slate-300 hover:border-[#005180]"
-            onClick={() => {
-              // Scroll to trimming section
-              document.querySelector("[data-trimming]")?.scrollIntoView({ behavior: "smooth" })
-            }}
-          >
-            <Scissors className="w-3 h-3 mr-1" />
-            Trim
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-3 text-xs bg-white border-slate-300 hover:border-[#005180]"
-            onClick={() => setShowDieDetails(true)}
-          >
-            <Settings className="w-3 h-3 mr-1" />
-            Die
-          </Button>
-        </div>
-      </div>
-
       <div className="space-y-3">
         {
           // Determine selected content from contents array
