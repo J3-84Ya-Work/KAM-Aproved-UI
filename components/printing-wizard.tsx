@@ -833,6 +833,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           const enquiryData = {
             ProductCode: planningResults?.[0]?.ProductCode || '',
             LedgerID: planningResults?.[0]?.LedgerID || 4,
+            EnquiryID: enquiryNumber || 0, // EnquiryID from SaveMultipleEnquiry
             SalesEmployeeID: planningResults?.[0]?.SalesEmployeeID || 52,
             CategoryID: 2,
             Quantity: Number(jobData.quantity) || 0,
@@ -848,13 +849,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             TypeOfPrinting: null,
             EnquiryType: 'Bid',
             SalesType: 'Export',
-            EnquiryNumber: enquiryNumber || '', // Add enquiry number from SaveMultipleEnquiry
           }
 
           console.log('\n' + '='.repeat(80))
           console.log('API CALL #1: DirectCosting (to get BookingID)')
           console.log('='.repeat(80))
           console.log('Endpoint: POST /api/parksons/directcosting')
+          console.log('='.repeat(80))
+          console.log('🔑 Using EnquiryID:', enquiryNumber || 0)
           console.log('='.repeat(80))
           console.log('\n📤 REQUEST BODY - CostingParams:')
           console.log(JSON.stringify(costingParams, null, 2))
@@ -2755,14 +2757,15 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         console.log('Response Type:', typeof res)
         console.log('Response Data:')
         console.log(JSON.stringify(res, null, 2))
-        console.log('\n🔑 Extracted Enquiry Number:', res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || 'NOT FOUND')
+        console.log('\n🔑 Extracted Enquiry ID:', res?.EnquiryID || res?.enquiryID || res?.EnquiryId || 'NOT FOUND')
+        console.log('🔑 Extracted Enquiry Number:', res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || 'NOT FOUND')
         console.log('='.repeat(80) + '\n')
 
-        // Store the enquiry number from response
-        currentEnquiryNumber = res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
+        // Store the enquiry ID (number) from response - this is what we send to DirectCosting
+        currentEnquiryNumber = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || null
         if (currentEnquiryNumber) {
           setEnquiryNumber(currentEnquiryNumber)
-          console.log('=== Stored Enquiry Number:', currentEnquiryNumber, '===')
+          console.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
         }
       } else {
         console.log('=== Using existing Enquiry Number:', currentEnquiryNumber, '===')
