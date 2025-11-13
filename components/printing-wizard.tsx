@@ -2011,6 +2011,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             const key = operId || name
             const isSelected = jobData.processes.some(p => p.operID === operId || p.processName === name)
 
+            const typeOfCharge = op.TypeofCharges || op.TypeOfCharges || 'N/A'
+            const rate = op.Rate || op.OperRate || '—'
+
             return (
               <div key={key} className="flex items-center justify-between py-3 px-3 bg-slate-50 rounded-lg border border-slate-200 min-w-0">
                 <div className="flex items-center space-x-3 min-w-0 flex-1">
@@ -2034,7 +2037,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   />
                   <div className="flex flex-col min-w-0 flex-1">
                     <Label htmlFor={key} className="text-sm font-medium text-slate-700 truncate">{name}</Label>
-                    <div className="text-xs text-slate-400 truncate">OperID: {operId || '—'}</div>
+                    <div className="flex gap-4 text-xs text-slate-500 mt-1">
+                      <span className="truncate">Type: {typeOfCharge}</span>
+                      <span className="truncate">Rate: {rate}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2049,16 +2055,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       className="h-6 px-2 text-xs border-red-300 text-red-600 hover:bg-red-50"
                     >
                       Remove
-                    </Button>
-                  )}
-                  {operId && (
-                    <Button
-                      variant={selectedOperId === operId ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setSelectedOperId(operId)}
-                      className="h-6 px-2 text-xs"
-                    >
-                      {selectedOperId === operId ? 'Selected' : 'Use OperId'}
                     </Button>
                   )}
                 </div>
