@@ -830,6 +830,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             LedgerID: 0
           }
 
+          // Validate we have EnquiryID before proceeding
+          if (!enquiryNumber) {
+            console.warn('⚠️ WARNING: No EnquiryID available! This may cause issues.')
+            console.warn('⚠️ Make sure you clicked "Get Plans" first to generate an enquiry.')
+          }
+
           const enquiryData = {
             ProductCode: planningResults?.[0]?.ProductCode || '',
             LedgerID: planningResults?.[0]?.LedgerID || 4,
@@ -856,7 +862,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           console.log('='.repeat(80))
           console.log('Endpoint: POST /api/parksons/directcosting')
           console.log('='.repeat(80))
-          console.log('🔑 Using EnquiryID:', enquiryNumber || 0)
+          console.log('🔑 EnquiryID Status:')
+          console.log('  - EnquiryID value:', enquiryNumber)
+          console.log('  - Will send:', enquiryNumber || 0)
+          console.log('  - Is valid?', enquiryNumber ? '✅ YES' : '❌ NO (will send 0)')
           console.log('='.repeat(80))
           console.log('\n📤 REQUEST BODY - CostingParams:')
           console.log(JSON.stringify(costingParams, null, 2))
