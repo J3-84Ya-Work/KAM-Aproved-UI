@@ -3405,21 +3405,16 @@ Generated with KAM Printing Wizard
 
           {/* Header Section - Blue Card */}
           <Card className="p-6 bg-[#005180] text-white rounded-2xl shadow-lg mb-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="text-sm opacity-80 mb-1">Quotation Number</div>
-                <div className="text-5xl font-bold tracking-tight">{quotationNumber}</div>
-                <div className="text-sm opacity-80 mt-2">{mainData.Job_Date || mainData.EnquiryDate}</div>
-                {mainData.BookingNo && (
-                  <div className="mt-3 pt-3 border-t border-white/20">
-                    <div className="text-sm opacity-80">Booking No</div>
-                    <div className="text-2xl font-bold tracking-tight">{mainData.BookingNo}</div>
-                  </div>
-                )}
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="text-sm opacity-80 mb-2">Quotation Number</div>
+                <div className="text-5xl font-bold tracking-tight mb-2">{mainData.BookingNo || quotationNumber}</div>
+                <div className="text-sm opacity-80">{mainData.Job_Date || mainData.EnquiryDate}</div>
               </div>
               <div className="text-right">
-                <div className="text-sm opacity-80 mb-1">Company</div>
-                <div className="text-xl font-bold">{mainData.CompanyName || 'Parksons'}</div>
+                <div className="text-sm opacity-80 mb-2">Company</div>
+                <div className="text-2xl font-bold">Parksons</div>
+                <div className="text-base font-medium">Packaging Ltd.</div>
               </div>
             </div>
           </Card>
