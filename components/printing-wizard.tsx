@@ -719,6 +719,20 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           setPlanningLoading(true)
           setPlanningError(null)
 
+          // Check if quotation already exists
+          if (quotationNumber && quotationData) {
+            console.log('=== Quotation already exists ===')
+            console.log('Quotation Number:', quotationNumber)
+            console.log('Skipping API calls and moving to next step')
+
+            // Move to next step directly
+            const newStep = currentStep + 1
+            setCurrentStep(newStep)
+            onStepChange?.(steps[newStep])
+            setPlanningLoading(false)
+            return
+          }
+
           const { createBooking, getQuotationDetail } = await import('@/lib/api-config')
 
           // Step 1: Call directcosting API to get quotation number
@@ -3411,9 +3425,11 @@ Generated with KAM Printing Wizard
             </div>
 
             {/* Quotation Details */}
-            <div>
-              <div className="text-xs opacity-70 mb-1 uppercase tracking-wider">Quotation Number</div>
-              <div className="text-3xl font-bold tracking-tight mb-3">{mainData.BookingNo || quotationNumber}</div>
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-xs opacity-70 mb-1 uppercase tracking-wider">Quotation Number</div>
+                <div className="text-3xl font-bold tracking-tight">{mainData.BookingNo || quotationNumber}</div>
+              </div>
               <div className="text-sm opacity-80 font-medium">{mainData.Job_Date || mainData.EnquiryDate}</div>
             </div>
           </Card>
