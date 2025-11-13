@@ -175,6 +175,16 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [showDetailedCosting, setShowDetailedCosting] = useState<number | null>(null)
   const stepNavRef = useRef<HTMLDivElement>(null)
   const stepRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'warning' } | null>(null)
+
+  // Show toast notification
+  const showToast = (message: string, type: 'error' | 'success' | 'warning' = 'error') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 4000) // Auto hide after 4 seconds
+  }
+
   // Local storage key for persistence
   const LOCAL_STORAGE_KEY = 'printingWizard.jobData.v1'
 
@@ -632,23 +642,23 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     if (currentStepName === 'Job Details') {
       if (!jobData.clientName || !jobData.jobName || !jobData.quantity) {
-        alert('Please fill all mandatory fields: Client Name, Job Name, and Quantity')
+        showToast('Please fill all mandatory fields: Client Name, Job Name, and Quantity', 'error')
         return
       }
     } else if (currentStepName === 'Carton Type') {
       if (!jobData.cartonType) {
-        alert('Please select a Carton Type')
+        showToast('Please select a Carton Type', 'error')
         return
       }
     } else if (currentStepName === 'Size') {
       const dims = jobData.dimensions
       if (!dims.length || !dims.width || !dims.height || !dims.openFlap || !dims.pastingFlap) {
-        alert('Please fill all mandatory size fields: Length, Width, Height, Open Flap, and Pasting Flap')
+        showToast('Please fill all mandatory size fields: Length, Width, Height, Open Flap, and Pasting Flap', 'error')
         return
       }
     } else if (currentStepName === 'Paper & Color') {
       if (!jobData.paperDetails.quality || !jobData.paperDetails.gsm) {
-        alert('Please fill all mandatory fields: Quality and GSM')
+        showToast('Please fill all mandatory fields: Quality and GSM', 'error')
         return
       }
     }
@@ -1130,7 +1140,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const handleStepClick = async (stepIndex: number) => {
     // Prevent forward navigation - only allow going back to previous steps
     if (stepIndex > currentStep) {
-      alert('Please use the Next button to proceed forward')
+      showToast('Please use the Next button to proceed forward', 'warning')
       return
     }
 
@@ -2421,11 +2431,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     console.log('handlePrint called, quotationPrintRef.current:', quotationPrintRef.current)
     if (!quotationPrintRef.current) {
       console.error('Cannot print: quotationPrintRef is null')
-      alert('Unable to print. Please try again.')
+      showToast('Unable to print. Please try again.', 'error')
       return
     }
     reactToPrintFn()
-  }, [reactToPrintFn])
+  }, [reactToPrintFn, showToast])
 
   const [filterUnitCost, setFilterUnitCost] = useState<string>("")
   const [filterUps, setFilterUps] = useState<string>("")
@@ -2961,7 +2971,7 @@ Generated with KAM Printing Wizard
       } else {
         // Fallback: copy to clipboard
         await navigator.clipboard.writeText(quotationText)
-        alert('Quotation copied to clipboard!')
+        showToast('Quotation copied to clipboard!', 'success')
       }
     } catch (err: any) {
       console.error('Failed to share quotation', err)
@@ -3008,14 +3018,14 @@ Generated with KAM Printing Wizard
       console.log('response:', JSON.stringify(response, null, 2))
 
       setSaveEnquirySuccess(true)
-      alert('Enquiry saved successfully!')
+      showToast('Enquiry saved successfully!', 'success')
 
       // Auto-hide success message after 3 seconds
       setTimeout(() => setSaveEnquirySuccess(false), 3000)
     } catch (err: any) {
       console.error('Failed to save enquiry', err)
       setSaveEnquiryError(err?.message ?? 'Failed to save enquiry')
-      alert(`Failed to save enquiry: ${err?.message}`)
+      showToast(`Failed to save enquiry: ${err?.message}`, 'error')
     } finally {
       setSaveEnquiryLoading(false)
     }
@@ -3254,7 +3264,7 @@ Generated with KAM Printing Wizard
           pdf.save(`Quotation-${quotationNumber}.pdf`)
         } catch (error) {
           console.error('Failed to generate PDF:', error)
-          alert(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+          showToast(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
         }
       }
 
@@ -3582,7 +3592,7 @@ Generated with KAM Printing Wizard
                   window.open(pdf.output('bloburl'), '_blank')
                 } catch (error) {
                   console.error('Failed to print:', error)
-                  alert(`Failed to print: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                  showToast(`Failed to print: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
                 }
               }}
             >
@@ -4215,6 +4225,63 @@ Generated with KAM Printing Wizard
             <div className="text-center">
               <div className="font-semibold text-slate-800">Calculating costs...</div>
               <div className="text-sm text-slate-600">Fetching pricing for the selected machine</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-[100] animate-in slide-in-from-top-2 duration-300">
+          <div className={`rounded-lg shadow-2xl p-4 min-w-[320px] max-w-md border-l-4 ${
+            toast.type === 'error' ? 'bg-red-50 border-red-500' :
+            toast.type === 'success' ? 'bg-green-50 border-green-500' :
+            'bg-yellow-50 border-yellow-500'
+          }`}>
+            <div className="flex items-start gap-3">
+              {toast.type === 'error' && (
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
+                  <X className="w-4 h-4 text-white" />
+                </div>
+              )}
+              {toast.type === 'success' && (
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                </div>
+              )}
+              {toast.type === 'warning' && (
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center">
+                  <span className="text-white text-sm font-bold">!</span>
+                </div>
+              )}
+              <div className="flex-1">
+                <p className={`text-sm font-semibold ${
+                  toast.type === 'error' ? 'text-red-900' :
+                  toast.type === 'success' ? 'text-green-900' :
+                  'text-yellow-900'
+                }`}>
+                  {toast.type === 'error' ? 'Required Fields Missing' :
+                   toast.type === 'success' ? 'Success' :
+                   'Warning'}
+                </p>
+                <p className={`text-sm mt-1 ${
+                  toast.type === 'error' ? 'text-red-700' :
+                  toast.type === 'success' ? 'text-green-700' :
+                  'text-yellow-700'
+                }`}>
+                  {toast.message}
+                </p>
+              </div>
+              <button
+                onClick={() => setToast(null)}
+                className={`flex-shrink-0 ${
+                  toast.type === 'error' ? 'text-red-400 hover:text-red-600' :
+                  toast.type === 'success' ? 'text-green-400 hover:text-green-600' :
+                  'text-yellow-400 hover:text-yellow-600'
+                }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
