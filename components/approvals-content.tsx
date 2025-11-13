@@ -314,10 +314,25 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   const fetchQuotationsForApproval = async () => {
       try {
         setIsLoadingQuotations(true)
+
+        // Get current date and calculate date range (last 1 year to next 1 year)
+        const today = new Date()
+        const fromDate = new Date(today)
+        fromDate.setFullYear(today.getFullYear() - 1)
+        const toDate = new Date(today)
+        toDate.setFullYear(today.getFullYear() + 1)
+
+        const formatDate = (date: Date) => {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day} 00:00:00.000`
+        }
+
         const response = await QuotationsAPI.getQuotations({
           FilterSTR: 'All',
-          FromDate: '2024-11-02 00:00:00.000',
-          ToDate: '2025-11-02 00:00:00.000',
+          FromDate: formatDate(fromDate),
+          ToDate: formatDate(toDate),
         }, null)
 
         console.log('📋 Fetched quotations for approval:', response.data?.length || 0)

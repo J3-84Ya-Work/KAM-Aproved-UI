@@ -1,16 +1,13 @@
-// Chat API integration for webhook handler
-import { getApiEndpoint, getDefaultPhone, getDefaultWid } from './chat-config'
+// Chat API integration for AI Costing Bot
 
 // Use the local API route as a proxy to avoid CORS and mixed content issues
-// In production (Vercel), this will be /api/chat
-// In development, this will be http://localhost:3000/api/chat
 const API_BASE_URL = '/api/chat'
 
 export interface ChatMessage {
-  phone: string
   message: string
-  wid: string
-  attachment?: string
+  conversationId?: number
+  phone?: string
+  newChat?: boolean
 }
 
 export interface ApiResponse {
@@ -20,32 +17,24 @@ export interface ApiResponse {
 }
 
 /**
- * Send a message to the chat engine API
+ * Send a message to the AI Costing Bot
  * @param message - The message text to send
- * @param phone - Phone number of the sender (default: '626323361')
- * @param wid - WhatsApp ID (default: '919131299381')
- * @param attachment - Optional attachment URL
+ * @param conversationId - Conversation ID (default: 2)
+ * @param phone - Phone number of the sender (default: '9999999999')
  * @returns Promise with the API response
  */
 export async function sendMessage(
   message: string,
-  phone: string = getDefaultPhone(),
-  wid: string = getDefaultWid(),
-  attachment: string = ''
+  conversationId: number = 2,
+  phone: string = '9999999999'
 ): Promise<ApiResponse> {
   try {
     const payload = {
-      type: 'incoming',
-      data: {
-        phone,
-        message,
-        wid,
-        attachment,
-      },
+      message,
+      newChat: false,
+      conversationId,
+      phone,
     }
-
-    console.log('Sending message to API:', API_BASE_URL)
-    console.log('Payload:', payload)
 
     const response = await fetch(API_BASE_URL, {
       method: 'POST',
@@ -55,23 +44,18 @@ export async function sendMessage(
       body: JSON.stringify(payload),
     })
 
-    console.log('Response status:', response.status)
-
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      const errorData = await response.json().catch(() => null)
+      throw new Error(errorData?.error || `HTTP error! status: ${response.status}`)
     }
 
     const data = await response.json()
-    console.log('Response data:', data)
 
-    // The API returns a simple string directly, not an object
-    // So we normalize it to always return the response in a consistent format
     return {
       success: true,
-      data: typeof data === 'string' ? { message: data } : data,
+      data: data,
     }
   } catch (error) {
-    console.error('Error sending message to chat API:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -79,14 +63,3 @@ export async function sendMessage(
   }
 }
 
-/**
- * Send a message with attachment
- */
-export async function sendMessageWithAttachment(
-  message: string,
-  attachment: string,
-  phone?: string,
-  wid?: string
-): Promise<ApiResponse> {
-  return sendMessage(message, phone, wid, attachment)
-}

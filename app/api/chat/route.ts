@@ -1,48 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// This is a server-side API route that proxies requests to the external chat API
-// This solves CORS issues and HTTP/HTTPS mixed content problems
+// This is a server-side API route for the AI Costing Bot
+// Uses the Parksons costing bot API with proper authentication
 
-const CHAT_API_ENDPOINT = process.env.NEXT_PUBLIC_CHAT_API_ENDPOINT || 'http://65.2.64.18:89/api/webhook/handler'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.indusanalytics.co.in'
+const API_USERNAME = process.env.NEXT_PUBLIC_API_USERNAME || 'parksonsnew'
+const API_PASSWORD = process.env.NEXT_PUBLIC_API_PASSWORD || 'parksonsnew'
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || '2'
+const USER_ID = process.env.NEXT_PUBLIC_USER_ID || '2'
+
+// Generate Basic Auth header
+const getBasicAuth = () => {
+  const credentials = Buffer.from(`${API_USERNAME}:${API_PASSWORD}`).toString('base64')
+  return `Basic ${credentials}`
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse the incoming request body
     const body = await request.json()
+    const { message, conversationId, phone } = body
 
-    console.log('Proxy: Forwarding request to chat API')
-    console.log('Payload:', body)
+    const COSTING_BOT_ENDPOINT = `${API_BASE_URL}/api/parksons/costingbot`
 
-    // Forward the request to the external chat API
-    const response = await fetch(CHAT_API_ENDPOINT, {
+    const payload = {
+      message: message || '',
+      newChat: false,
+      conversationId: conversationId || 2,
+      phone: phone || '9999999999'
+    }
+
+    const response = await fetch(COSTING_BOT_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': getBasicAuth(),
+        'CompanyID': COMPANY_ID,
+        'UserID': USER_ID,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     })
 
-    console.log('Proxy: Response status:', response.status)
-
     if (!response.ok) {
-      console.error('Proxy: API error:', response.statusText)
+      const errorText = await response.text()
       return NextResponse.json(
-        { error: `API error: ${response.status} ${response.statusText}` },
+        {
+          error: `API error: ${response.status} ${response.statusText}`,
+          details: errorText
+        },
         { status: response.status }
       )
     }
 
-    // Get the response data
     const data = await response.json()
-    console.log('Proxy: Response data:', data)
-
-    // Return the response to the client
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Proxy: Error forwarding request:', error)
     return NextResponse.json(
       {
-        error: 'Failed to connect to chat API',
+        error: 'Failed to connect to AI costing bot',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }

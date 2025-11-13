@@ -1,0 +1,71 @@
+
+> my-v0-project@0.1.0 build
+> next build
+
+  ▲ Next.js 14.2.16
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../typescript/lib/typescript' in e:\KAM Aproved UI\node_modules\next\dist\build for build dependencies doesn't lead to expected result 'E:\KAM Aproved UI\node_modules\typescript\lib\typescript.js', but to 'e:\KAM Aproved UI\node_modules\typescript\lib\typescript.js' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../typescript/lib/typescript (expected E:\KAM Aproved UI\node_modules\typescript\lib\typescript.js)
+<w>  at file dependencies e:\KAM Aproved UI\node_modules\next\dist\build\load-jsconfig.js
+<w>  at file e:\KAM Aproved UI\node_modules\next\dist\build\load-jsconfig.js
+<w>  at file dependencies e:\KAM Aproved UI\node_modules\next\dist\build\webpack-config.js
+<w>  at file e:\KAM Aproved UI\node_modules\next\dist\build\webpack-config.js
+<w>  at file dependencies e:\KAM Aproved UI\node_modules\next\dist\build\handle-externals.js
+<w>  at file e:\KAM Aproved UI\node_modules\next\dist\build\handle-externals.js
+<w>  at file dependencies e:\KAM Aproved UI\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w>  at file e:\KAM Aproved UI\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w>  at resolve commonjs e:\KAM Aproved UI\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../typescript/lib/typescript' in e:\KAM Aproved UI\node_modules\next\dist\build for build dependencies doesn't lead to expected result 'E:\KAM Aproved UI\node_modules\typescript\lib\typescript.js', but to 'e:\KAM Aproved UI\node_modules\typescript\lib\typescript.js' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../typescript/lib/typescript (expected E:\KAM Aproved UI\node_modules\typescript\lib\typescript.js)
+<w>  at file dependencies e:\KAM Aproved UI\node_modules\next\dist\build\load-jsconfig.js
+<w>  at file e:\KAM Aproved UI\node_modules\next\dist\build\load-jsconfig.js
+<w>  at file dependencies e:\KAM Aproved UI\node_modules\next\dist\build\webpack-config.js
+<w>  at file e:\KAM Aproved UI\node_modules\next\dist\build\webpack-config.js
+<w>  at file dependencies e:\KAM Aproved UI\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w>  at file e:\KAM Aproved UI\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w>  at resolve commonjs e:\KAM Aproved UI\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+ ✓ Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/22) ...
+   Generating static pages (5/22) 
+   Generating static pages (10/22) 
+   Generating static pages (16/22) 
+ ✓ Generating static pages (22/22)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    1.38 kB         157 kB
+├ ○ /_not-found                          880 B          88.2 kB
+├ ƒ /api/chat                            0 B                0 B
+├ ○ /approvals                           6.56 kB         168 kB
+├ ƒ /chat/[id]                           645 B           145 kB
+├ ○ /chat/new                            624 B           156 kB
+├ ○ /chats                               8.29 kB         154 kB
+├ ○ /clients                             5.89 kB         167 kB
+├ ○ /customer-history                    6.6 kB          164 kB
+├ ○ /dashboard                           113 kB          270 kB
+├ ○ /inquiries                           30.1 kB         201 kB
+├ ○ /inquiries/new                       22.9 kB         191 kB
+├ ○ /login                               3.46 kB         104 kB
+├ ○ /more                                7.17 kB         153 kB
+├ ○ /new-inquiry                         3.95 kB         172 kB
+├ ○ /notifications                       6.69 kB         152 kB
+├ ○ /profile                             8.87 kB         154 kB
+├ ○ /projects                            10.6 kB         172 kB
+├ ○ /quotations                          6.63 kB         168 kB
+├ ○ /reports                             368 B          87.7 kB
+└ ○ /settings                            8.08 kB         154 kB
++ First Load JS shared by all            87.4 kB
+  ├ chunks/2117-0701bd116b185398.js      31.8 kB
+  ├ chunks/fd9d1056-1e74c17f3c2c6a67.js  53.6 kB
+  └ other shared chunks (total)          1.97 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

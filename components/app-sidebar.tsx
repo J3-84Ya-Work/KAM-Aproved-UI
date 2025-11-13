@@ -167,11 +167,15 @@ export function AppSidebar() {
   useEffect(() => {
     // Get current user info
     const user = getCurrentUser()
+    console.log('AppSidebar - Current user:', user)
     if (user) {
       setUserRole(user.role)
       setUserName(user.name)
+      console.log('AppSidebar - User role:', user.role, 'User name:', user.name)
       // Set navigation items based on role
       setNavItems(roleBasedNavItems[user.role as keyof typeof roleBasedNavItems] || roleBasedNavItems.KAM)
+    } else {
+      console.log('AppSidebar - No user found in localStorage')
     }
 
     // Fetch inquiry count

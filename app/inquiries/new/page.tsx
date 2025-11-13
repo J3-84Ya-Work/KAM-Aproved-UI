@@ -26,9 +26,7 @@ function NewInquiryContent() {
 
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
-        <AppSidebar />
-      </div>
+      <AppSidebar />
       <SidebarInset>
         <AppHeader
           pageName={getPageName()}

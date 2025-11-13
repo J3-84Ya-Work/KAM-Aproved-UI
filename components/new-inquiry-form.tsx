@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Save, X, Edit, Trash2, Upload } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { EnquiryAPI, MasterDataAPI, formatDateForAPI, formatDateForDisplay, type BasicEnquiryData, type DetailedEnquiryData } from "@/lib/api/enquiry"
 
 // Dropdown options
@@ -91,6 +92,7 @@ const getContentImagePath = (contentName: string): string => {
     'Reverse Tuck In': 'Reverse Tuck In.jpg',
     'ReverseTuckAndTongue': 'Reverse Tuck And Tongue.jpg',
     'StandardStraightTuckIn': 'Standard Straight Tuck In.jpg',
+    'StandardStraightTuckInNested': 'Standard Straight Tuck In Nested.jpg',
     'CrashLockWithPasting': 'Crash Lock With Pasting.jpg',
     'CrashLockWithoutPasting': 'Crash Lock Without Pasting.jpg',
     'FourCornerBox': 'Four Corner Box.jpg',
@@ -98,7 +100,9 @@ const getContentImagePath = (contentName: string): string => {
     'InnerTray': 'Inner Tray.jpg',
     'TuckToFrontOpenTop': 'Tuck To Front Open Top.jpg',
     'UniversalCarton': 'Universal Carton.jpg',
+    'UniversalOpenCrashLockWithPasting': 'Universal Open Crash Lock With Pasting.jpg',
     'FourCornerHingedLid': 'Four Corner Hinged Lid.jpg',
+    'Four Corner Hinged Lid': 'Four Corner Hinged Lid.jpg',
     'TurnOverEndTray': 'Turn Over End Tray.jpg',
     'WebbedSelfLockingTray': 'Webbed Self Locking Tray.jpg',
     'PillowPouch': 'Pillow Pouch.jpg',
@@ -108,6 +112,8 @@ const getContentImagePath = (contentName: string): string => {
     'FlatBottomPouch': 'Flat Bottom Pouch.jpg',
     'SpoutPouch': 'Spout Pouch.jpg',
     'FourSideSealPouch': 'Four Side Seal Pouch.jpg',
+    'PrePlannedSheet': 'Pre Planned Sheet.jpg',
+    'Pre Planned Sheet': 'Pre Planned Sheet.jpg',
   }
 
   // Check if we have a specific mapping
@@ -176,9 +182,16 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   const [planDetails, setPlanDetails] = useState<Record<string, string>>({})
 
   // Process selection state
-  const [selectedProcesses, setSelectedProcesses] = useState<string[]>([])
+  const [selectedProcesses, setSelectedProcesses] = useState<Array<{ProcessID: number, ProcessName: string}>>([])
   const [processSearchTerm, setProcessSearchTerm] = useState("")
   const [availableProcesses, setAvailableProcesses] = useState<any[]>([]) // Processes from API with IDs
+  const [loadingProcesses, setLoadingProcesses] = useState(false)
+
+  // Content selection dialog state
+  const [contentDialogOpen, setContentDialogOpen] = useState(false)
+
+  // Process selection dialog state
+  const [processDialogOpen, setProcessDialogOpen] = useState(false)
 
   // Size inputs state (for selected content type)
   const [sizeInputs, setSizeInputs] = useState<Record<string, string>>({})
@@ -202,12 +215,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Populate form with initial data when in edit mode
   useEffect(() => {
     if (editMode && initialData && categories.length > 0) {
-      console.log('📝 Populating form with initial data:', initialData)
-      console.log('📂 Available categories:', categories)
 
       // Find the category to verify it exists
       const category = categories.find(c => c.CategoryId === initialData.categoryId)
-      console.log('📂 Found category:', category)
 
       // Populate basic form data
       setFormData(prev => ({
@@ -229,14 +239,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
       // Set category ID to trigger content types loading
       if (initialData.categoryId) {
-        console.log('📂 Setting category ID:', initialData.categoryId)
         setSelectedCategoryId(initialData.categoryId)
       }
 
       // If detailed data is available, populate dimensions and other fields
       if (initialData.detailedData) {
         const detailedData = initialData.detailedData
-        console.log('📐 Populating detailed data (dimensions, processes):', detailedData)
 
         // Populate plan details (dimensions) if available
         if (detailedData.DetailsData && detailedData.DetailsData.length > 0) {
@@ -254,15 +262,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               }
             })
 
-            console.log('📐 Parsed dimensions:', sizeValues)
             setPlanDetails(sizeValues)
           }
 
           // Store content type to be selected after content types are loaded
           if (details.PlanContentType || details.PlanContName) {
             const contentTypeToSelect = details.PlanContentType || details.PlanContName
-            console.log('📦 Content Type to select:', contentTypeToSelect)
-            console.log('📦 Full details data:', details)
             // Store in a temporary state to select after content types load
             setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
           }
@@ -272,7 +277,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         if (detailedData.ProcessData && detailedData.ProcessData.length > 0) {
           const processNames = detailedData.ProcessData.map((p: any) => p.ProcessName)
           setSelectedProcesses(processNames)
-          console.log('⚙️ Selected processes:', processNames)
         }
       }
 
@@ -283,19 +287,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Select content type after content types are loaded (for edit mode)
   useEffect(() => {
     if (editMode && formData.contentType && contentTypes.length > 0 && selectedContentIds.length === 0) {
-      console.log('📦 Attempting to select content type:', formData.contentType)
-      console.log('📦 Available content types:', contentTypes.map(c => ({
-        id: c.ContentID,
-        name: c.ContentName,
-        code: c.ContentCode,
-        domainType: c.ContentDomainType
-      })))
-
       // Normalize the search term (remove spaces, dashes, underscores and convert to lowercase)
       const normalizeString = (str: string) => str?.replace(/[\s\-_]+/g, '').toLowerCase() || ''
       const searchTerm = normalizeString(formData.contentType)
-
-      console.log('🔍 Searching for normalized term:', searchTerm)
 
       // Find content by PlanContentType or ContentCode or ContentName
       let matchingContent = contentTypes.find((c) => {
@@ -308,20 +302,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           c.ContentName === formData.contentType
         )
 
-        if (matches) {
-          console.log('🎯 Match found on:', c.ContentName, {
-            domainType: c.ContentDomainType,
-            code: c.ContentCode,
-            name: c.ContentName
-          })
-        }
-
         return matches
       })
 
       // If no exact match, try partial matching (contains)
       if (!matchingContent) {
-        console.log('🔍 No exact match, trying partial match...')
         matchingContent = contentTypes.find((c) => {
           const contentNameNormalized = normalizeString(c.ContentName)
           const contentCodeNormalized = normalizeString(c.ContentCode)
@@ -336,21 +321,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             searchTerm.includes(domainTypeNormalized)
           )
         })
-
-        if (matchingContent) {
-          console.log('✅ Partial match found:', matchingContent.ContentName)
-        }
       }
 
       if (matchingContent) {
-        console.log('✅ Selecting content:', matchingContent)
         setSelectedContentIds([matchingContent.ContentID])
         setSelectedContent(matchingContent)
-      } else {
-        console.warn('⚠️ No matching content found for:', formData.contentType)
-        console.warn('⚠️ Searched with normalized term:', searchTerm)
-        console.warn('⚠️ Tried matching against: ContentDomainType, ContentCode, ContentName')
-        console.warn('⚠️ Available normalized names:', contentTypes.map(c => normalizeString(c.ContentName)))
       }
     }
   }, [editMode, formData.contentType, contentTypes, selectedContentIds])
@@ -409,64 +384,77 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     const fetchQualities = async () => {
       if (selectedContentIds.length > 0) {
         const selectedContentItem = contentTypes.find((c) => c.ContentID === selectedContentIds[0])
-        console.log('═══════════════════════════════════════════════════════')
-        console.log('🔍 USER SELECTED CONTENT')
-        console.log('ContentID:', selectedContentItem?.ContentID)
-        console.log('ContentName (what user sees):', selectedContentItem?.ContentName)
-        console.log('ContentCode:', selectedContentItem?.ContentCode)
-        console.log('ContentDomainType (for API):', selectedContentItem?.ContentDomainType)
-        console.log('Full Content Item:', selectedContentItem)
-        console.log('═══════════════════════════════════════════════════════')
 
         if (selectedContentItem?.ContentCode || selectedContentItem?.ContentName) {
           // Use ContentCode (like "RTI") or ContentName - NOT ContentDomainType
           const contentTypeForAPI = selectedContentItem.ContentCode || selectedContentItem.ContentName
-          console.log('✅ Using ContentCode for API:', contentTypeForAPI)
 
           const response = await MasterDataAPI.getItemQualities(contentTypeForAPI, null)
-          console.log('📦 Qualities Response:', response)
           if (response.success && response.data) {
-            console.log('✅ Setting qualities:', response.data)
             setQualities(response.data)
             // Auto-fill if only one option
             if (response.data.length === 1) {
               const qualityValue = response.data[0].Quality || response.data[0]
               handlePlanDetailChange('ItemPlanQuality', qualityValue)
-              console.log('✅ Auto-filled Quality (only 1 option):', qualityValue)
             }
           } else {
-            console.error('❌ Failed to fetch qualities:', response.error)
           }
         } else {
-          console.warn('⚠️ No ContentDomainType found in selected content')
         }
       } else {
-        console.log('ℹ️ No content selected, clearing qualities')
         setQualities([])
       }
     }
     fetchQualities()
   }, [selectedContentIds, contentTypes])
 
+  // Fetch processes when content type is selected
+  useEffect(() => {
+    const fetchProcesses = async () => {
+      console.log('🔧 useEffect triggered - selectedContentIds:', selectedContentIds)
+
+      if (selectedContentIds.length > 0) {
+        const selectedContentItem = contentTypes.find((c) => c.ContentID === selectedContentIds[0])
+        console.log('🔧 Selected content item:', selectedContentItem)
+
+        if (selectedContentItem?.ContentName) {
+          console.log('🔧 Fetching processes for:', selectedContentItem.ContentName)
+          setLoadingProcesses(true)
+          try {
+            const response = await EnquiryAPI.getProcesses(selectedContentItem.ContentName, null)
+            console.log('🔧 Process fetch response:', response)
+            if (response.success && response.data) {
+              console.log('🔧 Setting available processes:', response.data)
+              setAvailableProcesses(response.data)
+            } else {
+              console.log('🔧 Response not successful or no data, clearing processes')
+              setAvailableProcesses([])
+            }
+          } catch (error) {
+            console.error('🔧 Failed to fetch processes:', error)
+            setAvailableProcesses([])
+          } finally {
+            setLoadingProcesses(false)
+          }
+        }
+      } else {
+        console.log('🔧 No content IDs selected, clearing processes')
+        setAvailableProcesses([])
+      }
+    }
+    fetchProcesses()
+  }, [selectedContentIds, contentTypes])
+
   // Fetch GSM when quality is selected
   useEffect(() => {
     const fetchGSM = async () => {
-      console.log('═══════════════════════════════════════════════════════')
-      console.log('🟩 GSM FETCH TRIGGERED')
-      console.log('Quality value:', planDetails.ItemPlanQuality)
-      console.log('Quality type:', typeof planDetails.ItemPlanQuality)
-      console.log('Has content selected?', selectedContentIds.length > 0)
 
       if (selectedContentIds.length > 0 && planDetails.ItemPlanQuality) {
         const selectedContentItem = contentTypes.find((c) => c.ContentID === selectedContentIds[0])
-        console.log('Selected content item:', selectedContentItem)
 
         if (selectedContentItem?.ContentCode || selectedContentItem?.ContentName) {
           // Use ContentCode or ContentName - NOT ContentDomainType
           const contentTypeForAPI = selectedContentItem.ContentCode || selectedContentItem.ContentName
-          console.log('✅ Calling GSM API with:')
-          console.log('   ContentType:', contentTypeForAPI)
-          console.log('   Quality:', planDetails.ItemPlanQuality)
 
           const response = await MasterDataAPI.getGSMData(
             contentTypeForAPI,
@@ -479,19 +467,14 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             if (response.data.length === 1) {
               const gsmValue = typeof response.data[0] === 'object' ? ((response.data[0] as any).gsm || (response.data[0] as any).GSM) : response.data[0]
               handlePlanDetailChange('ItemPlanGsm', gsmValue?.toString() || response.data[0].toString())
-              console.log('✅ Auto-filled GSM (only 1 option):', gsmValue)
             }
           } else {
-            console.error('❌ GSM API failed:', response.error)
           }
         } else {
-          console.warn('⚠️  No ContentCode or ContentName found')
         }
       } else {
-        console.log('⚠️  Not fetching GSM - missing requirements')
         setGsmOptions([])
       }
-      console.log('═══════════════════════════════════════════════════════')
     }
     fetchGSM()
   }, [planDetails.ItemPlanQuality, selectedContentIds, contentTypes])
@@ -504,7 +487,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         if (selectedContentItem?.ContentCode || selectedContentItem?.ContentName) {
           // Use ContentCode or ContentName - NOT ContentDomainType
           const contentTypeForAPI = selectedContentItem.ContentCode || selectedContentItem.ContentName
-          console.log('🟨 Fetching Mill - ContentType:', contentTypeForAPI, 'Quality:', planDetails.ItemPlanQuality, 'GSM:', planDetails.ItemPlanGsm)
 
           const response = await MasterDataAPI.getMillData(
             contentTypeForAPI,
@@ -513,18 +495,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             null
           )
           if (response.success && response.data) {
-            console.log('🟨 Mill data received:', response.data)
-            console.log('🟨 Mill data type:', typeof response.data)
-            console.log('🟨 Is array?', Array.isArray(response.data))
             if (Array.isArray(response.data) && response.data.length > 0) {
-              console.log('🟨 First mill item:', response.data[0], 'Type:', typeof response.data[0])
             }
             setMillOptions(response.data)
             // Auto-fill if only one option
             if (response.data.length === 1) {
               const millValue = typeof response.data[0] === 'object' ? ((response.data[0] as any).Mill || (response.data[0] as any).mill) : response.data[0]
               handlePlanDetailChange('ItemPlanMill', millValue?.toString() || response.data[0].toString())
-              console.log('✅ Auto-filled Mill (only 1 option):', millValue)
             }
           }
         }
@@ -552,7 +529,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           if (response.data.length === 1) {
             const finishValue = typeof response.data[0] === 'object' ? ((response.data[0] as any).Finish || (response.data[0] as any).finish) : response.data[0]
             handlePlanDetailChange('ItemPlanFinish', finishValue?.toString() || response.data[0].toString())
-            console.log('✅ Auto-filled Finish (only 1 option):', finishValue)
           }
         }
       }
@@ -656,10 +632,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     })
   }
 
-  const handleProcessToggle = (process: string) => {
+  const handleProcessToggle = (process: {ProcessID: number, ProcessName: string}) => {
     setSelectedProcesses((prev) => {
-      if (prev.includes(process)) {
-        return prev.filter((p) => p !== process)
+      const isSelected = prev.some(p => p.ProcessID === process.ProcessID)
+      if (isSelected) {
+        return prev.filter((p) => p.ProcessID !== process.ProcessID)
       }
       return [...prev, process]
     })
@@ -789,13 +766,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           CategoryID: getCategoryID(),
         }
 
-        console.log('🚀 === BASIC ENQUIRY SUBMISSION ===')
-        console.log('📤 Sending data to API:', JSON.stringify([basicEnquiryData], null, 2))
-        console.table([basicEnquiryData])
-        console.log('🌐 Endpoint: POST /api/enquiry/saveeqdata')
-        console.log('📋 Additional Header - ProductionUnitID:', getProductionUnitID())
-        console.log('====================================')
-
         const response = await EnquiryAPI.saveBasicEnquiry([basicEnquiryData], null, getProductionUnitID())
 
         if (response.success) {
@@ -839,6 +809,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           SalesType: formData.salesType || '',
           Quantity: parseInt(formData.quantity) || 0,
           Source: "KAM APP",
+          IsDetailed: 1,
         }
 
         // Build ContentSizeValues string
@@ -877,22 +848,19 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         const detailsData = selectedContentItem ? [{
           PlanContName: selectedContentItem.ContentName || '',
           Size: buildSizeString(),
-          PlanContentType: '',
+          PlanContentType: selectedContentItem.ContentName || '',
           ContentSizeValues: buildContentSizeValues(),
           valuesString: Object.values(planDetails).join(','),
           JobSizeInCM: buildSizeString(),
         }] : []
 
-        // Transform selected processes - map process names to IDs
-        const processData = selectedContentItem ? selectedProcesses.map(processName => {
-          const processInfo = availableProcesses.find(p => p.ProcessName === processName)
-          return {
-            ProcessID: processInfo?.ProcessID || 0,
-            ProcessName: processName,
-            PlanContName: selectedContentItem.ContentName || '',
-            PlanContentType: selectedContentItem.ContentCode || '',
-          }
-        }) : []
+        // Transform selected processes to match API structure
+        const processData = selectedContentItem ? selectedProcesses.map(process => ({
+          ProcessID: process.ProcessID,
+          ProcessName: process.ProcessName,
+          PlanContName: selectedContentItem.ContentName || '',
+          PlanContentType: selectedContentItem.ContentName || '',  // Use ContentName for both
+        })) : []
 
         const detailedEnquiryData = {
           MainData: [mainData],
@@ -919,8 +887,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             EnquiryType: mainData.EnquiryType,
             SalesType: mainData.SalesType,
             Source: mainData.Source,
+            IsDetailed: mainData.IsDetailed,
             LedgerName: clients.find(c => c.LedgerId === getLedgerID())?.LedgerName || '',
             CategoryName: categories.find(c => c.CategoryId === getCategoryID())?.CategoryName || '',
+            Quantity: String(mainData.Quantity),
           }],
         }
 
@@ -942,8 +912,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             EnquiryID: initialData.enquiryId || 0, // Get from initial data
             IsEdit: "True",
           }
-          console.log('📝 === UPDATING ENQUIRY ===')
-          console.log('📤 Update data:', JSON.stringify(updateData, null, 2))
           response = await (EnquiryAPI as any).updateMultipleEnquiry(updateData, null)
         } else {
           response = await EnquiryAPI.saveDetailedEnquiry(detailedEnquiryData as any, null)
@@ -995,69 +963,44 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
-      {/* Form Type Toggle - Hide in edit mode */}
-      {!editMode && (
-        <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-4">
-          <Label className="text-base font-semibold text-[#005180] whitespace-nowrap">Form Type:</Label>
-          <div className="inline-flex rounded-lg border-2 border-[#005180] bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setFormType('basic')}
-              className={`px-4 md:px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
-                formType === 'basic'
-                  ? 'bg-[#78BE20] text-white shadow-md'
-                  : 'text-[#005180] hover:bg-[#005180]/10'
-              }`}
-            >
-              Basic Form
-            </button>
-            <button
-              type="button"
-            onClick={() => setFormType('detailed')}
-            className={`px-4 md:px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
-              formType === 'detailed'
-                ? 'bg-[#78BE20] text-white shadow-md'
-                : 'text-[#005180] hover:bg-[#005180]/10'
-            }`}
-          >
-            Detailed Form
-          </button>
-        </div>
-        </div>
-      )}
-
       {/* Section 1: Basic Information */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg md:text-xl">Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
-            <div className="md:col-span-2">
-              <Label htmlFor="enquiryNo">Enquiry No</Label>
-              <Input
-                id="enquiryNo"
-                value={isFetchingEnquiryNo ? "Loading..." : (formData.enquiryNo || "")}
-                disabled
-                placeholder="Fetching..."
-              />
+          <div className="space-y-4">
+            {/* Row 1: Enquiry No & Enquiry Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="enquiryNo" className="text-sm">Enquiry No</Label>
+                <Input
+                  id="enquiryNo"
+                  value={isFetchingEnquiryNo ? "Loading..." : (formData.enquiryNo || "")}
+                  disabled
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <Label htmlFor="enquiryDate" className="text-sm">Enquiry Date</Label>
+                <Input
+                  id="enquiryDate"
+                  type="date"
+                  value={formData.enquiryDate}
+                  onChange={(e) => handleInputChange("enquiryDate", e.target.value)}
+                  className="text-sm"
+                />
+              </div>
             </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="enquiryDate">Enquiry Date</Label>
-              <Input
-                id="enquiryDate"
-                type="date"
-                value={formData.enquiryDate}
-                onChange={(e) => handleInputChange("enquiryDate", e.target.value)}
-              />
-            </div>
+
+            {/* Row 2: Sales Type & Enquiry Type - Only for Detailed */}
             {formType === 'detailed' && (
-              <>
-                <div className="md:col-span-2">
-                  <Label htmlFor="salesType">Sales Type *</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="salesType" className="text-sm">Sales Type *</Label>
                   <Select value={formData.salesType} onValueChange={(value) => handleInputChange("salesType", value)}>
-                    <SelectTrigger id="salesType">
-                      <SelectValue placeholder="Select Sales Type" />
+                    <SelectTrigger id="salesType" className="text-sm">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {SALES_TYPE_OPTIONS.map((opt) => (
@@ -1068,11 +1011,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="enquiryType">Enquiry Type *</Label>
+                <div>
+                  <Label htmlFor="enquiryType" className="text-sm">Enquiry Type *</Label>
                   <Select value={formData.enquiryType} onValueChange={(value) => handleInputChange("enquiryType", value)}>
-                    <SelectTrigger id="enquiryType">
-                      <SelectValue placeholder="Select Enquiry Type" />
+                    <SelectTrigger id="enquiryType" className="text-sm">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {ENQUIRY_TYPE_OPTIONS.map((opt) => (
@@ -1083,18 +1026,20 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     </SelectContent>
                   </Select>
                 </div>
-              </>
+              </div>
             )}
-            <div className={formType === 'basic' ? "md:col-span-8" : "md:col-span-4"}>
-              <Label htmlFor="clientName">
+
+            {/* Row 3: Client Name - Full width */}
+            <div className="w-full">
+              <Label htmlFor="clientName" className="text-sm">
                 Client Name <span className="text-red-500">*</span>
               </Label>
               <Select
                 value={formData.clientName}
                 onValueChange={(value) => handleInputChange("clientName", value)}
               >
-                <SelectTrigger id="clientName" className={validationErrors.clientName ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select Client" />
+                <SelectTrigger id="clientName" className={`text-sm w-full ${validationErrors.clientName ? "border-red-500" : ""}`}>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {clients.length > 0 ? (
@@ -1125,12 +1070,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             {formType === 'detailed' && (
               <>
                 <div className="md:col-span-3">
-                  <Label htmlFor="concernPerson">Concerned Person</Label>
+                  <Label htmlFor="concernPerson">Client Concern Person</Label>
                   <Input
                     id="concernPerson"
                     value={formData.concernPerson}
                     onChange={(e) => handleInputChange("concernPerson", e.target.value)}
-                    placeholder="Enter Concerned Person"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -1139,7 +1083,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     id="concernPersonMobile"
                     value={formData.concernPersonMobile}
                     onChange={(e) => handleInputChange("concernPersonMobile", e.target.value)}
-                    placeholder="Mobile Number"
                   />
                 </div>
               </>
@@ -1152,7 +1095,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 id="jobName"
                 value={formData.jobName}
                 onChange={(e) => handleInputChange("jobName", e.target.value)}
-                placeholder="Enter Job Name"
                 className={validationErrors.jobName ? "border-red-500" : ""}
               />
             </div>
@@ -1166,19 +1108,19 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           <CardTitle className="text-lg md:text-xl">Product Details</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4">
             {formType === 'detailed' && (
-              <div className="md:col-span-2">
+              <div className="col-span-2 md:col-span-2">
                 <Label htmlFor="productCode">Product Code</Label>
                 <Input
                   id="productCode"
                   value={formData.productCode}
                   onChange={(e) => handleInputChange("productCode", e.target.value)}
-                  placeholder="Enter Product Code"
                 />
               </div>
             )}
-            <div className={formType === 'basic' ? "md:col-span-3" : "md:col-span-1"}>
+            {/* Row: Quantity & Annual Quantity (same row on mobile) */}
+            <div className={formType === 'basic' ? "col-span-1 md:col-span-3" : "col-span-1 md:col-span-1"}>
               <Label htmlFor="quantity">
                 Quantity <span className="text-red-500">*</span>
               </Label>
@@ -1187,29 +1129,28 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 type="number"
                 value={formData.quantity}
                 onChange={(e) => handleInputChange("quantity", e.target.value)}
-                placeholder="Quantity"
                 className={validationErrors.quantity ? "border-red-500" : ""}
               />
             </div>
             {formType === 'detailed' && (
-              <div className="md:col-span-2">
+              <div className="col-span-1 md:col-span-2">
                 <Label htmlFor="annualQuantity">Annual Quantity</Label>
                 <Input
                   id="annualQuantity"
                   type="number"
                   value={formData.annualQuantity}
                   onChange={(e) => handleInputChange("annualQuantity", e.target.value)}
-                  placeholder="Annual Quantity"
                 />
               </div>
             )}
-            <div className={formType === 'basic' ? "md:col-span-3" : "md:col-span-2"}>
+            {/* Row: UOM & Division Name (same row on mobile) */}
+            <div className={formType === 'basic' ? "col-span-1 md:col-span-3" : "col-span-1 md:col-span-2"}>
               <Label htmlFor="unit">
                 UOM <span className="text-red-500">*</span>
               </Label>
               <Select value={formData.unit} onValueChange={(value) => handleInputChange("unit", value)}>
                 <SelectTrigger id="unit">
-                  <SelectValue placeholder="Select UOM" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {UOM_OPTIONS.map((opt) => (
@@ -1222,13 +1163,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             </div>
             {formType === 'detailed' && (
               <>
-                <div className="md:col-span-3">
+                <div className="col-span-1 md:col-span-3">
                   <Label htmlFor="divisionName">Division Name</Label>
                   <Input
                     id="divisionName"
                     value={formData.divisionName}
                     onChange={(e) => handleInputChange("divisionName", e.target.value)}
-                    placeholder="Select Division"
                   />
                 </div>
               </>
@@ -1250,7 +1190,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               </Label>
               <Select value={formData.plant} onValueChange={(value) => handleInputChange("plant", value)}>
                 <SelectTrigger id="plant" className={validationErrors.plant ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select Production Unit" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {productionUnits.length > 0 ? (
@@ -1275,7 +1215,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     id="supplyLocation"
                     value={formData.supplyLocation}
                     onChange={(e) => handleInputChange("supplyLocation", e.target.value)}
-                    placeholder="Enter Location"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -1284,7 +1223,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     id="paymentTerms"
                     value={formData.paymentTerms}
                     onChange={(e) => handleInputChange("paymentTerms", e.target.value)}
-                    placeholder="Payment Terms"
                   />
                 </div>
               </>
@@ -1298,7 +1236,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 onValueChange={(value) => handleInputChange("salesPerson", value)}
               >
                 <SelectTrigger id="salesPerson" className={validationErrors.salesPerson ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select Sales Person" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {salesPersons.length > 0 ? (
@@ -1322,7 +1260,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   id="expectCompletion"
                   value={formData.expectCompletion}
                   onChange={(e) => handleInputChange("expectCompletion", e.target.value)}
-                  placeholder="Days"
                 />
               </div>
             )}
@@ -1334,396 +1271,507 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       {formType === 'detailed' && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg md:text-xl">Content Selection & Configuration</CardTitle>
+            <CardTitle className="text-base md:text-lg truncate">Content Selection & Configuration</CardTitle>
           </CardHeader>
         <CardContent className="pt-0">
-          {/* Category Selection */}
-          <div className="mb-4">
-            <Label htmlFor="contentCategory">
-              Select Category <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              value={formData.categoryName}
-              onValueChange={(value) => {
-                handleInputChange("categoryName", value)
-                // Find the selected category and set its ID
-                const category = categories.find(cat => cat?.CategoryId?.toString() === value)
-                if (category && category.CategoryId) {
-                  setSelectedCategoryId(category.CategoryId)
-                }
-              }}
-            >
-              <SelectTrigger id="contentCategory">
-                <SelectValue placeholder="Select Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.length > 0 ? (
-                  categories
-                    .filter(category => category?.CategoryId && category?.CategoryName)
-                    .map((category) => (
-                      <SelectItem key={category.CategoryId} value={category.CategoryId.toString()}>
-                        {category.CategoryName}
-                      </SelectItem>
-                    ))
-                ) : (
-                  <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 border rounded-lg p-3 md:p-4">
-            {/* Left Panel: Content Selection */}
-            <div className="lg:border-r lg:pr-4 pb-4 lg:pb-0">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium">Select Content</span>
-                {selectedContentIds.length > 0 && (
-                  <span className="text-xs text-green-600 font-medium">✓ Selected</span>
-                )}
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto">
-                {contentTypes.length > 0 ? (
-                  contentTypes.map((content) => (
-                    <button
-                      key={content.ContentID}
-                      type="button"
-                      onClick={() => handleContentSelect(content.ContentID)}
-                      className={`relative rounded-lg border-2 p-2 transition-all hover:shadow-md ${
-                        selectedContentIds.includes(content.ContentID)
-                          ? "border-[#005180] bg-[#005180]/5"
-                          : "border-border hover:border-[#005180]/50"
-                      }`}
-                    >
-                      {selectedContentIds.includes(content.ContentID) && (
-                        <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#005180] flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </div>
-                      )}
-                      <div className="w-full h-20 bg-muted rounded flex items-center justify-center mb-2 overflow-hidden">
-                        <img
-                          src={getContentImagePath(content.ContentName)}
-                          alt={content.ContentName}
-                          className="w-full h-full object-contain p-1"
-                          onError={(e) => {
-                            // Fallback to default image if specific image not found
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/images/default.png';
-                          }}
-                        />
-                      </div>
-                      <p
-                        className="text-xs text-center font-medium line-clamp-2"
-                        title={content.ContentName}
-                      >
-                        {content.ContentName}
-                      </p>
-                    </button>
-                  ))
-                ) : (
-                  <div className="col-span-2 sm:col-span-3 lg:col-span-4 flex items-center justify-center h-32 text-sm text-muted-foreground">
-                    {selectedCategoryId ? 'Loading content types...' : 'Please select a category first'}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right Panel: Process Selection */}
+          {/* Category and Content in one row */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* Category Selection */}
             <div>
-              <span className="text-sm font-medium block mb-3">Add Allowed Process</span>
-              <div className="max-h-[300px] lg:max-h-[400px] overflow-y-auto">
-                <Input
-                  placeholder="Search processes..."
-                  className="mb-2"
-                  value={processSearchTerm}
-                  onChange={(e) => setProcessSearchTerm(e.target.value)}
-                />
-                <div className="space-y-1">
-                  {(availableProcesses.length > 0 ? availableProcesses : AVAILABLE_PROCESSES.map(name => ({ ProcessName: name })))
-                    .filter((p) => p.ProcessName.toLowerCase().includes(processSearchTerm.toLowerCase()))
-                    .map((process, index) => (
-                      <label
-                        key={`${process.ProcessName}-${index}`}
-                        className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={selectedProcesses.includes(process.ProcessName)}
-                          onCheckedChange={() => handleProcessToggle(process.ProcessName)}
-                        />
-                        <span className="text-xs">{process.ProcessName}</span>
-                      </label>
-                    )
+              <Label htmlFor="contentCategory" className="text-sm">
+                Select Category <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={formData.categoryName}
+                onValueChange={(value) => {
+                  handleInputChange("categoryName", value)
+                  // Find the selected category and set its ID
+                  const category = categories.find(cat => cat?.CategoryId?.toString() === value)
+                  if (category && category.CategoryId) {
+                    setSelectedCategoryId(category.CategoryId)
+                  }
+                }}
+              >
+                <SelectTrigger id="contentCategory" className="text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.length > 0 ? (
+                    categories
+                      .filter(category => category?.CategoryId && category?.CategoryName)
+                      .map((category) => (
+                        <SelectItem key={category.CategoryId} value={category.CategoryId.toString()}>
+                          {category.CategoryName}
+                        </SelectItem>
+                      ))
+                  ) : (
+                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
                   )}
-                </div>
-              </div>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Content Selection - Image-based Dialog */}
+            <div>
+              <Label htmlFor="contentSelect" className="text-sm">
+                Select Content <span className="text-red-500">*</span>
+              </Label>
+              <Dialog open={contentDialogOpen} onOpenChange={setContentDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal text-sm h-10"
+                    disabled={!selectedCategoryId || contentTypes.length === 0}
+                  >
+                    <span className="truncate">
+                      {selectedContentIds.length > 0
+                        ? contentTypes.find(c => c.ContentID === selectedContentIds[0])?.ContentName || 'Select Content Type'
+                        : selectedCategoryId
+                          ? (contentTypes.length > 0 ? 'Select Content Type' : 'Loading content types...')
+                          : 'Please select a category first'
+                      }
+                    </span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Select Content Type</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                    {contentTypes.map((content) => (
+                      <div
+                        key={content.ContentID}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all hover:shadow-md ${
+                          selectedContentIds.includes(content.ContentID)
+                            ? 'border-primary ring-2 ring-primary'
+                            : 'border-gray-200 hover:border-primary'
+                        }`}
+                        onClick={() => {
+                          handleContentSelect(content.ContentID)
+                          setContentDialogOpen(false)
+                        }}
+                      >
+                        <div className="aspect-square mb-2 bg-gray-100 rounded overflow-hidden">
+                          <img
+                            src={getContentImagePath(content.ContentName)}
+                            alt={content.ContentName}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.src = '/placeholder.svg'
+                            }}
+                          />
+                        </div>
+                        <p className="text-sm font-medium text-center truncate">
+                          {content.ContentName}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
-        </CardContent>
-      </Card>
-      )}
 
-      {/* Section 5.5: Sizes (Dynamic based on Selected Content) - Only for Detailed Form */}
-      {formType === 'detailed' && selectedContentIds.length > 0 && (() => {
-        const firstSelectedContent = contentTypes.find((c) => selectedContentIds.includes(c.ContentID))
-        return firstSelectedContent && firstSelectedContent.ContentSizes
-      })() && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg md:text-xl">Sizes</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+          {/* Sizes Section - Below Category and Content */}
+          {selectedContentIds.length > 0 && (() => {
+            const firstSelectedContent = contentTypes.find((c) => selectedContentIds.includes(c.ContentID))
+            return firstSelectedContent && firstSelectedContent.ContentSizes
+          })() && (
+            <div className="border rounded-lg p-3 md:p-4 mb-4">
+              <span className="text-sm font-medium block mb-3">Sizes <span className="text-xs font-normal text-muted-foreground">(in MM)</span></span>
               {(() => {
                 const firstSelectedContent = contentTypes.find((c) => selectedContentIds.includes(c.ContentID))
                 if (!firstSelectedContent?.ContentSizes) return null
 
-                return firstSelectedContent.ContentSizes.split(',').map((sizeField: string) => {
-                  const field = sizeField.trim()
+                const sizeFields = firstSelectedContent.ContentSizes.split(',').map((s: string) => s.trim())
 
-                  // Map field names to labels
-                  const fieldLabels: Record<string, string> = {
-                    'SizeHeight': 'Height (MM)',
-                    'SizeLength': 'Length (MM)',
-                    'SizeWidth': 'Width (MM)',
-                    'SizeOpenflap': 'Open Flap (MM)',
-                    'SizePastingflap': 'Pasting Flap (MM)',
-                    'JobUps': 'Job Ups',
-                    'SizeDiameter': 'Diameter (MM)',
-                    'SizeDepth': 'Depth (MM)',
-                  }
+                // Separate LWH from other fields
+                const lwh = ['SizeLength', 'SizeWidth', 'SizeHeight']
+                const lwhFields = sizeFields.filter((f: string) => lwh.includes(f))
+                const otherFields = sizeFields.filter((f: string) => !lwh.includes(f))
 
-                  const label = fieldLabels[field] || field
+                // Map field names to labels without (MM)
+                const fieldLabels: Record<string, string> = {
+                  'SizeHeight': 'Height',
+                  'SizeLength': 'Length',
+                  'SizeWidth': 'Width',
+                  'SizeOpenflap': 'Open Flap',
+                  'SizePastingflap': 'Pasting Flap',
+                  'JobUps': 'Job Ups',
+                  'SizeDiameter': 'Diameter',
+                  'SizeDepth': 'Depth',
+                }
 
-                  return (
-                    <div key={field}>
-                      <Label htmlFor={`content-${field}`}>{label}</Label>
-                      <Input
-                        id={`content-${field}`}
-                        type="number"
-                        value={planDetails[field] || ''}
-                        onChange={(e) => handlePlanDetailChange(field, e.target.value)}
-                        placeholder="Enter value"
-                      />
-                    </div>
-                  )
-                })
+                return (
+                  <>
+                    {/* LWH in 3 columns */}
+                    {lwhFields.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        {lwhFields.map((field: string) => {
+                          const label = fieldLabels[field] || field
+                          return (
+                            <div key={field}>
+                              <Label htmlFor={`content-${field}`} className="text-sm">{label}</Label>
+                              <Input
+                                id={`content-${field}`}
+                                type="number"
+                                value={planDetails[field] || ''}
+                                onChange={(e) => handlePlanDetailChange(field, e.target.value)}
+                                className="text-sm"
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Other fields in 2 columns */}
+                    {otherFields.length > 0 && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {otherFields.map((field: string) => {
+                          const label = fieldLabels[field] || field
+                          return (
+                            <div key={field}>
+                              <Label htmlFor={`content-${field}`} className="text-sm">{label}</Label>
+                              <Input
+                                id={`content-${field}`}
+                                type="number"
+                                value={planDetails[field] || ''}
+                                onChange={(e) => handlePlanDetailChange(field, e.target.value)}
+                                className="text-sm"
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )
               })()}
+            </div>
+          )}
 
-              {/* Additional fields for colors, quality, GSM, etc. */}
-              <div>
-                <Label htmlFor="planFColor">Front Color</Label>
-                <Input
-                  id="planFColor"
-                  type="number"
-                  value={planDetails.PlanFColor || ''}
-                  onChange={(e) => handlePlanDetailChange('PlanFColor', e.target.value)}
-                  placeholder="Enter front color count"
-                />
+          {/* Colors Section */}
+          {selectedContentIds.length > 0 && (
+            <div className="border rounded-lg p-3 md:p-4 mb-4">
+              <span className="text-sm font-medium block mb-3">Colors</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="planFColor" className="text-sm">Front Color</Label>
+                  <Input
+                    id="planFColor"
+                    type="number"
+                    value={planDetails.PlanFColor || ''}
+                    onChange={(e) => handlePlanDetailChange('PlanFColor', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="planBColor" className="text-sm">Back Color</Label>
+                  <Input
+                    id="planBColor"
+                    type="number"
+                    value={planDetails.PlanBColor || ''}
+                    onChange={(e) => handlePlanDetailChange('PlanBColor', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="planSpeFColor" className="text-sm">S.Front Color</Label>
+                  <Input
+                    id="planSpeFColor"
+                    type="number"
+                    value={planDetails.PlanSpeFColor || ''}
+                    onChange={(e) => handlePlanDetailChange('PlanSpeFColor', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="planSpeBColor" className="text-sm">S.Back Color</Label>
+                  <Input
+                    id="planSpeBColor"
+                    type="number"
+                    value={planDetails.PlanSpeBColor || ''}
+                    onChange={(e) => handlePlanDetailChange('PlanSpeBColor', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="planBColor">Back Color</Label>
-                <Input
-                  id="planBColor"
-                  type="number"
-                  value={planDetails.PlanBColor || ''}
-                  onChange={(e) => handlePlanDetailChange('PlanBColor', e.target.value)}
-                  placeholder="Enter back color count"
-                />
-              </div>
-              <div>
-                <Label htmlFor="planSpeFColor">Special Front Color</Label>
-                <Input
-                  id="planSpeFColor"
-                  type="number"
-                  value={planDetails.PlanSpeFColor || ''}
-                  onChange={(e) => handlePlanDetailChange('PlanSpeFColor', e.target.value)}
-                  placeholder="Enter special front color"
-                />
-              </div>
-              <div>
-                <Label htmlFor="planSpeBColor">Special Back Color</Label>
-                <Input
-                  id="planSpeBColor"
-                  type="number"
-                  value={planDetails.PlanSpeBColor || ''}
-                  onChange={(e) => handlePlanDetailChange('PlanSpeBColor', e.target.value)}
-                  placeholder="Enter special back color"
-                />
-              </div>
-              <div>
-                <Label htmlFor="itemPlanQuality">Quality</Label>
-                <Select
-                  value={planDetails.ItemPlanQuality || ''}
-                  onValueChange={(value) => {
-                    handlePlanDetailChange('ItemPlanQuality', value)
-                    // Reset dependent fields
-                    handlePlanDetailChange('ItemPlanGsm', '')
-                    handlePlanDetailChange('ItemPlanMill', '')
-                    handlePlanDetailChange('ItemPlanFinish', '')
-                  }}
-                >
-                  <SelectTrigger id="itemPlanQuality">
-                    <SelectValue placeholder="Select quality" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {qualities.length > 0 ? (
-                      qualities.map((quality, index) => (
-                        <SelectItem key={index} value={quality.Quality || quality}>
-                          {quality.Quality || quality}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="loading" disabled>Loading qualities...</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="itemPlanGsm">GSM</Label>
-                <Select
-                  value={planDetails.ItemPlanGsm || ''}
-                  onValueChange={(value) => {
-                    handlePlanDetailChange('ItemPlanGsm', value)
-                    // Reset dependent fields
-                    handlePlanDetailChange('ItemPlanMill', '')
-                    handlePlanDetailChange('ItemPlanFinish', '')
-                  }}
-                  disabled={!planDetails.ItemPlanQuality}
-                >
-                  <SelectTrigger id="itemPlanGsm">
-                    <SelectValue placeholder="Select GSM" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {gsmOptions.length > 0 ? (
-                      gsmOptions.map((gsm, index) => {
-                        // GSM can be a number directly or an object with gsm/GSM field
-                        const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
-                        const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
+            </div>
+          )}
 
-                        // Skip if empty or invalid
-                        if (!gsmDisplay || gsmDisplay === '' || gsmDisplay === 'undefined' || gsmDisplay === 'null') {
-                          return null
-                        }
-
-                        return (
-                          <SelectItem key={index} value={gsmDisplay}>
-                            {gsmDisplay}
+          {/* Paper & Color Details Section */}
+          {selectedContentIds.length > 0 && (
+            <div className="border rounded-lg p-3 md:p-4 mb-4">
+              <span className="text-sm font-medium block mb-3">Paper & Color Details</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="itemPlanQuality" className="text-sm">Quality</Label>
+                  <Select
+                    value={planDetails.ItemPlanQuality || ''}
+                    onValueChange={(value) => {
+                      handlePlanDetailChange('ItemPlanQuality', value)
+                      // Reset dependent fields
+                      handlePlanDetailChange('ItemPlanGsm', '')
+                      handlePlanDetailChange('ItemPlanMill', '')
+                      handlePlanDetailChange('ItemPlanFinish', '')
+                    }}
+                  >
+                    <SelectTrigger id="itemPlanQuality" className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {qualities.length > 0 ? (
+                        qualities.map((quality, index) => (
+                          <SelectItem key={index} value={quality.Quality || quality}>
+                            {quality.Quality || quality}
                           </SelectItem>
-                        )
-                      }).filter(Boolean)
-                    ) : (
-                      <SelectItem value="loading" disabled>
-                        {planDetails.ItemPlanQuality ? 'Loading GSM...' : 'Select quality first'}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="itemPlanMill">Mill</Label>
-                <Select
-                  value={planDetails.ItemPlanMill || ''}
-                  onValueChange={(value) => {
-                    handlePlanDetailChange('ItemPlanMill', value)
-                    // Reset dependent field
-                    handlePlanDetailChange('ItemPlanFinish', '')
-                  }}
-                  disabled={!planDetails.ItemPlanGsm}
-                >
-                  <SelectTrigger id="itemPlanMill">
-                    <SelectValue placeholder="Select mill" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {millOptions.length > 0 ? (
-                      millOptions.map((mill, index) => {
-                        try {
-                          // Mill can be a string directly or an object with Mill/mill field
-                          const millValue = typeof mill === 'object' ? ((mill as any).Mill || (mill as any).mill) : mill
-                          const millDisplay = millValue?.toString() || (typeof mill === 'object' ? JSON.stringify(mill) : String(mill))
-
-                          // Skip if we still have an object (shouldn't happen but safety check)
-                          if (typeof millDisplay === 'object') {
-                            console.error('Mill item is still an object:', mill)
-                            return null
-                          }
+                        ))
+                      ) : (
+                        <SelectItem value="loading" disabled>Loading qualities...</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="itemPlanGsm" className="text-sm">GSM</Label>
+                  <Select
+                    value={planDetails.ItemPlanGsm || ''}
+                    onValueChange={(value) => {
+                      handlePlanDetailChange('ItemPlanGsm', value)
+                      // Reset dependent fields
+                      handlePlanDetailChange('ItemPlanMill', '')
+                      handlePlanDetailChange('ItemPlanFinish', '')
+                    }}
+                    disabled={!planDetails.ItemPlanQuality}
+                  >
+                    <SelectTrigger id="itemPlanGsm" className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {gsmOptions.length > 0 ? (
+                        gsmOptions.map((gsm, index) => {
+                          // GSM can be a number directly or an object with gsm/GSM field
+                          const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
+                          const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
 
                           // Skip if empty or invalid
-                          if (!millDisplay || millDisplay === '' || millDisplay === 'undefined' || millDisplay === 'null') {
+                          if (!gsmDisplay || gsmDisplay === '' || gsmDisplay === 'undefined' || gsmDisplay === 'null') {
                             return null
                           }
 
                           return (
-                            <SelectItem key={index} value={millDisplay}>
-                              {millDisplay}
+                            <SelectItem key={index} value={gsmDisplay}>
+                              {gsmDisplay}
                             </SelectItem>
                           )
-                        } catch (error) {
-                          console.error('Error rendering mill item:', mill, error)
-                          return null
-                        }
-                      }).filter(Boolean)
-                    ) : (
-                      <SelectItem value="loading" disabled>
-                        {planDetails.ItemPlanGsm ? 'Loading mills...' : 'Select GSM first'}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="itemPlanFinish">Finish</Label>
-                <Select
-                  value={planDetails.ItemPlanFinish || ''}
-                  onValueChange={(value) => handlePlanDetailChange('ItemPlanFinish', value)}
-                  disabled={!planDetails.ItemPlanMill}
-                >
-                  <SelectTrigger id="itemPlanFinish">
-                    <SelectValue placeholder="Select finish" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {finishOptions.length > 0 ? (
-                      finishOptions.map((finish, index) => {
-                        // Finish can be a string directly or an object with Finish/finish field
-                        const finishValue = typeof finish === 'object' ? ((finish as any).Finish || (finish as any).finish) : finish
-                        const finishDisplay = finishValue?.toString() || (typeof finish === 'object' ? JSON.stringify(finish) : String(finish))
+                        }).filter(Boolean)
+                      ) : (
+                        <SelectItem value="loading" disabled>
+                          {planDetails.ItemPlanQuality ? 'Loading GSM...' : 'Select quality first'}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="itemPlanMill" className="text-sm">Mill</Label>
+                  <Select
+                    value={planDetails.ItemPlanMill || ''}
+                    onValueChange={(value) => {
+                      handlePlanDetailChange('ItemPlanMill', value)
+                      // Reset dependent field
+                      handlePlanDetailChange('ItemPlanFinish', '')
+                    }}
+                    disabled={!planDetails.ItemPlanGsm}
+                  >
+                    <SelectTrigger id="itemPlanMill" className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {millOptions.length > 0 ? (
+                        millOptions.map((mill, index) => {
+                          try {
+                            // Mill can be a string directly or an object with Mill/mill field
+                            const millValue = typeof mill === 'object' ? ((mill as any).Mill || (mill as any).mill) : mill
+                            const millDisplay = millValue?.toString() || (typeof mill === 'object' ? JSON.stringify(mill) : String(mill))
 
-                        // Skip if empty or invalid
-                        if (!finishDisplay || finishDisplay === '' || finishDisplay === 'undefined' || finishDisplay === 'null') {
-                          return null
-                        }
+                            // Skip if we still have an object (shouldn't happen but safety check)
+                            if (typeof millDisplay === 'object') {
+                              return null
+                            }
 
-                        return (
-                          <SelectItem key={index} value={finishDisplay}>
-                            {finishDisplay}
-                          </SelectItem>
-                        )
-                      }).filter(Boolean)
-                    ) : (
-                      <SelectItem value="loading" disabled>
-                        {planDetails.ItemPlanMill ? 'Loading finishes...' : 'Select mill first'}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="planWastageType">Wastage Type</Label>
-                <Input
-                  id="planWastageType"
-                  type="text"
-                  value={planDetails.PlanWastageType || ''}
-                  onChange={(e) => handlePlanDetailChange('PlanWastageType', e.target.value)}
-                  placeholder="Enter wastage type"
-                />
+                            // Skip if empty or invalid
+                            if (!millDisplay || millDisplay === '' || millDisplay === 'undefined' || millDisplay === 'null') {
+                              return null
+                            }
+
+                            return (
+                              <SelectItem key={index} value={millDisplay}>
+                                {millDisplay}
+                              </SelectItem>
+                            )
+                          } catch (error) {
+                            return null
+                          }
+                        }).filter(Boolean)
+                      ) : (
+                        <SelectItem value="loading" disabled>
+                          {planDetails.ItemPlanGsm ? 'Loading mills...' : 'Select GSM first'}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="itemPlanFinish" className="text-sm">Finish</Label>
+                  <Select
+                    value={planDetails.ItemPlanFinish || ''}
+                    onValueChange={(value) => handlePlanDetailChange('ItemPlanFinish', value)}
+                    disabled={!planDetails.ItemPlanMill}
+                  >
+                    <SelectTrigger id="itemPlanFinish" className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {finishOptions.length > 0 ? (
+                        finishOptions.map((finish, index) => {
+                          // Finish can be a string directly or an object with Finish/finish field
+                          const finishValue = typeof finish === 'object' ? ((finish as any).Finish || (finish as any).finish) : finish
+                          const finishDisplay = finishValue?.toString() || (typeof finish === 'object' ? JSON.stringify(finish) : String(finish))
+
+                          // Skip if empty or invalid
+                          if (!finishDisplay || finishDisplay === '' || finishDisplay === 'undefined' || finishDisplay === 'null') {
+                            return null
+                          }
+
+                          return (
+                            <SelectItem key={index} value={finishDisplay}>
+                              {finishDisplay}
+                            </SelectItem>
+                          )
+                        }).filter(Boolean)
+                      ) : (
+                        <SelectItem value="loading" disabled>
+                          {planDetails.ItemPlanMill ? 'Loading finishes...' : 'Select mill first'}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="planWastageType" className="text-sm">Wastage Type</Label>
+                  <Input
+                    id="planWastageType"
+                    type="text"
+                    value={planDetails.PlanWastageType || ''}
+                    onChange={(e) => handlePlanDetailChange('PlanWastageType', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          {/* Process Selection - Below Sizes */}
+          <div className="border rounded-lg p-3 md:p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium">Add Process</span>
+              <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!selectedContentIds.length || availableProcesses.length === 0}
+                    className="text-xs h-8"
+                  >
+                    {selectedProcesses.length > 0 ? `Edit (${selectedProcesses.length})` : 'Select'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader className="pb-3">
+                    <DialogTitle className="text-base">Select Processes</DialogTitle>
+                  </DialogHeader>
+                  <div>
+                    <Input
+                      className="text-sm h-9"
+                      value={processSearchTerm}
+                      onChange={(e) => setProcessSearchTerm(e.target.value)}
+                    />
+                    <div className="mt-3 space-y-1 max-h-[50vh] overflow-y-auto pr-1">
+                      {loadingProcesses ? (
+                        <div className="text-center py-8 text-sm text-muted-foreground">Loading...</div>
+                      ) : availableProcesses.length > 0 ? (
+                        availableProcesses
+                          .filter((p) => p.ProcessName?.toLowerCase().includes(processSearchTerm.toLowerCase()))
+                          .sort((a, b) => {
+                            // Check if processes are selected
+                            const aSelected = selectedProcesses.some(p => p.ProcessID === a.ProcessID)
+                            const bSelected = selectedProcesses.some(p => p.ProcessID === b.ProcessID)
+
+                            // Selected items come first
+                            if (aSelected && !bSelected) return -1
+                            if (!aSelected && bSelected) return 1
+
+                            // Within same selection status, sort alphabetically
+                            return (a.ProcessName || '').localeCompare(b.ProcessName || '')
+                          })
+                          .map((process) => (
+                            <label
+                              key={process.ProcessID}
+                              className="flex items-center gap-2 px-3 py-2 hover:bg-muted rounded cursor-pointer text-sm"
+                            >
+                              <Checkbox
+                                checked={selectedProcesses.some(p => p.ProcessID === process.ProcessID)}
+                                onCheckedChange={() => handleProcessToggle({
+                                  ProcessID: process.ProcessID,
+                                  ProcessName: process.ProcessName
+                                })}
+                              />
+                              <span className="text-sm truncate">{process.ProcessName}</span>
+                            </label>
+                          ))
+                      ) : (
+                        <div className="text-center py-8 text-sm text-muted-foreground">
+                          {formData.contentType ? 'No processes available' : 'Select content first'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Display Selected Processes */}
+            {selectedProcesses.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {selectedProcesses.map((process) => (
+                  <div
+                    key={process.ProcessID}
+                    className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-xs max-w-full"
+                  >
+                    <span className="truncate">{process.ProcessName}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleProcessToggle(process)}
+                      className="hover:bg-primary/20 rounded-full p-0.5 flex-shrink-0"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-3 text-xs text-muted-foreground">
+                {selectedContentIds.length > 0
+                  ? 'No processes selected'
+                  : 'Select a content type first'}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       )}
 
       {/* Section 6: Remark & Attachments */}
@@ -1739,7 +1787,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 id="remark"
                 value={formData.remark}
                 onChange={(e) => handleInputChange("remark", e.target.value)}
-                placeholder="Enter Remark"
                 rows={4}
               />
             </div>

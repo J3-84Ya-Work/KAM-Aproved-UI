@@ -349,8 +349,12 @@ export async function getAllMachinesAPI() {
 // Helper: Post Shirin_Job planning request
 export async function postShirinJob(payload: any) {
   // payload expected to be a plain object following API spec
+  const endpoint = 'api/planwindow/Shirin_Job'
+  console.log(`=== Calling endpoint: ${endpoint} ===`)
+  console.log('=== ShirinJob Payload ===', JSON.stringify(payload, null, 2))
+
   try {
-    const res = await apiClient.post('api/planwindow/Shirin_Job', payload)
+    const res = await apiClient.post(endpoint, payload)
     // Normalize similar to other wrappers: if wrapper returns object with data array, unwrap
     if (!res) return []
     if (Array.isArray(res)) return res
@@ -364,6 +368,36 @@ export async function postShirinJob(payload: any) {
     }
     // otherwise, return as single-element array
     return [res]
+  } catch (err) {
+    throw err
+  }
+}
+
+// Helper: Create Booking and get BookingID via directcosting API
+export async function createBooking(costingParams: any, enquiryData: any) {
+  const payload = {
+    CostignParams: costingParams,
+    EnquiryData: enquiryData
+  }
+
+  console.log('=== Calling DirectCosting API (to get BookingID) ===')
+  console.log('=== DirectCosting Payload ===', JSON.stringify(payload, null, 2))
+
+  const endpoint = 'api/parksons/directcosting'
+  const res = await apiClient.post(endpoint, payload)
+  console.log('=== DirectCosting response (BookingID) ===', JSON.stringify(res, null, 2))
+  return res
+}
+
+// Helper: Get Quotation Detail by BookingID
+export async function getQuotationDetail(bookingId: number | string) {
+  const endpoint = `api/planwindow/getquotationDetail/${bookingId}`
+  console.log(`=== Calling endpoint: ${endpoint} ===`)
+
+  try {
+    const res = await apiClient.get(endpoint)
+    console.log('=== GetQuotationDetail response ===', JSON.stringify(res, null, 2))
+    return res
   } catch (err) {
     throw err
   }
@@ -456,6 +490,156 @@ export async function deleteJob(jobId: number | string) {
   return apiClient.post(endpoint, {})
 }
 
+// Helper: Save Multiple Enquiry (from PrintingWizard)
+export async function saveMultipleEnquiry(enquiryData: {
+  clientName?: string
+  clientId?: number
+  jobName?: string
+  quantity?: string | number
+  cartonType?: string
+  dimensions?: any
+  paperDetails?: any
+  processes?: any[]
+  selectedPlan?: any
+  [key: string]: any
+}) {
+  // Build the payload matching the API structure
+  const payload = {
+    MainData: [
+      {
+        ProductCode: enquiryData.productCode || '',
+        LedgerID: enquiryData.clientId || 4,
+        SalesEmployeeID: enquiryData.salesEmployeeId || 52,
+        CategoryID: enquiryData.categoryId || 2,
+        ConcernPersonID: null,
+        JobName: enquiryData.jobName || '',
+        FileName: enquiryData.fileName || '',
+        EnquiryDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        EstimationUnit: 'PCS',
+        ExpectCompletion: '10',
+        Remark: enquiryData.remark || '',
+        TypeOfJob: null,
+        TypeOfPrinting: null,
+        EnquiryType: 'Bid',
+        SalesType: 'Export',
+        Quantity: Number(enquiryData.quantity) || 0,
+      },
+    ],
+    DetailsData: [
+      {
+        PlanContName: enquiryData.cartonType || '',
+        Size: buildSizeString(enquiryData.dimensions),
+        PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
+        ContentSizeValues: buildContentSizeValues(enquiryData),
+        valuesString: buildValuesString(enquiryData),
+        JobSizeInCM: buildSizeString(enquiryData.dimensions),
+      },
+    ],
+    ProcessData: (enquiryData.processes && enquiryData.processes.length > 0)
+      ? enquiryData.processes.map((process: any) => ({
+          ProcessID: process.ProcessID || process.id || 0,
+          ProcessName: process.ProcessName || process.name || '',
+          PlanContName: enquiryData.cartonType || '',
+          PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
+        }))
+      : [
+          {
+            ProcessID: 74,
+            ProcessName: 'Plate Making',
+            PlanContName: enquiryData.cartonType || '',
+            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
+          },
+          {
+            ProcessID: 15,
+            ProcessName: 'Cutting Pre',
+            PlanContName: enquiryData.cartonType || '',
+            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
+          },
+          {
+            ProcessID: 10379,
+            ProcessName: 'Front Side Printing',
+            PlanContName: enquiryData.cartonType || '',
+            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
+          },
+          {
+            ProcessID: 10440,
+            ProcessName: 'Die Cutting (J)',
+            PlanContName: enquiryData.cartonType || '',
+            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
+          },
+          {
+            ProcessID: 10429,
+            ProcessName: 'Side Pasting',
+            PlanContName: enquiryData.cartonType || '',
+            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
+          },
+        ],
+    Prefix: 'EQ',
+    Quantity: Number(enquiryData.quantity) || 0,
+    IsEdit: 'false',
+    LayerDetailArr: [],
+    JsonObjectsUserApprovalProcessArray: [
+      {
+        ProductCode: enquiryData.productCode || '',
+        LedgerID: enquiryData.clientId || 4,
+        LedgerName: enquiryData.clientName || '',
+        SalesEmployeeID: enquiryData.salesEmployeeId || 52,
+        CategoryName: enquiryData.categoryName || '',
+        ConcernPersonID: null,
+        JobName: enquiryData.jobName || '',
+        FileName: enquiryData.fileName || '',
+        EnquiryDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        EstimationUnit: 'PCS',
+        ExpectCompletion: '10',
+        Remark: enquiryData.remark || '',
+        TypeOfJob: null,
+        TypeOfPrinting: null,
+        EnquiryType: 'Bid',
+        SalesType: 'Export',
+        Quantity: String(enquiryData.quantity) || '0',
+      },
+    ],
+  }
+
+  console.log('SaveMultipleEnquiry Payload:', JSON.stringify(payload, null, 2))
+
+  const endpoint = 'api/enquiry/SaveMultipleEnquiry'
+  return apiClient.post(endpoint, payload)
+}
+
+// Helper function to convert display name to internal name (remove spaces)
+function getInternalContentName(displayName: string): string {
+  // Remove spaces from content name for internal use
+  // e.g., "Reverse Tuck In" -> "ReverseTuckIn"
+  return displayName.replace(/\s+/g, '')
+}
+
+// Helper functions for building payload strings
+function buildSizeString(dimensions: any): string {
+  if (!dimensions) return ''
+  const h = dimensions.height || 0
+  const l = dimensions.length || 0
+  const w = dimensions.width || 0
+  const of = dimensions.openFlap || 0
+  const pf = dimensions.pastingFlap || 0
+
+  return `H=${h}, L=${l}, W=${w}, OF=${of}, PF=${pf} (MM); H=${(h/10).toFixed(2)}, L=${(l/10).toFixed(2)}, W=${(w/10).toFixed(2)}, OF=${(of/10).toFixed(2)}, PF=${(pf/10).toFixed(2)} (CM)`
+}
+
+function buildContentSizeValues(data: any): string {
+  const dims = data.dimensions || {}
+  const paper = data.paperDetails || {}
+
+  return `SizeHeight=${dims.height || 0}AndOrSizeLength=${dims.length || 0}AndOrSizeWidth=${dims.width || 0}AndOrSizeOpenflap=${dims.openFlap || 0}AndOrSizePastingflap=${dims.pastingFlap || 0}AndOrPlanFColor=${paper.frontColor || 0}AndOrPlanBColor=${paper.backColor || 0}AndOrPlanSpeFColor=${paper.specialFrontColor || 0}AndOrPlanSpeBColor=${paper.specialBackColor || 0}AndOrItemPlanQuality=${paper.quality || ''}AndOrItemPlanGsm=${paper.gsm || 0}AndOrItemPlanMill=${paper.mill || ''}AndOrItemPlanFinish=${paper.finish || ''}AndOrPlanWastageType=Machine Default`
+}
+
+function buildValuesString(data: any): string {
+  const dims = data.dimensions || {}
+  const paper = data.paperDetails || {}
+
+  return `${dims.height || 0},${dims.length || 0},${dims.width || 0},${dims.openFlap || 0},${dims.pastingFlap || 0},${paper.frontColor || 0},${paper.quality || ''},${paper.gsm || 0},${paper.mill || ''},${paper.finish || ''},Machine Default, undefined`
+}
+
 // ============================================================================
 // QUOTATION/COSTING APIs
 // ============================================================================
@@ -518,6 +702,23 @@ export async function searchDies(dimensions: {
 }) {
   const endpoint = 'api/planwindow/SearchDies'
   return apiClient.post(endpoint, dimensions)
+}
+
+// ============================================================================
+// COSTING/QUOTATION APIs
+// ============================================================================
+
+// Helper: Direct Costing API (for Create Quotation)
+export async function postDirectCosting(costingParams: any, enquiryData: any) {
+  const payload = {
+    CostignParams: costingParams,
+    EnquiryData: enquiryData
+  }
+
+  console.log('=== DirectCosting Payload ===', JSON.stringify(payload, null, 2))
+
+  const endpoint = 'api/parksons/directcosting'
+  return apiClient.post(endpoint, payload)
 }
 
 // ============================================================================

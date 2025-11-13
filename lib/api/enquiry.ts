@@ -248,29 +248,12 @@ export class EnquiryAPI {
   }
 
   /**
-   * 2.3 Get Allowed Processes
-   * Endpoint: GET /api/enquiry/editprocessgrid
+   * 2.3 Get Allowed Processes (deprecated - use getProcesses instead)
+   * Endpoint: POST /api/enquiry/editprocessgrid
    */
   static async getAllowedProcesses(session: any) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/enquiry/editprocessgrid`, {
-        method: 'GET',
-        headers: getHeaders(session),
-      })
-
-      const data = await response.json()
-      return {
-        success: response.ok,
-        data: data.data || [],
-        error: data.error || null,
-      }
-    } catch (error: any) {
-      return {
-        success: false,
-        data: [],
-        error: `Failed to fetch allowed processes: ${error.message}`,
-      }
-    }
+    // Fetch all processes without content type filter
+    return this.getProcesses('', session)
   }
 
   /**
@@ -338,14 +321,12 @@ export class EnquiryAPI {
    */
   static async getContentTypes(categoryID: number, session: any) {
     try {
-      console.log('🔵 Fetching content types for category:', categoryID)
       const response = await fetch(`${API_BASE_URL}/api/planwindow/GetCategoryAllocatedContents/${categoryID}`, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
       let data = await response.json()
-      console.log('🔵 Raw content types data:', data)
 
       // Handle double-encoded JSON string response
       if (typeof data === 'string') {
@@ -373,12 +354,6 @@ export class EnquiryAPI {
         } catch (e) {
           // Parsing failed
         }
-      }
-
-      console.log('🔵 Parsed content types count:', contentTypes.length)
-      if (contentTypes.length > 0) {
-        console.log('🔵 First content type sample:', contentTypes[0])
-        console.log('🔵 First content type keys:', Object.keys(contentTypes[0]))
       }
 
       return {
@@ -470,6 +445,98 @@ export class EnquiryAPI {
       }
     }
   }
+
+  /**
+   * Get Processes for Content Type
+   * Endpoint: GET /api/enquiry/editprocessgrid?ContentType={contentType}
+   */
+  static async getProcesses(contentType: string, session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/enquiry/editprocessgrid?ContentType=${encodeURIComponent(contentType)}`
+      console.log('🔧 ========== PROCESS API CALL START ==========')
+      console.log('🔧 URL:', url)
+      console.log('🔧 ContentType:', contentType)
+      console.log('🔧 Headers:', getHeaders(session))
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getHeaders(session),
+      })
+
+      console.log('🔧 Response Status:', response.status)
+      console.log('🔧 Response OK:', response.ok)
+      console.log('🔧 Response Headers:', Object.fromEntries(response.headers.entries()))
+
+      const rawText = await response.text()
+      console.log('🔧 Raw Response Text:', rawText)
+      console.log('🔧 Raw Response Length:', rawText.length)
+
+      let data
+      try {
+        data = JSON.parse(rawText)
+        console.log('🔧 Parsed JSON successfully')
+      } catch (e) {
+        console.error('🔧 Failed to parse JSON:', e)
+        console.log('🔧 First 500 chars of response:', rawText.substring(0, 500))
+        throw new Error('Invalid JSON response')
+      }
+
+      console.log('🔧 Parsed data type:', typeof data)
+      console.log('🔧 Parsed data:', JSON.stringify(data, null, 2))
+
+      // Handle multiple levels of JSON encoding
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          data = JSON.parse(data)
+          parseAttempts++
+        } catch (e) {
+          break
+        }
+      }
+
+      console.log('🔧 Parsed process data after', parseAttempts, 'attempts:', data)
+
+      // Extract process array from response
+      let processes: any[] = []
+      if (Array.isArray(data)) {
+        processes = data
+      } else if (data?.data && Array.isArray(data.data)) {
+        processes = data.data
+      } else if (data?.Data && Array.isArray(data.Data)) {
+        processes = data.Data
+      }
+
+      console.log('🔧 Extracted processes array:', processes)
+      console.log('🔧 Number of processes:', processes.length)
+
+      if (processes.length > 0) {
+        console.log('🔧 Sample process (first item):', processes[0])
+        console.log('🔧 Process fields:', Object.keys(processes[0]))
+      }
+
+      const result = {
+        success: response.ok,
+        data: processes,
+        error: response.ok ? null : 'Failed to fetch processes',
+      }
+
+      console.log('🔧 Final return value:', result)
+      console.log('🔧 ========== PROCESS API CALL END ==========')
+
+      return result
+    } catch (error: any) {
+      console.error('🔧 ========== PROCESS API ERROR ==========')
+      console.error('🔧 Error fetching processes:', error)
+      console.error('🔧 Error stack:', error.stack)
+      console.error('🔧 ========================================')
+      return {
+        success: false,
+        data: [],
+        error: `Failed to fetch processes: ${error.message}`,
+      }
+    }
+  }
 }
 
 // Master Data APIs
@@ -480,54 +547,39 @@ export class MasterDataAPI {
    */
   static async getProductionUnits(session: any) {
     try {
-      console.log('🔵 Fetching production units from:', `${API_BASE_URL}/api/othermaster/getproductionunits`)
 
       const response = await fetch(`${API_BASE_URL}/api/othermaster/getproductionunits`, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
-      console.log('🔵 Production units response status:', response.status, response.ok)
 
       let data = await response.json()
-      console.log('🔵 Raw production units data type:', typeof data)
-      console.log('🔵 Raw production units data:', data)
 
       // Handle double-encoded JSON string response
       if (typeof data === 'string') {
-        console.log('🔵 Data is string, parsing...')
         try {
           data = JSON.parse(data)
-          console.log('🔵 Parsed data:', data)
-          console.log('🔵 Is array after first parse?', Array.isArray(data))
 
           // Check if it's still a string after first parse (triple-encoded)
           if (typeof data === 'string') {
-            console.log('🔵 Still string, parsing again...')
             data = JSON.parse(data)
-            console.log('🔵 Parsed data again:', data)
           }
         } catch (e) {
-          console.error('🔴 Failed to parse:', e)
         }
       }
 
       // Handle different response formats
       let units = []
       if (Array.isArray(data)) {
-        console.log('🔵 Data is array, using directly')
         units = data
       } else if (data.data && Array.isArray(data.data)) {
-        console.log('🔵 Data has .data property')
         units = data.data
       } else if (data.Data && Array.isArray(data.Data)) {
-        console.log('🔵 Data has .Data property')
         units = data.Data
       } else {
-        console.log('🔵 Data format not recognized:', typeof data, data)
       }
 
-      console.log('🔵 Final production units:', units.length, units)
 
       return {
         success: response.ok,
@@ -535,7 +587,6 @@ export class MasterDataAPI {
         error: data.error || null,
       }
     } catch (error: any) {
-      console.error('🔴 Production units error:', error)
       return {
         success: false,
         data: [],
@@ -550,57 +601,40 @@ export class MasterDataAPI {
    */
   static async getClients(session: any) {
     try {
-      console.log('🔵 Fetching clients from:', `${API_BASE_URL}/api/planwindow/GetSbClient`)
 
       const response = await fetch(`${API_BASE_URL}/api/planwindow/GetSbClient`, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
-      console.log('🔵 Clients response status:', response.status, response.ok)
 
       let data = await response.json()
-      console.log('🔵 Raw clients data type:', typeof data)
-      console.log('🔵 Raw clients data:', data)
 
       // Handle double-encoded JSON string response
       if (typeof data === 'string') {
-        console.log('🔵 Data is string, parsing...')
         try {
           data = JSON.parse(data)
-          console.log('🔵 Parsed data:', data)
-          console.log('🔵 Is array after first parse?', Array.isArray(data))
 
           // Check if it's still a string after first parse (triple-encoded)
           if (typeof data === 'string') {
-            console.log('🔵 Still string, parsing again...')
             data = JSON.parse(data)
-            console.log('🔵 Parsed data again:', data)
           }
         } catch (e) {
-          console.error('🔴 Failed to parse:', e)
         }
       }
 
       // Handle different response formats
       let clients = []
       if (Array.isArray(data)) {
-        console.log('🔵 Data is array, using directly')
         clients = data
       } else if (data.data && Array.isArray(data.data)) {
-        console.log('🔵 Data has .data property')
         clients = data.data
       } else if (data.Data && Array.isArray(data.Data)) {
-        console.log('🔵 Data has .Data property')
         clients = data.Data
       } else {
-        console.log('🔵 Data format not recognized:', typeof data, data)
       }
 
-      console.log('🔵 Final clients:', clients.length, clients)
       if (clients.length > 0) {
-        console.log('🔵 First client sample:', clients[0])
-        console.log('🔵 First client keys:', Object.keys(clients[0]))
       }
 
       return {
@@ -609,7 +643,6 @@ export class MasterDataAPI {
         error: data.error || null,
       }
     } catch (error: any) {
-      console.error('🔴 Clients error:', error)
       return {
         success: false,
         data: [],
@@ -624,57 +657,40 @@ export class MasterDataAPI {
    */
   static async getSalesPersons(session: any) {
     try {
-      console.log('🔵 Fetching sales persons from:', `${API_BASE_URL}/api/planwindow/getsbsalesperson`)
 
       const response = await fetch(`${API_BASE_URL}/api/planwindow/getsbsalesperson`, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
-      console.log('🔵 Sales persons response status:', response.status, response.ok)
 
       let data = await response.json()
-      console.log('🔵 Raw sales persons data type:', typeof data)
-      console.log('🔵 Raw sales persons data:', data)
 
       // Handle double-encoded JSON string response
       if (typeof data === 'string') {
-        console.log('🔵 Data is string, parsing...')
         try {
           data = JSON.parse(data)
-          console.log('🔵 Parsed data:', data)
-          console.log('🔵 Is array after first parse?', Array.isArray(data))
 
           // Check if it's still a string after first parse (triple-encoded)
           if (typeof data === 'string') {
-            console.log('🔵 Still string, parsing again...')
             data = JSON.parse(data)
-            console.log('🔵 Parsed data again:', data)
           }
         } catch (e) {
-          console.error('🔴 Failed to parse:', e)
         }
       }
 
       // Handle different response formats
       let salesPersons = []
       if (Array.isArray(data)) {
-        console.log('🔵 Data is array, using directly')
         salesPersons = data
       } else if (data.data && Array.isArray(data.data)) {
-        console.log('🔵 Data has .data property')
         salesPersons = data.data
       } else if (data.Data && Array.isArray(data.Data)) {
-        console.log('🔵 Data has .Data property')
         salesPersons = data.Data
       } else {
-        console.log('🔵 Data format not recognized:', typeof data, data)
       }
 
-      console.log('🔵 Final sales persons:', salesPersons.length, salesPersons)
       if (salesPersons.length > 0) {
-        console.log('🔵 First sales person sample:', salesPersons[0])
-        console.log('🔵 First sales person keys:', Object.keys(salesPersons[0]))
       }
 
       return {
@@ -683,7 +699,6 @@ export class MasterDataAPI {
         error: data.error || null,
       }
     } catch (error: any) {
-      console.error('🔴 Sales persons error:', error)
       return {
         success: false,
         data: [],
@@ -699,38 +714,26 @@ export class MasterDataAPI {
   static async getItemQualities(contentType: string, session: any) {
     try {
       const url = `${API_BASE_URL}/api/planwindow/quality/${contentType}`
-      console.log('═══════════════════════════════════════════════════════')
-      console.log('🟦 QUALITY API CALL')
-      console.log('URL:', url)
-      console.log('ContentType:', contentType)
-      console.log('Headers:', getHeaders(session))
 
       const response = await fetch(url, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
-      console.log('Response Status:', response.status)
-      console.log('Response OK:', response.ok)
 
       let data = await response.json()
-      console.log('Raw Response:', JSON.stringify(data, null, 2))
 
       // Handle multiple levels of JSON encoding (can be triple or more)
       let parseAttempts = 0
       while (typeof data === 'string' && parseAttempts < 5) {
         try {
-          console.log(`Parse attempt ${parseAttempts + 1}...`)
           data = JSON.parse(data)
           parseAttempts++
-          console.log(`After parse ${parseAttempts}:`, typeof data === 'string' ? 'still string' : 'parsed to object/array')
         } catch (e) {
-          console.error(`Parse error at attempt ${parseAttempts + 1}:`, e)
           break
         }
       }
 
-      console.log('Final parsed data:', JSON.stringify(data, null, 2))
 
       // Handle different response formats
       let qualities = []
@@ -742,17 +745,11 @@ export class MasterDataAPI {
         qualities = data.Data
       }
 
-      console.log('Final Qualities Array:', qualities)
-      console.log('Qualities Count:', qualities.length)
       if (qualities.length > 0) {
-        console.log('Sample Quality Object:', qualities[0])
-        console.log('Quality values that will be stored:')
         qualities.forEach((q: any, i: number) => {
           const qualityValue = q.Quality || q
-          console.log(`  [${i}] "${qualityValue}" (type: ${typeof qualityValue})`)
         })
       }
-      console.log('═══════════════════════════════════════════════════════')
 
       return {
         success: response.ok,
@@ -760,9 +757,6 @@ export class MasterDataAPI {
         error: data.error || null,
       }
     } catch (error: any) {
-      console.error('═══════════════════════════════════════════════════════')
-      console.error('❌ QUALITY API ERROR:', error)
-      console.error('═══════════════════════════════════════════════════════')
       return {
         success: false,
         data: [],
@@ -782,39 +776,26 @@ export class MasterDataAPI {
       // Build raw URL - send parameters exactly as-is without encoding
       const url = `${API_BASE_URL}/api/planwindow/gsm/${contentType}/${quality}/${thickness}`
 
-      console.log('═══════════════════════════════════════════════════════')
-      console.log('🟩 GSM API CALL')
-      console.log('Raw URL:', url)
-      console.log('ContentType:', contentType)
-      console.log('Quality:', quality)
-      console.log('Thickness:', thickness)
 
       const response = await fetch(url, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
-      console.log('Response Status:', response.status)
-      console.log('Response OK:', response.ok)
 
       let data = await response.json()
-      console.log('Raw Response:', JSON.stringify(data, null, 2))
 
       // Handle multiple levels of JSON encoding
       let parseAttempts = 0
       while (typeof data === 'string' && parseAttempts < 5) {
         try {
-          console.log(`Parse attempt ${parseAttempts + 1}...`)
           data = JSON.parse(data)
           parseAttempts++
-          console.log(`After parse ${parseAttempts}:`, typeof data === 'string' ? 'still string' : 'parsed to object/array')
         } catch (e) {
-          console.error(`Parse error at attempt ${parseAttempts + 1}:`, e)
           break
         }
       }
 
-      console.log('Final parsed data:', JSON.stringify(data, null, 2))
 
       // Handle different response formats
       let gsmData = []
@@ -826,26 +807,19 @@ export class MasterDataAPI {
         gsmData = data.Data
       }
 
-      console.log('Raw GSM Data Array:', gsmData)
-      console.log('Raw GSM Count:', gsmData.length)
 
       // The API returns structure like [{"gsm":[150,200]}]
       // We need to flatten it to extract the actual GSM values
       let flattenedGsmValues: number[] = []
       if (gsmData.length > 0 && gsmData[0].gsm && Array.isArray(gsmData[0].gsm)) {
         flattenedGsmValues = gsmData[0].gsm
-        console.log('✅ Extracted GSM values from gsm field:', flattenedGsmValues)
       } else if (gsmData.length > 0 && gsmData[0].GSM && Array.isArray(gsmData[0].GSM)) {
         flattenedGsmValues = gsmData[0].GSM
-        console.log('✅ Extracted GSM values from GSM field:', flattenedGsmValues)
       } else {
         // Fallback: use the data as-is
         flattenedGsmValues = gsmData
-        console.log('⚠️  Using GSM data as-is (no nested array found):', flattenedGsmValues)
       }
 
-      console.log('Final GSM Values:', flattenedGsmValues)
-      console.log('═══════════════════════════════════════════════════════')
 
       return {
         success: response.ok,
@@ -853,9 +827,6 @@ export class MasterDataAPI {
         error: data.error || null,
       }
     } catch (error: any) {
-      console.error('═══════════════════════════════════════════════════════')
-      console.error('❌ GSM API ERROR:', error)
-      console.error('═══════════════════════════════════════════════════════')
       return {
         success: false,
         data: [],
@@ -875,40 +846,26 @@ export class MasterDataAPI {
       // Build raw URL - send parameters exactly as-is without encoding
       const url = `${API_BASE_URL}/api/planwindow/mill/${contentType}/${quality}/${gsm}/${thickness}`
 
-      console.log('═══════════════════════════════════════════════════════')
-      console.log('🟨 MILL API CALL')
-      console.log('Raw URL:', url)
-      console.log('ContentType:', contentType)
-      console.log('Quality:', quality)
-      console.log('GSM:', gsm)
-      console.log('Thickness:', thickness)
 
       const response = await fetch(url, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
-      console.log('Response Status:', response.status)
-      console.log('Response OK:', response.ok)
 
       let data = await response.json()
-      console.log('Raw Response:', JSON.stringify(data, null, 2))
 
       // Handle multiple levels of JSON encoding
       let parseAttempts = 0
       while (typeof data === 'string' && parseAttempts < 5) {
         try {
-          console.log(`Parse attempt ${parseAttempts + 1}...`)
           data = JSON.parse(data)
           parseAttempts++
-          console.log(`After parse ${parseAttempts}:`, typeof data === 'string' ? 'still string' : 'parsed to object/array')
         } catch (e) {
-          console.error(`Parse error at attempt ${parseAttempts + 1}:`, e)
           break
         }
       }
 
-      console.log('Final parsed data:', JSON.stringify(data, null, 2))
 
       // Handle different response formats
       let millData = []
@@ -920,11 +877,7 @@ export class MasterDataAPI {
         millData = data.Data
       }
 
-      console.log('Raw Mill Data Array:', millData)
-      console.log('Raw Mill Count:', millData.length)
       if (millData.length > 0) {
-        console.log('First mill item:', millData[0])
-        console.log('First mill item keys:', Object.keys(millData[0] || {}))
       }
 
       // The API returns structure like [{"Mill":["Mill1","Mill2"]}]
@@ -934,26 +887,20 @@ export class MasterDataAPI {
         // Check for Mill field (capital M)
         if (millData[0].Mill && Array.isArray(millData[0].Mill)) {
           flattenedMillValues = millData[0].Mill
-          console.log('✅ Extracted Mill values from Mill field:', flattenedMillValues)
         }
         // Check for mill field (lowercase m)
         else if (millData[0].mill && Array.isArray(millData[0].mill)) {
           flattenedMillValues = millData[0].mill
-          console.log('✅ Extracted Mill values from mill field:', flattenedMillValues)
         }
         // If it's an object but no Mill/mill field, it might be the wrong structure
         else {
-          console.warn('⚠️  Mill data is object but no Mill/mill field found:', millData[0])
           flattenedMillValues = millData
         }
       } else {
         // Data is already an array of strings
         flattenedMillValues = millData
-        console.log('✅ Using Mill data as-is (already flat array):', flattenedMillValues)
       }
 
-      console.log('Final Mill Values:', flattenedMillValues)
-      console.log('═══════════════════════════════════════════════════════')
 
       return {
         success: response.ok,
@@ -961,9 +908,6 @@ export class MasterDataAPI {
         error: data.error || null,
       }
     } catch (error: any) {
-      console.error('═══════════════════════════════════════════════════════')
-      console.error('❌ MILL API ERROR:', error)
-      console.error('═══════════════════════════════════════════════════════')
       return {
         success: false,
         data: [],
@@ -981,39 +925,26 @@ export class MasterDataAPI {
       // Build URL without encoding - API expects plain text
       const url = `${API_BASE_URL}/api/planwindow/finish/${quality}/${gsm}/${mill}`
 
-      console.log('═══════════════════════════════════════════════════════')
-      console.log('🟪 FINISH API CALL')
-      console.log('URL:', url)
-      console.log('Quality:', quality)
-      console.log('GSM:', gsm)
-      console.log('Mill:', mill)
 
       const response = await fetch(url, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
-      console.log('Response Status:', response.status)
-      console.log('Response OK:', response.ok)
 
       let data = await response.json()
-      console.log('Raw Response:', JSON.stringify(data, null, 2))
 
       // Handle multiple levels of JSON encoding
       let parseAttempts = 0
       while (typeof data === 'string' && parseAttempts < 5) {
         try {
-          console.log(`Parse attempt ${parseAttempts + 1}...`)
           data = JSON.parse(data)
           parseAttempts++
-          console.log(`After parse ${parseAttempts}:`, typeof data === 'string' ? 'still string' : 'parsed to object/array')
         } catch (e) {
-          console.error(`Parse error at attempt ${parseAttempts + 1}:`, e)
           break
         }
       }
 
-      console.log('Final parsed data:', JSON.stringify(data, null, 2))
 
       // Handle different response formats
       let finishData = []
@@ -1025,26 +956,19 @@ export class MasterDataAPI {
         finishData = data.Data
       }
 
-      console.log('Raw Finish Data Array:', finishData)
-      console.log('Raw Finish Count:', finishData.length)
 
       // The API may return structure like [{"Finish":["Finish1","Finish2"]}]
       // We need to flatten it to extract the actual Finish values
       let flattenedFinishValues: string[] = []
       if (finishData.length > 0 && finishData[0].Finish && Array.isArray(finishData[0].Finish)) {
         flattenedFinishValues = finishData[0].Finish
-        console.log('✅ Extracted Finish values from Finish field:', flattenedFinishValues)
       } else if (finishData.length > 0 && finishData[0].finish && Array.isArray(finishData[0].finish)) {
         flattenedFinishValues = finishData[0].finish
-        console.log('✅ Extracted Finish values from finish field:', flattenedFinishValues)
       } else {
         // Fallback: use the data as-is
         flattenedFinishValues = finishData
-        console.log('⚠️  Using Finish data as-is (no nested array found):', flattenedFinishValues)
       }
 
-      console.log('Final Finish Values:', flattenedFinishValues)
-      console.log('═══════════════════════════════════════════════════════')
 
       return {
         success: response.ok,
@@ -1052,9 +976,6 @@ export class MasterDataAPI {
         error: data.error || null,
       }
     } catch (error: any) {
-      console.error('═══════════════════════════════════════════════════════')
-      console.error('❌ FINISH API ERROR:', error)
-      console.error('═══════════════════════════════════════════════════════')
       return {
         success: false,
         data: [],
@@ -1076,7 +997,6 @@ export class QuotationsAPI {
     ToDate: string
   }, session: any) {
     try {
-      console.log('📊 Fetching quotations with request:', request)
 
       const response = await fetch(`${API_BASE_URL}/api/planwindow/getbookingdata`, {
         method: 'POST',
@@ -1086,29 +1006,17 @@ export class QuotationsAPI {
 
       let data = await response.json()
 
-      console.log('📊 Raw data type:', typeof data)
-      console.log('📊 Raw data sample:', typeof data === 'string' ? data.substring(0, 200) : data)
 
       // Handle multiple levels of JSON encoding (can be triple or more)
       let parseAttempts = 0
       while (typeof data === 'string' && parseAttempts < 5) {
         try {
-          console.log(`🔄 Parsing attempt ${parseAttempts + 1}...`)
           data = JSON.parse(data)
           parseAttempts++
         } catch (e) {
-          console.error(`❌ Failed to parse at attempt ${parseAttempts + 1}:`, e)
           break
         }
       }
-
-      console.log('✅ Quotations Response:', {
-        success: response.ok,
-        dataType: typeof data,
-        isArray: Array.isArray(data),
-        count: Array.isArray(data) ? data.length : 0,
-        sampleData: Array.isArray(data) && data.length > 0 ? data[0] : null
-      })
 
       return {
         success: response.ok,
@@ -1116,7 +1024,6 @@ export class QuotationsAPI {
         error: response.ok ? null : 'Failed to fetch quotations',
       }
     } catch (error: any) {
-      console.error('❌ Quotations error:', error)
       return {
         success: false,
         data: [],
@@ -1134,7 +1041,6 @@ export class QuotationsAPI {
     Status: string
   }, session: any) {
     try {
-      console.log('🔄 Updating quotation status:', request)
 
       const response = await fetch(`${API_BASE_URL}/api/planwindow/updateqoutestatus`, {
         method: 'POST',
@@ -1151,15 +1057,9 @@ export class QuotationsAPI {
           data = JSON.parse(data)
           parseAttempts++
         } catch (e) {
-          console.error(`❌ Failed to parse at attempt ${parseAttempts + 1}:`, e)
           break
         }
       }
-
-      console.log('✅ Update status response:', {
-        success: response.ok,
-        data
-      })
 
       return {
         success: response.ok,
@@ -1167,7 +1067,6 @@ export class QuotationsAPI {
         error: response.ok ? null : 'Failed to update quotation status',
       }
     } catch (error: any) {
-      console.error('❌ Update status error:', error)
       return {
         success: false,
         data: null,
@@ -1186,7 +1085,6 @@ export class QuotationsAPI {
     ApprovalType: 'HOD' | 'VerticalHead'
   }, session: any) {
     try {
-      console.log('📤 Sending quotation for approval:', request)
 
       // Determine the status based on approval type
       const status = request.ApprovalType === 'VerticalHead' ? 'Sent to Vertical Head' : 'Sent to HOD'
@@ -1196,7 +1094,6 @@ export class QuotationsAPI {
         Status: status
       }
 
-      console.log('📤 Request body:', requestBody)
 
       const response = await fetch(`${API_BASE_URL}/api/planwindow/updateqoutestatus`, {
         method: 'POST',
@@ -1207,30 +1104,17 @@ export class QuotationsAPI {
       let data = await response.json()
 
       // Handle multiple levels of JSON encoding
+      // Some APIs return simple strings like "Updated" which are valid responses
       let parseAttempts = 0
       while (typeof data === 'string' && parseAttempts < 5) {
         try {
           data = JSON.parse(data)
           parseAttempts++
         } catch (e) {
-          console.error(`❌ Failed to parse at attempt ${parseAttempts + 1}:`, e)
+          // If parsing fails, it's likely a simple string response like "Updated"
+          // This is valid, so we just break and use the string as-is
           break
         }
-      }
-
-      console.log('✅ Send for approval response:', {
-        success: response.ok,
-        status: response.status,
-        statusText: response.statusText,
-        rawData: data,
-        dataType: typeof data
-      })
-
-      if (!response.ok) {
-        console.error('❌ API returned error status:', response.status, response.statusText)
-        console.error('❌ Error data:', data)
-      } else {
-        console.log('✅ Status update successful! Quotation should now have status:', status)
       }
 
       return {
@@ -1239,7 +1123,6 @@ export class QuotationsAPI {
         error: response.ok ? null : `Failed to send quotation for approval: ${response.status} ${response.statusText}`,
       }
     } catch (error: any) {
-      console.error('❌ Send for approval error:', error)
       return {
         success: false,
         data: null,
@@ -1267,7 +1150,6 @@ export class QuotationsAPI {
    */
   static async getRawEmailBody(emailEnquiryId: number, session: any) {
     try {
-      console.log('📧 Fetching raw email body for EmailEnquiryId:', emailEnquiryId)
 
       const response = await fetch(`http://localhost:5000/api/enquiries/${emailEnquiryId}/raw-email`, {
         method: 'GET',
@@ -1275,7 +1157,6 @@ export class QuotationsAPI {
       })
 
       if (!response.ok) {
-        console.error('❌ HTTP error:', response.status, response.statusText)
         return {
           success: false,
           data: null,
@@ -1285,7 +1166,6 @@ export class QuotationsAPI {
 
       const data = await response.json()
 
-      console.log('✅ Raw email body API response:', data)
 
       // Return the entire response object so the component can extract what it needs
       return {
@@ -1294,7 +1174,6 @@ export class QuotationsAPI {
         error: null,
       }
     } catch (error: any) {
-      console.error('❌ Get raw email body error:', error)
       return {
         success: false,
         data: null,
@@ -1310,7 +1189,6 @@ export class QuotationsAPI {
    */
   static async getEnquiryDetails(enquiryId: number, session: any) {
     try {
-      console.log('📋 Fetching enquiry details for EnquiryID:', enquiryId)
 
       const response = await fetch(`${API_BASE_URL}/api/enquiry/getenquirydetails?enquiryId=${enquiryId}`, {
         method: 'GET',
@@ -1318,7 +1196,6 @@ export class QuotationsAPI {
       })
 
       if (!response.ok) {
-        console.error('❌ HTTP error:', response.status, response.statusText)
         return {
           success: false,
           data: null,
@@ -1328,7 +1205,6 @@ export class QuotationsAPI {
 
       const data = await response.json()
 
-      console.log('✅ Enquiry details response:', data)
 
       return {
         success: true,
@@ -1336,7 +1212,6 @@ export class QuotationsAPI {
         error: null,
       }
     } catch (error: any) {
-      console.error('❌ Get enquiry details error:', error)
       return {
         success: false,
         data: null,
@@ -1406,14 +1281,6 @@ export class QuotationsAPI {
     }>
   }, session: any) {
     try {
-      console.log('📝 Updating multiple enquiry:', {
-        EnquiryID: data.EnquiryID,
-        MainDataCount: data.MainData?.length || 0,
-        DetailsDataCount: data.DetailsData?.length || 0,
-        ProcessDataCount: data.ProcessData?.length || 0,
-        Quantity: data.Quantity
-      })
-
       const response = await fetch(`${API_BASE_URL}/api/enquiry/updatmultipleenquiry`, {
         method: 'POST',
         headers: getHeaders(session),
@@ -1422,18 +1289,12 @@ export class QuotationsAPI {
 
       const result = await response.json()
 
-      console.log('✅ Update multiple enquiry response:', {
-        success: response.ok,
-        result: result,
-      })
-
       return {
         success: response.ok && result === "Success",
         data: result,
         error: response.ok ? null : `Failed to update enquiry: ${response.status}`,
       }
     } catch (error: any) {
-      console.error('❌ Update multiple enquiry error:', error)
       return {
         success: false,
         data: null,
