@@ -2089,7 +2089,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             const rate = op.Rate || op.OperRate || '—'
 
             return (
-              <div key={key} className="flex items-center justify-between py-3 px-3 bg-slate-50 rounded-lg border border-slate-200 min-w-0">
+              <div key={key} className="flex items-center justify-between py-3 px-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-all duration-200 min-w-0 shadow-sm">
                 <div className="flex items-center space-x-3 min-w-0 flex-1">
                   <Checkbox
                     id={key}
@@ -2110,10 +2110,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     className="flex-shrink-0"
                   />
                   <div className="flex flex-col min-w-0 flex-1">
-                    <Label htmlFor={key} className="text-sm font-medium text-slate-700 truncate" title={name}>{name}</Label>
-                    <div className="flex gap-4 text-xs text-slate-500 mt-1">
-                      <span className="truncate" title={typeOfCharge}>{typeOfCharge}</span>
-                      <span className="truncate" title={`Rate: ${rate}`}>Rate: {rate}</span>
+                    <Label htmlFor={key} className="text-sm font-semibold text-slate-800 truncate cursor-pointer" title={name}>{name}</Label>
+                    <div className="flex gap-3 text-xs mt-1.5">
+                      <span className="truncate text-blue-700 font-medium" title={typeOfCharge}>{typeOfCharge}</span>
+                      <span className="truncate text-emerald-700 font-medium" title={`Rate: ${rate}`}>Rate: {rate}</span>
                     </div>
                   </div>
                 </div>
