@@ -2742,15 +2742,20 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         console.log('GET PLAN BUTTON CLICKED - API CALL #1: SaveMultipleEnquiry')
         console.log('='.repeat(80))
         console.log('Endpoint: POST /api/parksons/SaveMultipleEnquiry')
-        console.log('Request Body:', JSON.stringify(enquiryData, null, 2))
+        console.log('='.repeat(80))
+        console.log('\n📤 REQUEST BODY:')
+        console.log(JSON.stringify(enquiryData, null, 2))
         console.log('='.repeat(80) + '\n')
 
         const res = await saveMultipleEnquiry(enquiryData)
 
         console.log('\n' + '='.repeat(80))
-        console.log('SaveMultipleEnquiry Response:')
+        console.log('📥 SaveMultipleEnquiry RESPONSE:')
         console.log('='.repeat(80))
+        console.log('Response Type:', typeof res)
+        console.log('Response Data:')
         console.log(JSON.stringify(res, null, 2))
+        console.log('\n🔑 Extracted Enquiry Number:', res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || 'NOT FOUND')
         console.log('='.repeat(80) + '\n')
 
         // Store the enquiry number from response
