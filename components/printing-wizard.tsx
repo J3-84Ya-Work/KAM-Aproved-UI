@@ -626,6 +626,33 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
   const nextStep = async () => {
     console.log('=== nextStep called ===', { currentStep, stepName: steps[currentStep] })
+
+    // Validate mandatory fields before moving to next step
+    const currentStepName = steps[currentStep]
+
+    if (currentStepName === 'Job Details') {
+      if (!jobData.clientName || !jobData.jobName || !jobData.quantity) {
+        alert('Please fill all mandatory fields: Client Name, Job Name, and Quantity')
+        return
+      }
+    } else if (currentStepName === 'Carton Type') {
+      if (!jobData.cartonType) {
+        alert('Please select a Carton Type')
+        return
+      }
+    } else if (currentStepName === 'Size') {
+      const dims = jobData.dimensions
+      if (!dims.length || !dims.width || !dims.height || !dims.openFlap || !dims.pastingFlap) {
+        alert('Please fill all mandatory size fields: Length, Width, Height, Open Flap, and Pasting Flap')
+        return
+      }
+    } else if (currentStepName === 'Paper & Color') {
+      if (!jobData.paperDetails.quality || !jobData.paperDetails.gsm) {
+        alert('Please fill all mandatory fields: Quality and GSM')
+        return
+      }
+    }
+
     if (currentStep < steps.length - 1) {
       const processesIndex = steps.indexOf('Processes')
       const bestPlansIndex = steps.indexOf('Best Plans')
@@ -1101,6 +1128,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   }
 
   const handleStepClick = async (stepIndex: number) => {
+    // Prevent forward navigation - only allow going back to previous steps
+    if (stepIndex > currentStep) {
+      alert('Please use the Next button to proceed forward')
+      return
+    }
+
     const processesIndex = steps.indexOf('Processes')
     const bestPlansIndex = steps.indexOf('Best Plans')
 
@@ -1215,7 +1248,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       jobData: jobDelta,
       ui: {
         currentStep,
-        show3DModal,
         showQuantityDialog,
         showOnlyDifferences,
       },
@@ -1679,8 +1711,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 }
               }}
             >
-              <SelectTrigger className="h-8">
-                <SelectValue placeholder="Select quality" className="truncate" />
+              <SelectTrigger className="h-8 overflow-hidden">
+                <SelectValue placeholder="Select quality" className="truncate block overflow-hidden text-ellipsis" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
                 {qualities && qualities.length > 0 ? (
@@ -1878,7 +1910,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         {/* Grain Direction */}
         <div className="bg-white rounded-lg p-4 border border-slate-200">
           <Label className="text-sm font-medium text-slate-700 mb-3 block">Grain Direction</Label>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {[
               { label: 'Both', value: 'both' },
               { label: 'With Grain', value: 'along' },
@@ -1888,7 +1920,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 key={d.value}
                 variant={jobData.grainDirection === d.value ? 'default' : 'outline'}
                 onClick={() => setJobData({ ...jobData, grainDirection: d.value as 'along' | 'across' | 'both' })}
-                className={`flex-1 h-10 text-sm font-medium transition-all duration-300 ${
+                className={`h-10 text-xs font-medium transition-all duration-300 whitespace-nowrap ${
                   jobData.grainDirection === d.value ? 'bg-[#005180] text-white' : 'border border-slate-300 hover:border-[#005180]'
                 }`}
               >
@@ -2042,21 +2074,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       <span className="truncate">Rate: {rate}</span>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isSelected && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setJobData({
-                        ...jobData,
-                        processes: jobData.processes.filter((p) => p.operID !== operId && p.processName !== name)
-                      })}
-                      className="h-6 px-2 text-xs border-red-300 text-red-600 hover:bg-red-50"
-                    >
-                      Remove
-                    </Button>
-                  )}
                 </div>
               </div>
             )
