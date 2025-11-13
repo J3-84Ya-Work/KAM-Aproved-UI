@@ -2766,12 +2766,22 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         console.log('Response Type:', typeof res)
         console.log('Response Data:')
         console.log(JSON.stringify(res, null, 2))
-        console.log('\n🔑 Extracted Enquiry ID:', res?.EnquiryID || res?.enquiryID || res?.EnquiryId || 'NOT FOUND')
-        console.log('🔑 Extracted Enquiry Number:', res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || 'NOT FOUND')
+
+        // The API returns either:
+        // 1. A plain number: 10326
+        // 2. An object: { EnquiryID: 10326 } or { enquiryID: 10326 }
+        let extractedId = null
+        if (typeof res === 'number') {
+          extractedId = res
+        } else if (typeof res === 'object' && res !== null) {
+          extractedId = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
+        }
+
+        console.log('\n🔑 Extracted Enquiry ID:', extractedId || 'NOT FOUND')
         console.log('='.repeat(80) + '\n')
 
         // Store the enquiry ID (number) from response - this is what we send to DirectCosting
-        currentEnquiryNumber = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || null
+        currentEnquiryNumber = extractedId
         if (currentEnquiryNumber) {
           setEnquiryNumber(currentEnquiryNumber)
           console.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
