@@ -34,6 +34,287 @@ User Flow:
 
 ---
 
+## Dropdown/Metadata APIs
+
+These APIs are used to populate dropdown options in the form (Steps 1-4). They are called when user selects parent values.
+
+### API 1: Get Content Types (Carton Types)
+
+**Purpose**: Fetches list of available carton/content types.
+
+**Trigger**: When form loads or category changes.
+
+**Method**: `GET`
+
+**Endpoint**: `/api/planwindow/GetCategoryAllocatedContents/{categoryId}`
+
+**Example**: `/api/planwindow/GetCategoryAllocatedContents/0`
+
+**Headers**: Common headers (see above)
+
+**URL Parameters**:
+- `categoryId`: Category ID (use `0` for all content types)
+
+**Response** (200):
+```json
+[
+  {
+    "ContentID": 1,
+    "ContentName": "Reverse Tuck In",
+    "ContentType": "ReverseTuckIn",
+    "CategoryID": 2,
+    "RequiredDimensions": ["Length", "Width", "Height", "OpenFlap", "PastingFlap"]
+  },
+  {
+    "ContentID": 2,
+    "ContentName": "Straight Tuck In",
+    "ContentType": "StraightTuckIn",
+    "CategoryID": 2,
+    "RequiredDimensions": ["Length", "Width", "Height", "OpenFlap"]
+  }
+]
+```
+
+**Usage Notes**:
+- CategoryID 0 returns all content types
+- CategoryID 2 returns only carton/box types
+- ContentType is used in API calls (no spaces)
+- ContentName is displayed in UI
+
+---
+
+### API 2: Get Quality Options
+
+**Purpose**: Fetches quality/board type options for selected content type.
+
+**Trigger**: When user selects carton type.
+
+**Method**: `GET`
+
+**Endpoint**: `/api/planwindow/quality/{contentType}`
+
+**Example**: `/api/planwindow/quality/ReverseTuckIn`
+
+**Headers**: Common headers (see above)
+
+**URL Parameters**:
+- `contentType`: Content type name (no spaces, e.g., "ReverseTuckIn")
+
+**Response** (200):
+```json
+[
+  {
+    "Quality": "ALPHA GREY BACK",
+    "QualityID": 123
+  },
+  {
+    "Quality": "KAPPA GREY BACK",
+    "QualityID": 124
+  },
+  {
+    "Quality": "WHITE BACK",
+    "QualityID": 125
+  }
+]
+```
+
+**Common Quality Types**:
+- ALPHA GREY BACK
+- KAPPA GREY BACK
+- WHITE BACK
+- DUPLEX BOARD
+- SBS (Solid Bleached Sulfate)
+- CCNB (Clay Coated News Back)
+
+**Usage Notes**:
+- Quality must be selected before GSM can be fetched
+- Different content types may have different quality options
+- Response may be double-encoded JSON (handled automatically)
+
+---
+
+### API 3: Get GSM Options
+
+**Purpose**: Fetches available GSM (paper thickness) options for selected quality.
+
+**Trigger**: When user selects quality.
+
+**Method**: `GET`
+
+**Endpoint**: `/api/planwindow/gsm/{contentType}/{quality}/{thickness}`
+
+**Example**: `/api/planwindow/gsm/ReverseTuckIn/ALPHA%20GREY%20BACK/0`
+
+**Headers**: Common headers (see above)
+
+**URL Parameters**:
+- `contentType`: Content type (e.g., "ReverseTuckIn")
+- `quality`: Quality name (URL encoded, e.g., "ALPHA%20GREY%20BACK")
+- `thickness`: Thickness value (default: "0")
+
+**Response** (200):
+```json
+[
+  {
+    "GSM": "215",
+    "GSMID": 1,
+    "GSMValue": 215
+  },
+  {
+    "GSM": "250",
+    "GSMID": 2,
+    "GSMValue": 250
+  },
+  {
+    "GSM": "300",
+    "GSMID": 3,
+    "GSMValue": 300
+  }
+]
+```
+
+**Common GSM Values**:
+- 150, 175, 200, 215, 250, 300, 350, 400
+
+**Usage Notes**:
+- GSM represents grams per square meter (paper weight)
+- Higher GSM = thicker/heavier paper
+- Selection affects cost calculations
+- Thickness parameter usually set to "0" for default
+
+---
+
+### API 4: Get Mill Options
+
+**Purpose**: Fetches available paper mill/manufacturer options.
+
+**Trigger**: When user selects GSM.
+
+**Method**: `GET`
+
+**Endpoint**: `/api/planwindow/mill/{contentType}/{quality}/{gsm}/{thickness}`
+
+**Example**: `/api/planwindow/mill/ReverseTuckIn/ALPHA%20GREY%20BACK/215/0`
+
+**Headers**: Common headers (see above)
+
+**URL Parameters**:
+- `contentType`: Content type (e.g., "ReverseTuckIn")
+- `quality`: Quality name (URL encoded)
+- `gsm`: GSM value (e.g., "215")
+- `thickness`: Thickness value (default: "0")
+
+**Response** (200):
+```json
+[
+  {
+    "Mill": "ITC",
+    "MillID": 1
+  },
+  {
+    "Mill": "JK Paper",
+    "MillID": 2
+  },
+  {
+    "Mill": "West Coast",
+    "MillID": 3
+  }
+]
+```
+
+**Common Mills**:
+- ITC
+- JK Paper
+- West Coast
+- Tamil Nadu Newsprint
+- Orient Paper
+
+**Usage Notes**:
+- Mill selection is optional in most cases
+- Different mills may have different prices
+- Empty string "" is acceptable if not specified
+
+---
+
+### API 5: Get Finish Options
+
+**Purpose**: Fetches available paper finish options.
+
+**Trigger**: When user selects mill (or GSM if mill is optional).
+
+**Method**: `GET`
+
+**Endpoint**: `/api/planwindow/finish/{quality}/{gsm}/{mill}`
+
+**Example**: `/api/planwindow/finish/ALPHA%20GREY%20BACK/215/ITC`
+
+**Headers**: Common headers (see above)
+
+**URL Parameters**:
+- `quality`: Quality name (URL encoded)
+- `gsm`: GSM value (e.g., "215")
+- `mill`: Mill name (URL encoded, can be empty "")
+
+**Response** (200):
+```json
+[
+  {
+    "Finish": "Matte",
+    "FinishID": 1
+  },
+  {
+    "Finish": "Glossy",
+    "FinishID": 2
+  },
+  {
+    "Finish": "Uncoated",
+    "FinishID": 3
+  }
+]
+```
+
+**Common Finishes**:
+- Matte
+- Glossy
+- Uncoated
+- Silk
+
+**Usage Notes**:
+- Finish selection is optional
+- Affects final appearance and cost
+- Empty string "" is acceptable if not specified
+
+---
+
+### Dropdown API Call Sequence
+
+```
+1. Load Form → GetCategoryAllocatedContents/0
+   ↓ User selects Content Type
+
+2. Fetch Qualities → /quality/{contentType}
+   ↓ User selects Quality
+
+3. Fetch GSM → /gsm/{contentType}/{quality}/0
+   ↓ User selects GSM
+
+4. Fetch Mill → /mill/{contentType}/{quality}/{gsm}/0
+   ↓ User selects Mill (optional)
+
+5. Fetch Finish → /finish/{quality}/{gsm}/{mill}
+   ↓ User selects Finish (optional)
+```
+
+**Cascading Dependencies**:
+- Quality depends on Content Type
+- GSM depends on Content Type + Quality
+- Mill depends on Content Type + Quality + GSM
+- Finish depends on Quality + GSM + Mill
+
+---
+
+## Main Workflow APIs
+
 ## 1. SaveMultipleEnquiry API
 
 **Purpose**: Creates an enquiry record in the system. Called only once per session.
