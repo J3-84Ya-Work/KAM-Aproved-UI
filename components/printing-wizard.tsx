@@ -33,6 +33,7 @@ import {
   Download,
   Printer,
   Eraser,
+  Trash2,
 } from "lucide-react"
 
 type Costs = {
@@ -641,8 +642,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     const currentStepName = steps[currentStep]
 
     if (currentStepName === 'Job Details') {
-      if (!jobData.clientName || !jobData.jobName || !jobData.quantity) {
-        showToast('Please fill all mandatory fields: Client Name, Job Name, and Quantity', 'error')
+      const missing = []
+      if (!jobData.clientName) missing.push('Client Name')
+      if (!jobData.jobName) missing.push('Job Name')
+      if (!jobData.quantity) missing.push('Quantity')
+
+      if (missing.length > 0) {
+        showToast(`Please fill: ${missing.join(', ')}`, 'error')
         return
       }
     } else if (currentStepName === 'Carton Type') {
@@ -652,13 +658,24 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       }
     } else if (currentStepName === 'Size') {
       const dims = jobData.dimensions
-      if (!dims.length || !dims.width || !dims.height || !dims.openFlap || !dims.pastingFlap) {
-        showToast('Please fill all mandatory size fields: Length, Width, Height, Open Flap, and Pasting Flap', 'error')
+      const missing = []
+      if (!dims.length) missing.push('Length')
+      if (!dims.width) missing.push('Width')
+      if (!dims.height) missing.push('Height')
+      if (!dims.openFlap) missing.push('Open Flap')
+      if (!dims.pastingFlap) missing.push('Pasting Flap')
+
+      if (missing.length > 0) {
+        showToast(`Please fill: ${missing.join(', ')}`, 'error')
         return
       }
     } else if (currentStepName === 'Paper & Color') {
-      if (!jobData.paperDetails.quality || !jobData.paperDetails.gsm) {
-        showToast('Please fill all mandatory fields: Quality and GSM', 'error')
+      const missing = []
+      if (!jobData.paperDetails.quality) missing.push('Quality')
+      if (!jobData.paperDetails.gsm) missing.push('GSM')
+
+      if (missing.length > 0) {
+        showToast(`Please fill: ${missing.join(', ')}`, 'error')
         return
       }
     }
@@ -1309,21 +1326,39 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           <Package className="w-6 h-6 text-[#005180]" />
           <p className="text-slate-600 text-sm">Let's get started with your project</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={clearJobDetailsFields}
-          className="flex items-center gap-1.5 h-8 px-3 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
-        >
-          <Eraser className="w-3.5 h-3.5" />
-          <span className="text-xs font-medium">Clear</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearJobDetailsFields}
+            className="flex items-center gap-1.5 h-8 px-3 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+          >
+            <Eraser className="w-3.5 h-3.5" />
+            <span className="text-xs font-medium">Clear</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (confirm('This will clear all stored data and reset the form. Continue?')) {
+                localStorage.removeItem(LOCAL_STORAGE_KEY)
+                setJobData(DEFAULT_JOB_DATA)
+                setCurrentStep(0)
+                showToast('All stored data cleared', 'success')
+              }
+            }}
+            className="flex items-center gap-1.5 h-8 px-3 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="text-xs font-medium">Clear Store</span>
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-1">
           <Label htmlFor="clientName" className="text-sm font-medium text-slate-700">
-            Client Name <span className="text-red-500 font-bold text-lg ml-1">*</span>
+            Client Name <span className="text-red-600 font-bold text-xl ml-1">*</span>
           </Label>
           <ClientDropdown
             value={jobData.clientName}
@@ -1337,7 +1372,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         ].map(({ key, label }) => (
           <div key={key} className="space-y-1">
             <Label htmlFor={key} className="text-sm font-medium text-slate-700">
-              {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
+              {label} <span className="text-red-600 font-bold text-xl ml-1">*</span>
             </Label>
             <Input
               id={key}
@@ -1731,6 +1766,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         key={String(q.QualityID ?? q.Quality ?? Math.random())}
                         value={qualityValue}
                         className="truncate max-w-[250px]"
+                        title={q.Quality ?? `Quality ${q.QualityID}`}
                       >
                         <span className="truncate block">{q.Quality ?? `Quality ${q.QualityID}`}</span>
                       </SelectItem>
@@ -1778,7 +1814,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         return null
                       }
                       return (
-                        <SelectItem key={String(g.GSMID ?? g.GSM ?? Math.random())} value={gsmValue} className="truncate">
+                        <SelectItem key={String(g.GSMID ?? g.GSM ?? Math.random())} value={gsmValue} className="truncate" title={g.GSM ?? `GSM ${g.GSMID}`}>
                           <span className="truncate block">{g.GSM ?? `GSM ${g.GSMID}`}</span>
                         </SelectItem>
                       )
@@ -1831,7 +1867,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         return null
                       }
                       return (
-                        <SelectItem key={String(m.MillID ?? m.Mill ?? Math.random())} value={millValue} className="truncate">
+                        <SelectItem key={String(m.MillID ?? m.Mill ?? Math.random())} value={millValue} className="truncate" title={m.Mill ?? `Mill ${m.MillID}`}>
                           <span className="truncate block">{m.Mill ?? `Mill ${m.MillID}`}</span>
                         </SelectItem>
                       )
@@ -1882,7 +1918,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         return null
                       }
                       return (
-                        <SelectItem key={String(f.FinishID ?? f.Finish ?? Math.random())} value={finishValue} className="truncate">
+                        <SelectItem key={String(f.FinishID ?? f.Finish ?? Math.random())} value={finishValue} className="truncate" title={f.Finish ?? `Finish ${f.FinishID}`}>
                           <span className="truncate block">{f.Finish ?? `Finish ${f.FinishID}`}</span>
                         </SelectItem>
                       )
@@ -2070,10 +2106,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     className="flex-shrink-0"
                   />
                   <div className="flex flex-col min-w-0 flex-1">
-                    <Label htmlFor={key} className="text-sm font-medium text-slate-700 truncate">{name}</Label>
+                    <Label htmlFor={key} className="text-sm font-medium text-slate-700 truncate" title={name}>{name}</Label>
                     <div className="flex gap-4 text-xs text-slate-500 mt-1">
-                      <span className="truncate">{typeOfCharge}</span>
-                      <span className="truncate">Rate: {rate}</span>
+                      <span className="truncate" title={typeOfCharge}>{typeOfCharge}</span>
+                      <span className="truncate" title={`Rate: ${rate}`}>Rate: {rate}</span>
                     </div>
                   </div>
                 </div>
@@ -2232,7 +2268,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     {isSelected && <div className="w-3 h-3 bg-white rounded-full" />}
                   </div>
                   <div className="flex-1 flex items-center gap-2 min-w-0">
-                    <div className={`text-base font-semibold truncate ${isSelected ? 'text-[#004875]' : 'text-slate-800'}`}>
+                    <div className={`text-base font-semibold truncate ${isSelected ? 'text-[#004875]' : 'text-slate-800'}`} title={p.MachineName ?? p.MachineID ?? `Plan ${idx + 1}`}>
                       {p.MachineName ?? p.MachineID ?? `Plan ${idx + 1}`}
                     </div>
                     {isSelected && (
