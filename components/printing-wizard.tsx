@@ -1580,27 +1580,105 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             return { key: f, label: f, icon: '📏' }
           }
 
-          return fields.map((f: string) => {
-            const { key, label, icon } = mapField(f)
-            return (
-              <div key={f} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-slate-200">
-                <div className="text-lg">{icon}</div>
-                <Label className="w-28 text-sm font-medium text-slate-700">{label} <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
-                <Input
-                  value={String((jobData.dimensions as any)[key] ?? '')}
-                  onChange={(e) =>
-                    setJobData({
-                      ...jobData,
-                      dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
-                    })
-                  }
-                  className="flex-1 h-8 border-slate-300 focus:border-blue-400 transition-colors"
-                  placeholder="0"
-                />
-                <span className="text-xs text-slate-500 w-6">{jobData.dimensions.unit}</span>
-              </div>
-            )
+          // Group fields: LWH in one row, OP/PF in another row, rest individually
+          const lwh = ['length', 'width', 'height']
+          const flaps = ['openFlap', 'pastingFlap']
+
+          const lwhFields = fields.filter((f: string) => {
+            const { key } = mapField(f)
+            return lwh.includes(key)
           })
+
+          const flapFields = fields.filter((f: string) => {
+            const { key } = mapField(f)
+            return flaps.includes(key)
+          })
+
+          const otherFields = fields.filter((f: string) => {
+            const { key } = mapField(f)
+            return !lwh.includes(key) && !flaps.includes(key)
+          })
+
+          return (
+            <>
+              {/* Length, Width, Height in one row */}
+              {lwhFields.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 bg-white rounded-lg p-3 border border-slate-200">
+                  {lwhFields.map((f: string) => {
+                    const { key, label } = mapField(f)
+                    return (
+                      <div key={f} className="flex flex-col gap-1">
+                        <Label className="text-sm font-medium text-slate-700">
+                          {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                        </Label>
+                        <Input
+                          value={String((jobData.dimensions as any)[key] ?? '')}
+                          onChange={(e) =>
+                            setJobData({
+                              ...jobData,
+                              dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
+                            })
+                          }
+                          className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
+                          placeholder="0"
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Open Flap and Pasting Flap in one row */}
+              {flapFields.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 bg-white rounded-lg p-3 border border-slate-200">
+                  {flapFields.map((f: string) => {
+                    const { key, label } = mapField(f)
+                    return (
+                      <div key={f} className="flex flex-col gap-1">
+                        <Label className="text-sm font-medium text-slate-700">
+                          {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                        </Label>
+                        <Input
+                          value={String((jobData.dimensions as any)[key] ?? '')}
+                          onChange={(e) =>
+                            setJobData({
+                              ...jobData,
+                              dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
+                            })
+                          }
+                          className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
+                          placeholder="0"
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Other fields individually */}
+              {otherFields.map((f: string) => {
+                const { key, label, icon } = mapField(f)
+                return (
+                  <div key={f} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-slate-200">
+                    <div className="text-lg">{icon}</div>
+                    <Label className="w-28 text-sm font-medium text-slate-700">{label} <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
+                    <Input
+                      value={String((jobData.dimensions as any)[key] ?? '')}
+                      onChange={(e) =>
+                        setJobData({
+                          ...jobData,
+                          dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
+                        })
+                      }
+                      className="flex-1 h-8 border-slate-300 focus:border-blue-400 transition-colors"
+                      placeholder="0"
+                    />
+                    <span className="text-xs text-slate-500 w-6">{jobData.dimensions.unit}</span>
+                  </div>
+                )
+              })}
+            </>
+          )
         })()}
       </div>
 
@@ -1922,11 +2000,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         </div>
 
         {/* Color Details Section */}
-        <div className="bg-[#005180] text-white p-3 rounded-t-lg">
-          <h3 className="font-semibold text-sm">Color Details</h3>
+        <div className="mb-3">
+          <h3 className="text-lg font-semibold text-[#005180] mb-3">Color Details</h3>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-b-lg p-4 space-y-4">
+        <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {[
               { key: "frontColor", label: "Front Color", placeholder: "Front Color" },
