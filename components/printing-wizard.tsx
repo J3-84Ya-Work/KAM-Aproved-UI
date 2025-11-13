@@ -1316,7 +1316,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     })
   }
 
-  const renderJobDetails = () => (
+  const renderJobDetails = () => {
+    return (
     <div className="p-2 sm:p-4 space-y-3 sm:space-y-4 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
       {renderStepHeader("Job Details", false)}
 
@@ -1384,7 +1385,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         ))}
       </div>
     </div>
-  )
+    )
+  }
 
   const renderCartonType = () => {
     const selectedCategory = categories.find((c: any) => String(c.id) === String(selectedCategoryId))
