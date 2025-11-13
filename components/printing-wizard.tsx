@@ -2046,9 +2046,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     return (
       <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
         {renderStepHeader("Printing Processes", false)}
-        <div className="text-center py-1">
-          <p className="text-slate-600 text-sm">Choose your printing processes</p>
-        </div>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
