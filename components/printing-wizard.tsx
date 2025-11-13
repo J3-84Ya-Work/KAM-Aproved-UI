@@ -32,6 +32,7 @@ import {
   Filter,
   Download,
   Printer,
+  Eraser,
 } from "lucide-react"
 
 type Costs = {
@@ -1250,18 +1251,40 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     a.remove()
   }
 
+  const clearJobDetailsFields = () => {
+    setJobData({
+      ...jobData,
+      clientName: '',
+      jobName: '',
+      quantity: ''
+    })
+  }
+
   const renderJobDetails = () => (
     <div className="p-2 sm:p-4 space-y-3 sm:space-y-4 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
       {renderStepHeader("Job Details", false)}
-      <div className="text-center py-1 sm:py-2">
-        <Package className="w-6 h-6 mx-auto mb-2 text-[#005180]" />
-        <p className="text-slate-600 text-sm">Let's get started with your project</p>
+
+      {/* Header with clear button */}
+      <div className="flex items-center justify-between py-1 sm:py-2">
+        <div className="flex items-center gap-2 flex-1">
+          <Package className="w-6 h-6 text-[#005180]" />
+          <p className="text-slate-600 text-sm">Let's get started with your project</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clearJobDetailsFields}
+          className="flex items-center gap-1.5 h-8 px-3 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+        >
+          <Eraser className="w-3.5 h-3.5" />
+          <span className="text-xs font-medium">Clear</span>
+        </Button>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-1">
           <Label htmlFor="clientName" className="text-sm font-medium text-slate-700">
-            Client Name
+            Client Name <span className="text-red-500 font-bold text-lg ml-1">*</span>
           </Label>
           <ClientDropdown
             value={jobData.clientName}
@@ -1275,7 +1298,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         ].map(({ key, label, placeholder }) => (
           <div key={key} className="space-y-1">
             <Label htmlFor={key} className="text-sm font-medium text-slate-700">
-              {label}
+              {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
             </Label>
             <Input
               id={key}
@@ -1314,7 +1337,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
         {/* Category Dropdown */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-slate-700 text-lg">1. Select Category</Label>
+          <Label className="text-sm font-medium text-slate-700 text-lg">1. Select Category <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
           <Select
             value={selectedCategoryId || ""}
             onValueChange={(value) => {
@@ -1382,7 +1405,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             ) : (
               <div className="space-y-3">
                 <Label className="text-sm font-medium text-slate-700 text-lg">
-                  2. Select Carton Type {contentSearch && `(${filteredContents.length} results)`}
+                  2. Select Carton Type <span className="text-red-500 font-bold text-lg ml-1">*</span> {contentSearch && `(${filteredContents.length} results)`}
                 </Label>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   {filteredContents.map((content) => (
@@ -1562,7 +1585,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             return (
               <div key={f} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-slate-200">
                 <div className="text-lg">{icon}</div>
-                <Label className="w-28 text-sm font-medium text-slate-700">{label}</Label>
+                <Label className="w-28 text-sm font-medium text-slate-700">{label} <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
                 <Input
                   value={String((jobData.dimensions as any)[key] ?? '')}
                   onChange={(e) =>
@@ -1663,7 +1686,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         {/* Paper Quality and GSM in first row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-lg p-3 border border-slate-200">
-            <Label className="text-sm font-medium text-slate-700 mb-2 block">Quality</Label>
+            <Label className="text-sm font-medium text-slate-700 mb-2 block">Quality <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
             <Select
               value={String(jobData.paperDetails.qualityId ?? jobData.paperDetails.quality)}
               onValueChange={(value) => {
@@ -1722,7 +1745,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </div>
 
           <div className="bg-white rounded-lg p-3 border border-slate-200">
-            <Label className="text-sm font-medium text-slate-700 mb-2 block">GSM</Label>
+            <Label className="text-sm font-medium text-slate-700 mb-2 block">GSM <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
             <div className="flex items-center gap-2">
               <Select
                 value={String(jobData.paperDetails.gsm ?? '')}
