@@ -3411,14 +3411,10 @@ Generated with KAM Printing Wizard
             </div>
 
             {/* Quotation Details */}
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="text-xs opacity-70 mb-1 uppercase tracking-wider">Quotation Number</div>
-                <div className="text-3xl font-bold tracking-tight">{mainData.BookingNo || quotationNumber}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm opacity-80 font-medium">{mainData.Job_Date || mainData.EnquiryDate}</div>
-              </div>
+            <div>
+              <div className="text-xs opacity-70 mb-1 uppercase tracking-wider">Quotation Number</div>
+              <div className="text-3xl font-bold tracking-tight mb-3">{mainData.BookingNo || quotationNumber}</div>
+              <div className="text-sm opacity-80 font-medium">{mainData.Job_Date || mainData.EnquiryDate}</div>
             </div>
           </Card>
 
