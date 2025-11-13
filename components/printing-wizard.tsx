@@ -848,6 +848,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             TypeOfPrinting: null,
             EnquiryType: 'Bid',
             SalesType: 'Export',
+            EnquiryNumber: enquiryNumber || '', // Add enquiry number from SaveMultipleEnquiry
           }
 
           console.log('\n' + '='.repeat(80))
@@ -1345,6 +1346,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 localStorage.removeItem(LOCAL_STORAGE_KEY)
                 setJobData(DEFAULT_JOB_DATA)
                 setCurrentStep(0)
+                setEnquiryNumber(null) // Reset enquiry number
+                setPlanningResults(null) // Reset planning results
+                setQuotationNumber(null) // Reset quotation number
                 showToast('All stored data cleared', 'success')
               }
             }}
@@ -2454,6 +2458,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [planningError, setPlanningError] = useState<string | null>(null)
   const [quotationNumber, setQuotationNumber] = useState<string | null>(null)
   const [quotationData, setQuotationData] = useState<any | null>(null)
+  const [enquiryNumber, setEnquiryNumber] = useState<string | null>(null) // Track SaveMultipleEnquiry response
   const quotationPrintRef = useRef<HTMLDivElement>(null)
 
   // Print handler using ref directly
@@ -2704,38 +2709,55 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     try {
       const { saveMultipleEnquiry, postShirinJob } = await import('@/lib/api-config')
 
-      // Build the enquiry data
-      const enquiryData = {
-        clientName: jobData.clientName,
-        clientId: 0, // Will use default value
-        jobName: jobData.jobName,
-        quantity: jobData.quantity,
-        cartonType: jobData.cartonType,
-        dimensions: jobData.dimensions,
-        paperDetails: jobData.paperDetails,
-        processes: jobData.processes,
-        productCode: '',
-        salesEmployeeId: 0,
-        categoryId: 0,
-        categoryName: '',
-        fileName: '',
-        remark: '',
+      let currentEnquiryNumber = enquiryNumber
+
+      // Only call SaveMultipleEnquiry if we don't have an enquiry number yet
+      if (!currentEnquiryNumber) {
+        console.log('=== No existing enquiry number, calling SaveMultipleEnquiry ===')
+
+        // Build the enquiry data
+        const enquiryData = {
+          clientName: jobData.clientName,
+          clientId: 0, // Will use default value
+          jobName: jobData.jobName,
+          quantity: jobData.quantity,
+          cartonType: jobData.cartonType,
+          dimensions: jobData.dimensions,
+          paperDetails: jobData.paperDetails,
+          processes: jobData.processes,
+          productCode: '',
+          salesEmployeeId: 0,
+          categoryId: 0,
+          categoryName: '',
+          fileName: '',
+          remark: '',
+        }
+
+        console.log('\n' + '='.repeat(80))
+        console.log('GET PLAN BUTTON CLICKED - API CALL #1: SaveMultipleEnquiry')
+        console.log('='.repeat(80))
+        console.log('Endpoint: POST /api/parksons/SaveMultipleEnquiry')
+        console.log('Request Body:', JSON.stringify(enquiryData, null, 2))
+        console.log('='.repeat(80) + '\n')
+
+        const res = await saveMultipleEnquiry(enquiryData)
+
+        console.log('\n' + '='.repeat(80))
+        console.log('SaveMultipleEnquiry Response:')
+        console.log('='.repeat(80))
+        console.log(JSON.stringify(res, null, 2))
+        console.log('='.repeat(80) + '\n')
+
+        // Store the enquiry number from response
+        currentEnquiryNumber = res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
+        if (currentEnquiryNumber) {
+          setEnquiryNumber(currentEnquiryNumber)
+          console.log('=== Stored Enquiry Number:', currentEnquiryNumber, '===')
+        }
+      } else {
+        console.log('=== Using existing Enquiry Number:', currentEnquiryNumber, '===')
+        console.log('=== Skipping SaveMultipleEnquiry call (already called) ===')
       }
-
-      console.log('\n' + '='.repeat(80))
-      console.log('GET PLAN BUTTON CLICKED - API CALL #1: SaveMultipleEnquiry')
-      console.log('='.repeat(80))
-      console.log('Endpoint: POST /api/parksons/SaveMultipleEnquiry')
-      console.log('Request Body:', JSON.stringify(enquiryData, null, 2))
-      console.log('='.repeat(80) + '\n')
-
-      const res = await saveMultipleEnquiry(enquiryData)
-
-      console.log('\n' + '='.repeat(80))
-      console.log('SaveMultipleEnquiry Response:')
-      console.log('='.repeat(80))
-      console.log(JSON.stringify(res, null, 2))
-      console.log('='.repeat(80) + '\n')
 
       // Call Shirin Job API when Get Plan is clicked
       const dims = jobData.dimensions || {}
