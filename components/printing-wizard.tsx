@@ -941,9 +941,25 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           console.log('=== Quotation Number ===', quotationNum)
           console.log('=== Quotation Data stored in state ===')
 
-          // Clear all cached form data
+          // Clear all form data and reset to defaults
+          console.log('\n' + '='.repeat(80))
+          console.log('🗑️ CLEARING ALL FORM DATA')
+          console.log('='.repeat(80))
+
           localStorage.removeItem(LOCAL_STORAGE_KEY)
-          console.log('=== Cleared cached form data ===')
+          localStorage.removeItem('printingWizard.enquiryNumber')
+          console.log('✅ Cleared cached form data from localStorage')
+
+          setJobData(DEFAULT_JOB_DATA)
+          console.log('✅ Reset form fields to default values')
+
+          setEnquiryNumber(null)
+          console.log('✅ Cleared enquiry number')
+
+          setPlanningResults(null)
+          console.log('✅ Cleared planning results')
+
+          console.log('='.repeat(80) + '\n')
 
           // Move to next step on success
           const newStep = currentStep + 1
