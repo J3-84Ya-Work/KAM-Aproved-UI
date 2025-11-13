@@ -33,11 +33,17 @@ export default function LoginPage() {
 
   // Load saved credentials on component mount
   useEffect(() => {
+    console.log("🔐 Login page loaded")
+    console.log("📋 Available users:", USERS.map(u => u.email).join(", "))
+
     const savedEmail = localStorage.getItem("rememberedEmail")
     const savedPassword = localStorage.getItem("rememberedPassword")
     if (savedEmail && savedPassword) {
+      console.log("✅ Found remembered credentials for:", savedEmail)
       setFormData({ email: savedEmail, password: savedPassword })
       setRememberMe(true)
+    } else {
+      console.log("ℹ️ No remembered credentials found")
     }
   }, [])
 
@@ -46,8 +52,12 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
+    console.log("🔐 Login attempt started")
+    console.log("📧 Email entered:", formData.email)
+
     // Convert email to lowercase for comparison
     const emailLowerCase = formData.email.toLowerCase().trim()
+    console.log("📧 Email normalized:", emailLowerCase)
 
     // Find matching user
     const user = USERS.find(
@@ -55,10 +65,13 @@ export default function LoginPage() {
     )
 
     if (!user) {
+      console.log("❌ Login failed: Invalid credentials")
       setError("Invalid email or password")
       setIsLoading(false)
       return
     }
+
+    console.log("✅ User found:", user.name, user.role)
 
     const authData = {
       name: user.name,
@@ -67,39 +80,47 @@ export default function LoginPage() {
       loggedInAt: new Date().toISOString(),
     }
 
-    localStorage.setItem("userAuth", JSON.stringify(authData))
-    localStorage.setItem(
-      "userProfile",
-      JSON.stringify({
-        name: user.name,
-        email: user.email,
-        phone: "",
-        company: "Parksons",
-        role: user.role,
-      }),
-    )
+    try {
+      localStorage.setItem("userAuth", JSON.stringify(authData))
+      localStorage.setItem(
+        "userProfile",
+        JSON.stringify({
+          name: user.name,
+          email: user.email,
+          phone: "",
+          company: "Parksons",
+          role: user.role,
+        }),
+      )
 
-    console.log("[v0] User logged in:", authData)
+      console.log("✅ Auth data saved to localStorage")
+      console.log("[v0] User logged in:", authData)
 
-    // Handle Remember Me functionality
-    if (rememberMe) {
-      localStorage.setItem("rememberedEmail", formData.email)
-      localStorage.setItem("rememberedPassword", formData.password)
-    } else {
-      localStorage.removeItem("rememberedEmail")
-      localStorage.removeItem("rememberedPassword")
-    }
-
-    // Dispatch event to notify other components
-    window.dispatchEvent(new Event("profileUpdated"))
-
-    setTimeout(() => {
-      if (user.role === "KAM") {
-        router.push("/") // KAM goes to home/new chat
+      // Handle Remember Me functionality
+      if (rememberMe) {
+        localStorage.setItem("rememberedEmail", formData.email)
+        localStorage.setItem("rememberedPassword", formData.password)
+        console.log("✅ Remember Me credentials saved")
       } else {
-        router.push("/approvals") // Vertical Head and H.O.D go to approvals
+        localStorage.removeItem("rememberedEmail")
+        localStorage.removeItem("rememberedPassword")
+        console.log("✅ Remember Me credentials cleared")
       }
-    }, 500)
+
+      // Dispatch event to notify other components
+      window.dispatchEvent(new Event("profileUpdated"))
+      console.log("✅ profileUpdated event dispatched")
+
+      setTimeout(() => {
+        const redirectPath = user.role === "KAM" ? "/" : "/approvals"
+        console.log("🔄 Redirecting to:", redirectPath)
+        router.push(redirectPath)
+      }, 500)
+    } catch (error) {
+      console.error("❌ Error saving auth data:", error)
+      setError("Failed to save login information. Please try again.")
+      setIsLoading(false)
+    }
   }
 
   return (
