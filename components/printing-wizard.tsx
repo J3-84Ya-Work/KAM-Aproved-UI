@@ -1322,9 +1322,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         </div>
 
         {[
-          { key: "jobName", label: "Job Name", placeholder: "Enter job name" },
-          { key: "quantity", label: "Quantity", placeholder: "Enter quantity" },
-        ].map(({ key, label, placeholder }) => (
+          { key: "jobName", label: "Job Name" },
+          { key: "quantity", label: "Quantity" },
+        ].map(({ key, label }) => (
           <div key={key} className="space-y-1">
             <Label htmlFor={key} className="text-sm font-medium text-slate-700">
               {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
@@ -1333,7 +1333,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               id={key}
               value={jobData[key as keyof JobData] as string}
               onChange={(e) => setJobData({ ...jobData, [key]: e.target.value })}
-              placeholder={placeholder}
               className="h-10 border border-slate-300 focus:border-[#005180] transition-colors"
             />
           </div>
@@ -1586,7 +1585,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                             })
                           }
                           className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
-                          placeholder="0"
                         />
                       </div>
                     )
@@ -1613,7 +1611,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                             })
                           }
                           className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
-                          placeholder="0"
                         />
                       </div>
                     )
@@ -1938,14 +1935,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {[
-              { key: "frontColor", label: "Front Color", placeholder: "Front Color" },
-              { key: "backColor", label: "Back Color", placeholder: "Back Color" },
-            ].map(({ key, label, placeholder }) => (
+              { key: "frontColor", label: "Front Color" },
+              { key: "backColor", label: "Back Color" },
+            ].map(({ key, label }) => (
               <div key={key}>
                 <Label className="text-sm font-medium text-slate-700 mb-2 block">{label}</Label>
                 <Input
                   className="h-8 text-sm"
-                  placeholder={placeholder}
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
                   onChange={(e) =>
                     setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: e.target.value } })
@@ -1957,14 +1953,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           <div className="grid grid-cols-2 gap-3">
             {[
-              { key: "specialFrontColor", label: "SP. Front Color", placeholder: "SP. Front Color" },
-              { key: "specialBackColor", label: "SP. Back Color", placeholder: "SP. Back Color" },
-            ].map(({ key, label, placeholder }) => (
+              { key: "specialFrontColor", label: "SP. Front Color" },
+              { key: "specialBackColor", label: "SP. Back Color" },
+            ].map(({ key, label }) => (
               <div key={key}>
                 <Label className="text-sm font-medium text-slate-700 mb-2 block">{label}</Label>
                 <Input
                   className="h-8 text-sm"
-                  placeholder={placeholder}
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
                   onChange={(e) =>
                     setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: e.target.value } })
