@@ -309,6 +309,28 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [finishError, setFinishError] = useState<string | null>(null)
   const [lastQualitiesContentType, setLastQualitiesContentType] = useState<string | null>(null)
 
+  // Planning and quotation state
+  const [planningResults, setPlanningResults] = useState<any[] | null>(null)
+  const [planningLoading, setPlanningLoading] = useState(false)
+  const [planningError, setPlanningError] = useState<string | null>(null)
+  const [quotationNumber, setQuotationNumber] = useState<string | null>(null)
+  const [quotationData, setQuotationData] = useState<any | null>(null)
+  // Track SaveMultipleEnquiry response - load from localStorage if available
+  const [enquiryNumber, setEnquiryNumber] = useState<string | null>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('printingWizard.enquiryNumber')
+        if (saved) {
+          console.log('📦 Loaded enquiry number from localStorage:', saved)
+          return saved
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load enquiryNumber from localStorage', e)
+    }
+    return null
+  })
+
   // Persist jobData to localStorage (debounced)
   useEffect(() => {
     const LOCAL_STORAGE_KEY = 'printingWizard.jobData.v1'
@@ -2498,28 +2520,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       </div>
     )
   }
-
-  // Planning: state and runner
-  const [planningResults, setPlanningResults] = useState<any[] | null>(null)
-  const [planningLoading, setPlanningLoading] = useState(false)
-  const [planningError, setPlanningError] = useState<string | null>(null)
-  const [quotationNumber, setQuotationNumber] = useState<string | null>(null)
-  const [quotationData, setQuotationData] = useState<any | null>(null)
-  // Track SaveMultipleEnquiry response - load from localStorage if available
-  const [enquiryNumber, setEnquiryNumber] = useState<string | null>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('printingWizard.enquiryNumber')
-        if (saved) {
-          console.log('📦 Loaded enquiry number from localStorage:', saved)
-          return saved
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load enquiryNumber from localStorage', e)
-    }
-    return null
-  })
 
   // Persist enquiryNumber to localStorage whenever it changes
   useEffect(() => {
