@@ -950,16 +950,16 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           console.log('Endpoint: GET /api/planwindow/getquotationDetail/' + quotationNum)
           console.log('='.repeat(80) + '\n')
 
-          const quotationData = await getQuotationDetail(quotationNum)
+          const quotationResponse = await getQuotationDetail(quotationNum)
 
           console.log('\n' + '='.repeat(80))
           console.log('GetQuotationDetail Response:')
           console.log('='.repeat(80))
-          console.log(JSON.stringify(quotationData, null, 2))
+          console.log(JSON.stringify(quotationResponse, null, 2))
           console.log('='.repeat(80) + '\n')
 
           setQuotationNumber(quotationNum)
-          setQuotationData(quotationData)
+          setQuotationData(quotationResponse)
           console.log('=== Quotation Number ===', quotationNum)
           console.log('=== Quotation Data stored in state ===')
 
@@ -3069,7 +3069,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       const { saveQuotation } = await import('@/lib/api-config')
 
       // Prepare quotation data
-      const quotationData = {
+      const quotationPayload = {
         clientName: jobData.clientName,
         jobName: jobData.jobName,
         cartonType: jobData.cartonType,
@@ -3088,7 +3088,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         createdAt: new Date().toISOString(),
       }
 
-      await saveQuotation(quotationData)
+      await saveQuotation(quotationPayload)
       setSaveSuccess(true)
 
       // Auto-hide success message after 3 seconds
