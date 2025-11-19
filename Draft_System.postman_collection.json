@@ -1,0 +1,225 @@
+{
+  "info": {
+    "name": "Draft System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      {
+        "key": "username",
+        "value": "Parksonsnew",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "Parksonsnew",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "DELETE /{draftId}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "CompanyID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "UserID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "ProductionUnitID",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "FYear",
+            "value": "2025-2026",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/{draftId}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "{draftId}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "GET /list",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "CompanyID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "UserID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "ProductionUnitID",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "FYear",
+            "value": "2025-2026",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/list",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "list"
+          ]
+        }
+      }
+    },
+    {
+      "name": "GET /load/{draftId}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "CompanyID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "UserID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "ProductionUnitID",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "FYear",
+            "value": "2025-2026",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/load/{draftId}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "load",
+            "{draftId}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PUT /rename/{draftId}",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "CompanyID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "UserID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "ProductionUnitID",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "FYear",
+            "value": "2025-2026",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"sampleKey\": \"sampleValue\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/rename/{draftId}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rename",
+            "{draftId}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST /save",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "CompanyID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "UserID",
+            "value": "2",
+            "type": "text"
+          },
+          {
+            "key": "ProductionUnitID",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "FYear",
+            "value": "2025-2026",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"sampleKey\": \"sampleValue\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/save",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "save"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.indusanalytics.co.in/api/draftsystem",
+      "type": "string"
+    }
+  ]
+}

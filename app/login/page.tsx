@@ -18,6 +18,7 @@ const USERS = [
   { email: "suresh@parksons.com", password: "suresh@123", name: "Suresh Menon", role: "H.O.D" },
   { email: "kavita@parksons.com", password: "kavita@123", name: "Kavita Reddy", role: "H.O.D" },
   { email: "vertical@parksons.com", password: "vertical@123", name: "Vertical Head", role: "Vertical Head" },
+  { email: "purchase@parksons.com", password: "purchase@123", name: "Purchase Manager", role: "Purchase" },
 ]
 
 export default function LoginPage() {
@@ -93,7 +94,10 @@ export default function LoginPage() {
         }),
       )
 
-      console.log("✅ Auth data saved to localStorage")
+      // Also set cookie for server-side middleware
+      document.cookie = `userAuth=${JSON.stringify(authData)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Strict`
+
+      console.log("✅ Auth data saved to localStorage and cookie")
       console.log("[v0] User logged in:", authData)
 
       // Handle Remember Me functionality
@@ -112,7 +116,14 @@ export default function LoginPage() {
       console.log("✅ profileUpdated event dispatched")
 
       setTimeout(() => {
-        const redirectPath = user.role === "KAM" ? "/" : "/approvals"
+        let redirectPath = "/"
+        if (user.role === "KAM") {
+          redirectPath = "/"
+        } else if (user.role === "Purchase") {
+          redirectPath = "/rate-queries"
+        } else {
+          redirectPath = "/approvals"
+        }
         console.log("🔄 Redirecting to:", redirectPath)
         router.push(redirectPath)
       }, 500)

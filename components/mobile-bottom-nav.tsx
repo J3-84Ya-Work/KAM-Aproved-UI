@@ -96,6 +96,9 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
     localStorage.removeItem("userAuth")
     localStorage.removeItem("userProfile")
 
+    // Clear authentication cookie
+    document.cookie = "userAuth=; path=/; max-age=0; SameSite=Strict"
+
     // Close side panel
     setShowSidePanel(false)
 

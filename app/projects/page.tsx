@@ -5,19 +5,17 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { ProjectsContent } from "@/components/projects-content"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { FloatingActionButton } from "@/components/floating-action-button"
-import { useRouter } from "next/navigation"
+import { ProjectBriefingForm, ProjectBriefingData } from "@/components/project-briefing-form"
 import { useState, useCallback } from "react"
-import { getViewableKAMs, isHOD, getCurrentUser } from "@/lib/permissions"
+import { getViewableKAMs } from "@/lib/permissions"
 
 export default function ProjectsPage() {
-  const router = useRouter()
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+  const [showProjectBriefing, setShowProjectBriefing] = useState(false)
+  const [projectType, setProjectType] = useState<"JDO" | "Commercial" | "SDO" | "PN" | null>(null)
 
   const viewableKams = getViewableKAMs()
   const isKAM = viewableKams.length === 1 // KAM can only see themselves
-  const isHODUser = isHOD()
-  const currentUser = getCurrentUser()
-  const isVerticalHead = currentUser?.role === "Vertical Head"
 
   const handleExport = () => {
     alert("Export functionality will download all projects as CSV/Excel")
@@ -42,19 +40,30 @@ export default function ProjectsPage() {
   }
 
   const handleNewSDO = () => {
-    alert("Create New SDO - Feature coming soon")
+    setProjectType("SDO")
+    setShowProjectBriefing(true)
   }
 
   const handleNewJDO = () => {
-    alert("Create New JDO - Feature coming soon")
+    setProjectType("JDO")
+    setShowProjectBriefing(true)
   }
 
   const handleNewCommercial = () => {
-    alert("Create New Commercial Order - Feature coming soon")
+    setProjectType("Commercial")
+    setShowProjectBriefing(true)
   }
 
   const handleNewPN = () => {
-    alert("Create New PN Order - Feature coming soon")
+    setProjectType("PN")
+    setShowProjectBriefing(true)
+  }
+
+  const handleProjectBriefingSubmit = (data: ProjectBriefingData) => {
+    console.log(`Creating new ${projectType}:`, data)
+    // TODO: Save project briefing data to database/API
+    // TODO: Navigate to next step or show success message
+    alert(`✅ ${projectType} Project Briefing saved successfully!\n\nNext: Create the actual ${projectType} order.`)
   }
 
   // Dynamic actions based on active tab
@@ -129,6 +138,15 @@ export default function ProjectsPage() {
         <FloatingActionButton actions={actions} />
         <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
+
+      {/* Project Briefing Form Dialog */}
+      <ProjectBriefingForm
+        open={showProjectBriefing}
+        onOpenChange={setShowProjectBriefing}
+        onSubmit={handleProjectBriefingSubmit}
+        docNumber={`FDMKT-${projectType}-${Date.now().toString().slice(-6)}`}
+        projectType={projectType}
+      />
     </SidebarProvider>
   )
 }

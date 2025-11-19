@@ -46,12 +46,25 @@ export const apiClient = {
       method: 'GET',
       headers: getDefaultHeaders(),
     })
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`)
-    }
 
     // Get raw text first
     const text = await response.text()
+
+    if (!response.ok) {
+      // Try to parse error response
+      let errorMessage = `API error: ${response.status}`
+      try {
+        const errorData = JSON.parse(text)
+        errorMessage = errorData?.Message || errorData?.message || errorData?.error || errorMessage
+      } catch {
+        // If not JSON, use raw text
+        if (text) errorMessage = text
+      }
+      const error = new Error(errorMessage) as any
+      error.response = { status: response.status, data: text }
+      throw error
+    }
+
     try {
       // Try to parse as JSON
       let data: any = JSON.parse(text)
@@ -82,12 +95,24 @@ export const apiClient = {
       headers: getDefaultHeaders(),
       body: JSON.stringify(data),
     })
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`)
-    }
 
     // Get raw text first
     const text = await response.text()
+
+    if (!response.ok) {
+      // Try to parse error response
+      let errorMessage = `API error: ${response.status}`
+      try {
+        const errorData = JSON.parse(text)
+        errorMessage = errorData?.Message || errorData?.message || errorData?.error || errorMessage
+      } catch {
+        // If not JSON, use raw text
+        if (text) errorMessage = text
+      }
+      const error = new Error(errorMessage) as any
+      error.response = { status: response.status, data: text }
+      throw error
+    }
 
     try {
       // Try to parse as JSON
@@ -344,6 +369,34 @@ export async function getAllMachinesAPI() {
   }
 
   return items.map((it) => ({ MachineID: it.MachineID ?? it.MachineId ?? it.id ?? it.ID, MachineName: it.MachineName ?? it.Name ?? it.name ?? String(it), ...it }))
+}
+
+// Helper: fetch machine production unit list
+export async function fetchMachineProductionUnitList() {
+  const endpoint = `api/machinemaster/getmachineproductionunitlist`
+  return apiClient.get(endpoint)
+}
+
+// Stable wrapper: getMachineProductionUnitListAPI
+export async function getMachineProductionUnitListAPI() {
+  const res = await fetchMachineProductionUnitList()
+
+  let items: any[] = []
+  if (!res) return items
+  if (Array.isArray(res)) items = res
+  else if (res?.data && Array.isArray(res.data)) items = res.data
+  else if (res?.Data && Array.isArray(res.Data)) items = res.Data
+  else if (res?.d && Array.isArray(res.d)) items = res.d
+  else if (typeof res === 'object') {
+    const firstArray = Object.values(res).find((v) => Array.isArray(v))
+    if (Array.isArray(firstArray)) items = firstArray as any[]
+  }
+
+  return items.map((it) => ({
+    ProductionUnitID: it.ProductionUnitID ?? it.ProductionUnitId ?? it.id ?? it.ID,
+    ProductionUnitName: it.ProductionUnitName ?? it.Name ?? it.name ?? String(it),
+    ...it
+  }))
 }
 
 // Helper: Post Shirin_Job planning request

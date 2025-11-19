@@ -54,6 +54,7 @@ export function AICostingChat({
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Initialize speech recognition
   useEffect(() => {
@@ -168,19 +169,36 @@ export function AICostingChat({
     return () => clearTimeout(timer)
   }, [initialMessage, sendChatMessage])
 
+  // Auto-scroll to bottom when messages change or typing indicator appears
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
-      if (scrollContainer) {
-        // Smooth scroll to bottom with a slight delay to ensure content is rendered
-        setTimeout(() => {
-          scrollContainer.scrollTo({
-            top: scrollContainer.scrollHeight,
-            behavior: 'smooth'
-          })
-        }, 100)
+    const scrollToBottom = () => {
+      // Method 1: Scroll using messagesEndRef (most reliable)
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' })
+      }
+
+      // Method 2: Fallback - scroll container directly
+      if (scrollAreaRef.current) {
+        const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight
+        }
       }
     }
+
+    // Immediate scroll
+    scrollToBottom()
+
+    // Multiple delayed scrolls to handle long content rendering
+    const timers = [
+      setTimeout(scrollToBottom, 50),
+      setTimeout(scrollToBottom, 150),
+      setTimeout(scrollToBottom, 300),
+      setTimeout(scrollToBottom, 500),
+      setTimeout(scrollToBottom, 1000)
+    ]
+
+    return () => timers.forEach(timer => clearTimeout(timer))
   }, [messages, isTyping])
 
   const handleSendMessage = () => {
@@ -219,6 +237,16 @@ export function AICostingChat({
 
   const handleOptionSelect = (option: string) => {
     sendChatMessage(option)
+
+    // Force scroll after option is selected
+    setTimeout(() => {
+      if (scrollAreaRef.current) {
+        const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight
+        }
+      }
+    }, 100)
   }
 
   if (isInitialLoading) {
@@ -302,6 +330,9 @@ export function AICostingChat({
               </div>
             </div>
           )}
+
+          {/* Invisible element at the end for scrolling */}
+          <div ref={messagesEndRef} className="h-1" />
         </div>
       </ScrollArea>
 

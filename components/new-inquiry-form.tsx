@@ -12,6 +12,8 @@ import { Plus, Save, X, Edit, Trash2, Upload } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { EnquiryAPI, MasterDataAPI, formatDateForAPI, formatDateForDisplay, type BasicEnquiryData, type DetailedEnquiryData } from "@/lib/api/enquiry"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/ui/toaster"
 
 // Dropdown options
 const ENQUIRY_FORM_TYPE_OPTIONS = [
@@ -133,6 +135,7 @@ interface NewInquiryFormProps {
 
 export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }: NewInquiryFormProps = {}) {
   const router = useRouter()
+  const { toast } = useToast()
   const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({})
   const [formType, setFormType] = useState<InquiryFormType>('detailed') // Default to detailed for edit
   const [isLoading, setIsLoading] = useState(false)
@@ -392,11 +395,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           const response = await MasterDataAPI.getItemQualities(contentTypeForAPI, null)
           if (response.success && response.data) {
             setQualities(response.data)
-            // Auto-fill if only one option
-            if (response.data.length === 1) {
-              const qualityValue = response.data[0].Quality || response.data[0]
-              handlePlanDetailChange('ItemPlanQuality', qualityValue)
-            }
           } else {
           }
         } else {
@@ -463,11 +461,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           )
           if (response.success && response.data) {
             setGsmOptions(response.data)
-            // Auto-fill if only one option
-            if (response.data.length === 1) {
-              const gsmValue = typeof response.data[0] === 'object' ? ((response.data[0] as any).gsm || (response.data[0] as any).GSM) : response.data[0]
-              handlePlanDetailChange('ItemPlanGsm', gsmValue?.toString() || response.data[0].toString())
-            }
           } else {
           }
         } else {
@@ -525,11 +518,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         )
         if (response.success && response.data) {
           setFinishOptions(response.data)
-          // Auto-fill if only one option
-          if (response.data.length === 1) {
-            const finishValue = typeof response.data[0] === 'object' ? ((response.data[0] as any).Finish || (response.data[0] as any).finish) : response.data[0]
-            handlePlanDetailChange('ItemPlanFinish', finishValue?.toString() || response.data[0].toString())
-          }
         }
       }
     }
@@ -648,7 +636,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
   const handleApplyContent = () => {
     if (selectedContentIds.length === 0) {
-      alert("Please select at least one content")
+      toast({
+        variant: "destructive",
+        title: "No Content Selected",
+        description: "Please select at least one content",
+      })
       return
     }
 
@@ -676,7 +668,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     setSelectedProcesses([])
     setPlanDetails({})
 
-    alert(`${newContentData.length} content(s) added successfully`)
+    toast({
+      title: "Success",
+      description: `${newContentData.length} content(s) added successfully`,
+    })
   }
 
   const handleContentDelete = (contentId: number) => {
@@ -697,24 +692,95 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     if (!formData.plant) errors.plant = true
     if (!formData.unit) errors.unit = true
 
+    // Annual Quantity is mandatory for detailed form
+    if (formType === 'detailed' && (!formData.annualQuantity || Number(formData.annualQuantity) === 0)) {
+      errors.annualQuantity = true
+    }
+
+    // Quality and GSM are mandatory for detailed form when content is selected
+    if (formType === 'detailed' && selectedContentIds.length > 0) {
+      if (!planDetails.ItemPlanQuality) {
+        toast({
+          variant: "destructive",
+          title: "Quality Required",
+          description: "Please select paper quality",
+        })
+        return
+      }
+      if (!planDetails.ItemPlanGsm) {
+        toast({
+          variant: "destructive",
+          title: "GSM Required",
+          description: "Please select GSM (paper weight)",
+        })
+        return
+      }
+    }
+
     // File name validation
     const invalidPattern = /[^A-Za-z0-9._\-\s()]/g
     for (const file of formData.attachments) {
       if (invalidPattern.test(file.name)) {
-        alert(
-          `File name contains unsupported special characters (only letters, numbers, _, -, . are allowed): ${file.name}`
-        )
+        toast({
+          variant: "destructive",
+          title: "Invalid File Name",
+          description: `File name contains unsupported special characters. Only letters, numbers, _, -, . are allowed: ${file.name}`,
+        })
         return
       }
       if (file.name.length > 65) {
-        alert(`File name must not exceed 60 characters (including extension): ${file.name}`)
+        toast({
+          variant: "destructive",
+          title: "File Name Too Long",
+          description: `File name must not exceed 60 characters (including extension): ${file.name}`,
+        })
         return
+      }
+    }
+
+    // Validate size fields for detailed form
+    if (formType === 'detailed' && selectedContentIds.length > 0) {
+      const firstSelectedContent = contentTypes.find((c) => selectedContentIds.includes(c.ContentID))
+      if (firstSelectedContent?.ContentSizes) {
+        const requiredSizeFields = firstSelectedContent.ContentSizes.split(',').map((s: string) => s.trim())
+        const missingSizes: string[] = []
+
+        const fieldLabels: Record<string, string> = {
+          'SizeHeight': 'Height',
+          'SizeLength': 'Length',
+          'SizeWidth': 'Width',
+          'SizeOpenflap': 'Open Flap',
+          'SizePastingflap': 'Pasting Flap',
+          'JobUps': 'Job Ups',
+          'SizeDiameter': 'Diameter',
+          'SizeDepth': 'Depth',
+        }
+
+        for (const field of requiredSizeFields) {
+          if (!planDetails[field] || planDetails[field].toString().trim() === '') {
+            const label = fieldLabels[field] || field
+            missingSizes.push(label)
+          }
+        }
+
+        if (missingSizes.length > 0) {
+          toast({
+            variant: "destructive",
+            title: "Missing Size Fields",
+            description: `Please fill in all size fields: ${missingSizes.join(', ')}. All size dimensions are mandatory for this content type.`,
+          })
+          return
+        }
       }
     }
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors)
-      alert("Please fill in all mandatory fields (highlighted in red)")
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fill in all mandatory fields (highlighted in red)",
+      })
       return
     }
 
@@ -769,10 +835,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         const response = await EnquiryAPI.saveBasicEnquiry([basicEnquiryData], null, getProductionUnitID())
 
         if (response.success) {
-          alert("Enquiry created successfully!")
+          toast({
+            title: "Success",
+            description: "Enquiry created successfully!",
+          })
           router.push("/inquiries")
         } else {
-          alert(`Failed to save enquiry: ${response.error}`)
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: `Failed to save enquiry: ${response.error}`,
+          })
         }
       } else {
         // Submit Detailed Enquiry
@@ -918,18 +991,29 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         }
 
         if (response.success) {
-          alert(editMode ? "Enquiry updated successfully!" : "Enquiry created successfully!")
+          toast({
+            title: "Success",
+            description: editMode ? "Enquiry updated successfully!" : "Enquiry created successfully!",
+          })
           if (onSaveSuccess) {
             onSaveSuccess()
           } else {
             router.push("/inquiries")
           }
         } else {
-          alert(`Failed to ${editMode ? 'update' : 'save'} enquiry: ${response.error}`)
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: `Failed to ${editMode ? 'update' : 'save'} enquiry: ${response.error}`,
+          })
         }
       }
     } catch (error: any) {
-      alert(`An error occurred: ${error.message}`)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `An error occurred: ${error.message}`,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -962,7 +1046,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   })()
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
       {/* Section 1: Basic Information */}
       <Card>
         <CardHeader className="pb-3">
@@ -978,7 +1063,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   id="enquiryNo"
                   value={isFetchingEnquiryNo ? "Loading..." : (formData.enquiryNo || "")}
                   disabled
-                  className="text-sm"
+                  className="text-sm h-10"
                 />
               </div>
               <div>
@@ -988,7 +1073,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   type="date"
                   value={formData.enquiryDate}
                   onChange={(e) => handleInputChange("enquiryDate", e.target.value)}
-                  className="text-sm"
+                  className="text-sm h-10"
                 />
               </div>
             </div>
@@ -999,7 +1084,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 <div>
                   <Label htmlFor="salesType" className="text-sm">Sales Type *</Label>
                   <Select value={formData.salesType} onValueChange={(value) => handleInputChange("salesType", value)}>
-                    <SelectTrigger id="salesType" className="text-sm">
+                    <SelectTrigger id="salesType" className="text-sm h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1014,7 +1099,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 <div>
                   <Label htmlFor="enquiryType" className="text-sm">Enquiry Type *</Label>
                   <Select value={formData.enquiryType} onValueChange={(value) => handleInputChange("enquiryType", value)}>
-                    <SelectTrigger id="enquiryType" className="text-sm">
+                    <SelectTrigger id="enquiryType" className="text-sm h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1038,7 +1123,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 value={formData.clientName}
                 onValueChange={(value) => handleInputChange("clientName", value)}
               >
-                <SelectTrigger id="clientName" className={`text-sm w-full ${validationErrors.clientName ? "border-red-500" : ""}`}>
+                <SelectTrigger id="clientName" className={`text-sm h-10 w-full ${validationErrors.clientName ? "border-red-500" : ""}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1075,14 +1160,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     id="concernPerson"
                     value={formData.concernPerson}
                     onChange={(e) => handleInputChange("concernPerson", e.target.value)}
+                    className="h-10"
                   />
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="concernPersonMobile">Mobile No.</Label>
                   <Input
                     id="concernPersonMobile"
+                    type="tel"
                     value={formData.concernPersonMobile}
                     onChange={(e) => handleInputChange("concernPersonMobile", e.target.value)}
+                    className="h-10"
                   />
                 </div>
               </>
@@ -1095,7 +1183,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 id="jobName"
                 value={formData.jobName}
                 onChange={(e) => handleInputChange("jobName", e.target.value)}
-                className={validationErrors.jobName ? "border-red-500" : ""}
+                className={`h-10 ${validationErrors.jobName ? "border-red-500" : ""}`}
               />
             </div>
           </div>
@@ -1110,46 +1198,53 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         <CardContent className="pt-0">
           <div className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4">
             {formType === 'detailed' && (
-              <div className="col-span-2 md:col-span-2">
+              <div className="col-span-2 md:col-span-3">
                 <Label htmlFor="productCode">Product Code</Label>
                 <Input
                   id="productCode"
                   value={formData.productCode}
                   onChange={(e) => handleInputChange("productCode", e.target.value)}
+                  className="h-10"
                 />
               </div>
             )}
             {/* Row: Quantity & Annual Quantity (same row on mobile) */}
-            <div className={formType === 'basic' ? "col-span-1 md:col-span-3" : "col-span-1 md:col-span-1"}>
+            <div className={formType === 'basic' ? "col-span-1 md:col-span-4" : "col-span-1 md:col-span-2"}>
               <Label htmlFor="quantity">
                 Quantity <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="quantity"
                 type="number"
+                min="1"
                 value={formData.quantity}
                 onChange={(e) => handleInputChange("quantity", e.target.value)}
-                className={validationErrors.quantity ? "border-red-500" : ""}
+                className={`h-10 ${validationErrors.quantity ? "border-red-500" : ""}`}
               />
             </div>
             {formType === 'detailed' && (
-              <div className="col-span-1 md:col-span-2">
-                <Label htmlFor="annualQuantity">Annual Quantity</Label>
+              <div className="col-span-1 md:col-span-3">
+                <Label htmlFor="annualQuantity">
+                  Annual Quantity <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="annualQuantity"
                   type="number"
+                  min="1"
                   value={formData.annualQuantity}
                   onChange={(e) => handleInputChange("annualQuantity", e.target.value)}
+                  className={`h-10 ${validationErrors.annualQuantity ? "border-red-500" : ""}`}
+                  required
                 />
               </div>
             )}
             {/* Row: UOM & Division Name (same row on mobile) */}
-            <div className={formType === 'basic' ? "col-span-1 md:col-span-3" : "col-span-1 md:col-span-2"}>
+            <div className={formType === 'basic' ? "col-span-1 md:col-span-4" : "col-span-1 md:col-span-2"}>
               <Label htmlFor="unit">
                 UOM <span className="text-red-500">*</span>
               </Label>
               <Select value={formData.unit} onValueChange={(value) => handleInputChange("unit", value)}>
-                <SelectTrigger id="unit">
+                <SelectTrigger id="unit" className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1163,12 +1258,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             </div>
             {formType === 'detailed' && (
               <>
-                <div className="col-span-1 md:col-span-3">
+                <div className="col-span-1 md:col-span-2">
                   <Label htmlFor="divisionName">Division Name</Label>
                   <Input
                     id="divisionName"
                     value={formData.divisionName}
                     onChange={(e) => handleInputChange("divisionName", e.target.value)}
+                    className="h-10"
                   />
                 </div>
               </>
@@ -1189,7 +1285,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 Production Unit <span className="text-red-500">*</span>
               </Label>
               <Select value={formData.plant} onValueChange={(value) => handleInputChange("plant", value)}>
-                <SelectTrigger id="plant" className={validationErrors.plant ? "border-red-500" : ""}>
+                <SelectTrigger id="plant" className={`h-10 ${validationErrors.plant ? "border-red-500" : ""}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1215,6 +1311,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     id="supplyLocation"
                     value={formData.supplyLocation}
                     onChange={(e) => handleInputChange("supplyLocation", e.target.value)}
+                    className="h-10"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -1223,6 +1320,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     id="paymentTerms"
                     value={formData.paymentTerms}
                     onChange={(e) => handleInputChange("paymentTerms", e.target.value)}
+                    className="h-10"
                   />
                 </div>
               </>
@@ -1235,7 +1333,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 value={formData.salesPerson}
                 onValueChange={(value) => handleInputChange("salesPerson", value)}
               >
-                <SelectTrigger id="salesPerson" className={validationErrors.salesPerson ? "border-red-500" : ""}>
+                <SelectTrigger id="salesPerson" className={`h-10 ${validationErrors.salesPerson ? "border-red-500" : ""}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1258,8 +1356,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 <Label htmlFor="expectCompletion">Expect Completion (Days)</Label>
                 <Input
                   id="expectCompletion"
+                  type="number"
+                  min="0"
                   value={formData.expectCompletion}
                   onChange={(e) => handleInputChange("expectCompletion", e.target.value)}
+                  className="h-10"
                 />
               </div>
             )}
@@ -1292,7 +1393,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   }
                 }}
               >
-                <SelectTrigger id="contentCategory" className="text-sm">
+                <SelectTrigger id="contentCategory" className="text-sm h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1333,7 +1434,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     </span>
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Select Content Type</DialogTitle>
                   </DialogHeader>
@@ -1350,6 +1451,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                           handleContentSelect(content.ContentID)
                           setContentDialogOpen(false)
                         }}
+                        title={content.ContentName}
                       >
                         <div className="aspect-square mb-2 bg-gray-100 rounded overflow-hidden">
                           <img
@@ -1362,7 +1464,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                             }}
                           />
                         </div>
-                        <p className="text-sm font-medium text-center truncate">
+                        <p className="text-sm font-medium text-center line-clamp-2 min-h-[2.5rem]">
                           {content.ContentName}
                         </p>
                       </div>
@@ -1379,7 +1481,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             return firstSelectedContent && firstSelectedContent.ContentSizes
           })() && (
             <div className="border rounded-lg p-3 md:p-4 mb-4">
-              <span className="text-sm font-medium block mb-3">Sizes <span className="text-xs font-normal text-muted-foreground">(in MM)</span></span>
+              <span className="text-sm font-medium block mb-3">Sizes <span className="text-red-500">*</span> <span className="text-xs font-normal text-muted-foreground">(in MM)</span></span>
               {(() => {
                 const firstSelectedContent = contentTypes.find((c) => selectedContentIds.includes(c.ContentID))
                 if (!firstSelectedContent?.ContentSizes) return null
@@ -1412,13 +1514,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                           const label = fieldLabels[field] || field
                           return (
                             <div key={field}>
-                              <Label htmlFor={`content-${field}`} className="text-sm">{label}</Label>
+                              <Label htmlFor={`content-${field}`} className="text-sm">
+                                {label} <span className="text-red-500">*</span>
+                              </Label>
                               <Input
                                 id={`content-${field}`}
                                 type="number"
+                                min="0"
                                 value={planDetails[field] || ''}
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
-                                className="text-sm"
+                                className="text-sm h-10"
+                                required
                               />
                             </div>
                           )
@@ -1433,13 +1539,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                           const label = fieldLabels[field] || field
                           return (
                             <div key={field}>
-                              <Label htmlFor={`content-${field}`} className="text-sm">{label}</Label>
+                              <Label htmlFor={`content-${field}`} className="text-sm">
+                                {label} <span className="text-red-500">*</span>
+                              </Label>
                               <Input
                                 id={`content-${field}`}
                                 type="number"
+                                min="0"
                                 value={planDetails[field] || ''}
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
-                                className="text-sm"
+                                className="text-sm h-10"
+                                required
                               />
                             </div>
                           )
@@ -1462,9 +1572,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="planFColor"
                     type="number"
+                    min="0"
                     value={planDetails.PlanFColor || ''}
                     onChange={(e) => handlePlanDetailChange('PlanFColor', e.target.value)}
-                    className="text-sm"
+                    className="text-sm h-10"
                   />
                 </div>
                 <div>
@@ -1472,9 +1583,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="planBColor"
                     type="number"
+                    min="0"
                     value={planDetails.PlanBColor || ''}
                     onChange={(e) => handlePlanDetailChange('PlanBColor', e.target.value)}
-                    className="text-sm"
+                    className="text-sm h-10"
                   />
                 </div>
                 <div>
@@ -1482,9 +1594,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="planSpeFColor"
                     type="number"
+                    min="0"
                     value={planDetails.PlanSpeFColor || ''}
                     onChange={(e) => handlePlanDetailChange('PlanSpeFColor', e.target.value)}
-                    className="text-sm"
+                    className="text-sm h-10"
                   />
                 </div>
                 <div>
@@ -1492,22 +1605,25 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="planSpeBColor"
                     type="number"
+                    min="0"
                     value={planDetails.PlanSpeBColor || ''}
                     onChange={(e) => handlePlanDetailChange('PlanSpeBColor', e.target.value)}
-                    className="text-sm"
+                    className="text-sm h-10"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Paper & Color Details Section */}
+          {/* Paper Details Section */}
           {selectedContentIds.length > 0 && (
             <div className="border rounded-lg p-3 md:p-4 mb-4">
-              <span className="text-sm font-medium block mb-3">Paper & Color Details</span>
+              <span className="text-sm font-medium block mb-3">Paper Details</span>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="itemPlanQuality" className="text-sm">Quality</Label>
+                  <Label htmlFor="itemPlanQuality" className="text-sm">
+                    Quality <span className="text-red-500">*</span>
+                  </Label>
                   <Select
                     value={planDetails.ItemPlanQuality || ''}
                     onValueChange={(value) => {
@@ -1517,8 +1633,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       handlePlanDetailChange('ItemPlanMill', '')
                       handlePlanDetailChange('ItemPlanFinish', '')
                     }}
+                    required
                   >
-                    <SelectTrigger id="itemPlanQuality" className="text-sm">
+                    <SelectTrigger id="itemPlanQuality" className="text-sm h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1535,7 +1652,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="itemPlanGsm" className="text-sm">GSM</Label>
+                  <Label htmlFor="itemPlanGsm" className="text-sm">
+                    GSM <span className="text-red-500">*</span>
+                  </Label>
                   <Select
                     value={planDetails.ItemPlanGsm || ''}
                     onValueChange={(value) => {
@@ -1545,8 +1664,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       handlePlanDetailChange('ItemPlanFinish', '')
                     }}
                     disabled={!planDetails.ItemPlanQuality}
+                    required
                   >
-                    <SelectTrigger id="itemPlanGsm" className="text-sm">
+                    <SelectTrigger id="itemPlanGsm" className="text-sm h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1853,5 +1973,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         </Button>
       </div>
     </form>
+    <Toaster />
+    </>
   )
 }

@@ -96,6 +96,8 @@ interface JobData {
   machine: string
   machineId?: string
   machineName?: string
+  productionUnit: string
+  productionUnitId?: string | number
   wastage: number
   grainDirection: "along" | "across" | "both"
   selectedPlan: any
@@ -186,6 +188,19 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     setTimeout(() => setToast(null), 4000) // Auto hide after 4 seconds
   }
 
+  // Extract error message from API error
+  const extractErrorMessage = (e: any, fallback: string = 'An error occurred'): string => {
+    if (e?.response?.data) {
+      try {
+        const errorData = typeof e.response.data === 'string' ? JSON.parse(e.response.data) : e.response.data
+        return errorData?.Message || errorData?.message || errorData?.error || e.message || fallback
+      } catch {
+        return e.message || fallback
+      }
+    }
+    return e?.message || fallback
+  }
+
   // Local storage key for persistence
   const LOCAL_STORAGE_KEY = 'printingWizard.jobData.v1'
 
@@ -233,6 +248,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   machine: "",
   machineId: "",
   machineName: "",
+  productionUnit: "",
+  productionUnitId: "",
     wastage: 6,
     grainDirection: "both",
     selectedPlan: null,
@@ -289,7 +306,23 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [machinesList, setMachinesList] = useState<any[]>([])
   const [loadingMachines, setLoadingMachines] = useState(false)
   const [machinesError, setMachinesError] = useState<string | null>(null)
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("")
+  const [productionUnitsList, setProductionUnitsList] = useState<any[]>([])
+  const [loadingProductionUnits, setLoadingProductionUnits] = useState(false)
+  const [productionUnitsError, setProductionUnitsError] = useState<string | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(LOCAL_STORAGE_KEY)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          return parsed.selectedCategoryId || ""
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load selectedCategoryId from localStorage', e)
+    }
+    return ""
+  })
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [categorySearch, setCategorySearch] = useState<string>("")
   const [contentSearch, setContentSearch] = useState<string>("")
@@ -331,13 +364,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     return null
   })
 
-  // Persist jobData to localStorage (debounced)
+  // Persist jobData and selectedCategoryId to localStorage (debounced)
   useEffect(() => {
     const LOCAL_STORAGE_KEY = 'printingWizard.jobData.v1'
     const handle = setTimeout(() => {
       try {
         if (typeof window !== 'undefined') {
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(jobData))
+          const dataToSave = { ...jobData, selectedCategoryId }
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave))
         }
       } catch (e) {
         console.error('Failed to save jobData to localStorage', e)
@@ -345,7 +379,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     }, 700)
 
     return () => clearTimeout(handle)
-  }, [jobData])
+  }, [jobData, selectedCategoryId])
   const [showJsonPreview, setShowJsonPreview] = useState(false)
 
   // Load qualities for the selected content (reusable for retry)
@@ -437,6 +471,25 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       return []
     } finally {
       setLoadingMachines(false)
+    }
+  }, [])
+
+  const loadProductionUnits = useCallback(async () => {
+    try {
+      setLoadingProductionUnits(true)
+      setProductionUnitsError(null)
+      const { getMachineProductionUnitListAPI } = await import('@/lib/api-config')
+      const res = await getMachineProductionUnitListAPI()
+      if (Array.isArray(res) && res.length > 0) setProductionUnitsList(res)
+      else setProductionUnitsList([])
+      return Array.isArray(res) ? res : []
+    } catch (err: any) {
+      console.error('Failed to load production units', err)
+      setProductionUnitsList([])
+      setProductionUnitsError(err?.message ? String(err.message) : 'Failed to load production units')
+      return []
+    } finally {
+      setLoadingProductionUnits(false)
     }
   }, [])
 
@@ -588,6 +641,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     loadMachines()
   }, [loadMachines])
 
+  useEffect(() => {
+    loadProductionUnits()
+  }, [loadProductionUnits])
+
   // Fetch categories once on mount
   useEffect(() => {
     fetchCategories()
@@ -668,7 +725,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       if (!jobData.clientName) missing.push('Client Name')
       if (!jobData.jobName) missing.push('Job Name')
       if (!jobData.quantity) missing.push('Quantity')
-
       if (missing.length > 0) {
         showToast(`Please fill: ${missing.join(', ')}`, 'error')
         return
@@ -695,6 +751,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       const missing = []
       if (!jobData.paperDetails.quality) missing.push('Quality')
       if (!jobData.paperDetails.gsm) missing.push('GSM')
+      if (!jobData.productionUnit) missing.push('Production Unit')
 
       if (missing.length > 0) {
         showToast(`Please fill: ${missing.join(', ')}`, 'error')
@@ -723,7 +780,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           }
         } catch (e: any) {
           console.error('Planning failed during nextStep navigation', e)
-          setPlanningError(e?.message ? String(e.message) : 'Planning failed')
+          const errorMsg = extractErrorMessage(e, 'Planning failed')
+          setPlanningError(errorMsg)
+          showToast(`Planning Error: ${errorMsg}`, 'error')
         }
       } else if (currentStep === bestPlansIndex) {
         // If on Best Plans, create booking first, then get quotation details
@@ -734,6 +793,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         if (!selectedPlan) {
           console.error('=== No plan selected ===')
           setPlanningError('Please select a plan first')
+          showToast('Please select a plan first', 'error')
           return
         }
 
@@ -794,6 +854,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               return 'Choose Best'
             })(),
             PlanWastageValue: 0,
+            ProductionUnitID: Number(jobData.productionUnitId) || 0,
             Trimmingleft: 0,
             Trimmingright: 0,
             Trimmingtop: 0,
@@ -863,7 +924,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             SizeZipperLength: 0,
             ZipperWeightPerMeter: 0,
             JobSizeInputUnit: 'MM',
-            LedgerID: 0
+            LedgerID: 0,
+            ShowPlanUptoWastePercent: 100
           }
 
           // Validate we have EnquiryID before proceeding
@@ -989,7 +1051,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           onStepChange?.(steps[newStep])
         } catch (e: any) {
           console.error('Create quotation failed', e)
-          setPlanningError(e?.message ? String(e.message) : 'Failed to create quotation')
+          const errorMsg = extractErrorMessage(e, 'Failed to create quotation')
+          setPlanningError(errorMsg)
+          showToast(`Quotation Error: ${errorMsg}`, 'error')
         } finally {
           setPlanningLoading(false)
         }
@@ -1027,6 +1091,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             return 'Choose Best'
           })(),
           PlanWastageValue: 0,
+          ProductionUnitID: Number(jobData.productionUnitId) || 0,
           Trimmingleft: 0,
           Trimmingright: 0,
           Trimmingtop: 0,
@@ -1096,7 +1161,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           SizeZipperLength: 0,
           ZipperWeightPerMeter: 0,
           JobSizeInputUnit: 'MM',
-          LedgerID: 4
+          LedgerID: 4,
+          ShowPlanUptoWastePercent: 100
         }
 
         // Build enquiry data - exact format matching API spec
@@ -1162,7 +1228,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           onStepChange?.(steps[newStep])
         } catch (e: any) {
           console.error('DirectCosting failed', e)
-          setPlanningError(e?.message ? String(e.message) : 'Failed to create quotation')
+          const errorMsg = extractErrorMessage(e, 'Failed to create quotation')
+          setPlanningError(errorMsg)
+          showToast(`DirectCosting Error: ${errorMsg}`, 'error')
         } finally {
           setPlanningLoading(false)
         }
@@ -1244,7 +1312,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         }
       } catch (e: any) {
         console.error('Planning failed during handleStepClick navigation', e)
-        setPlanningError(e?.message ? String(e.message) : 'Planning failed')
+        const errorMsg = extractErrorMessage(e, 'Planning failed')
+        setPlanningError(errorMsg)
+        showToast(`Planning Error: ${errorMsg}`, 'error')
         // do not navigate
       }
       return
@@ -1440,22 +1510,29 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           />
         </div>
 
-        {[
-          { key: "jobName", label: "Job Name" },
-          { key: "quantity", label: "Quantity" },
-        ].map(({ key, label }) => (
-          <div key={key} className="space-y-1">
-            <Label htmlFor={key} className="text-sm font-medium text-slate-700">
-              {label} <span className="text-red-600 font-bold text-xl ml-1">*</span>
-            </Label>
-            <Input
-              id={key}
-              value={jobData[key as keyof JobData] as string}
-              onChange={(e) => setJobData({ ...jobData, [key]: e.target.value })}
-              className="h-10 border border-slate-300 focus:border-[#005180] transition-colors"
-            />
-          </div>
-        ))}
+        <div className="space-y-1">
+          <Label htmlFor="jobName" className="text-sm font-medium text-slate-700">
+            Job Name <span className="text-red-600 font-bold text-xl ml-1">*</span>
+          </Label>
+          <Input
+            id="jobName"
+            value={jobData.jobName}
+            onChange={(e) => setJobData({ ...jobData, jobName: e.target.value })}
+            className="h-10 border border-slate-300 focus:border-[#005180] transition-colors"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="quantity" className="text-sm font-medium text-slate-700">
+            Quantity <span className="text-red-600 font-bold text-xl ml-1">*</span>
+          </Label>
+          <Input
+            id="quantity"
+            value={jobData.quantity}
+            onChange={(e) => setJobData({ ...jobData, quantity: e.target.value })}
+            className="h-10 border border-slate-300 focus:border-[#005180] transition-colors"
+          />
+        </div>
       </div>
     </div>
     )
@@ -1569,12 +1646,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                           setJobData({ ...jobData, cartonType: content.ContentName })
 
                           try {
-                            // load qualities for this content type and auto-fill paper details from API (first quality)
-                            const fetched = await loadQualitiesForSelection(content.ContentName)
-                            if (Array.isArray(fetched) && fetched.length > 0) {
-                              const firstQ = fetched[0]
-                              setJobData((prev) => ({ ...prev, paperDetails: { ...prev.paperDetails, quality: firstQ.Quality ?? String(firstQ.QualityID ?? ''), qualityId: firstQ.QualityID ?? firstQ.Quality ?? '' } }))
-                            }
+                            // Load qualities for this content type (without auto-selecting)
+                            await loadQualitiesForSelection(content.ContentName)
                           } catch (e) {
                           }
 
@@ -1800,10 +1873,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
   const renderPaperDetails = () => (
     <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-      {renderStepHeader("Paper & Color Details", false)}
-      <div className="text-center py-2">
-        <p className="text-slate-600 text-sm">Choose your specifications</p>
-      </div>
+      {renderStepHeader("Paper Details", false)}
 
       <div className="space-y-4">
         {/* Paper Quality and GSM in first row */}
@@ -1856,16 +1926,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 )}
               </SelectContent>
             </Select>
-            <div className="mt-2 text-xs text-red-600">
-              {qualitiesError && (
-                <div className="flex items-center justify-between">
-                  <div>{qualitiesError}</div>
-                  <Button size="sm" variant="ghost" onClick={() => loadQualitiesForSelection(lastQualitiesContentType ?? undefined)}>
-                    Retry
-                  </Button>
-                </div>
-              )}
-            </div>
           </div>
 
           <div className="bg-white rounded-lg p-3 border border-slate-200">
@@ -1903,16 +1963,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   )}
                 </SelectContent>
               </Select>
-              <div className="text-xs text-red-600">
-                {gsmError && (
-                  <div className="flex items-center gap-2">
-                    <div>{gsmError}</div>
-                    <Button size="sm" variant="ghost" onClick={() => loadGsmForSelection()}>
-                      Retry
-                    </Button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -1956,17 +2006,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   )}
                 </SelectContent>
               </Select>
-
-              <div className="text-xs text-red-600">
-                {millError && (
-                  <div className="flex items-center gap-2">
-                    <div>{millError}</div>
-                    <Button size="sm" variant="ghost" onClick={() => loadMillForSelection()}>
-                      Retry
-                    </Button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -2007,42 +2046,66 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   )}
                 </SelectContent>
               </Select>
-
-              <div className="text-xs text-red-600">
-                {finishError && (
-                  <div className="flex items-center gap-2">
-                    <div>{finishError}</div>
-                    <Button size="sm" variant="ghost" onClick={() => loadFinishForSelection()}>
-                      Retry
-                    </Button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Grain Direction */}
-        <div className="bg-white rounded-lg p-4 border border-slate-200">
-          <Label className="text-sm font-medium text-slate-700 mb-3 block">Grain Direction</Label>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: 'Both', value: 'both' },
-              { label: 'With Grain', value: 'along' },
-              { label: 'Across Grain', value: 'across' },
-            ].map((d) => (
-              <Button
-                key={d.value}
-                variant={jobData.grainDirection === d.value ? 'default' : 'outline'}
-                onClick={() => setJobData({ ...jobData, grainDirection: d.value as 'along' | 'across' | 'both' })}
-                className={`h-10 text-xs font-medium transition-all duration-300 whitespace-nowrap ${
-                  jobData.grainDirection === d.value ? 'bg-[#005180] text-white' : 'border border-slate-300 hover:border-[#005180]'
-                }`}
-              >
-                {d.label}
-              </Button>
-            ))}
-          </div>
+        {/* Production Unit */}
+        <div className="bg-white rounded-lg p-3 border border-slate-200">
+          <Label className="text-sm font-medium text-slate-700 mb-2 block">
+            Production Unit <span className="text-red-500 font-bold text-lg ml-1">*</span>
+          </Label>
+          <Select
+            value={String(jobData.productionUnitId ?? jobData.productionUnit)}
+            onValueChange={(value) => {
+              const matched = productionUnitsList.find(
+                (p) => String(p.ProductionUnitID) === String(value) || String(p.ProductionUnitName) === String(value)
+              )
+              if (matched) {
+                setJobData({
+                  ...jobData,
+                  productionUnit: matched.ProductionUnitName ?? String(value),
+                  productionUnitId: matched.ProductionUnitID ?? String(value),
+                })
+              } else {
+                setJobData({
+                  ...jobData,
+                  productionUnit: String(value),
+                  productionUnitId: value,
+                })
+              }
+            }}
+          >
+            <SelectTrigger className="h-8 w-full">
+              <SelectValue placeholder="Select production unit" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px] overflow-y-auto">
+              {loadingProductionUnits ? (
+                <SelectItem value="__loading" disabled>Loading...</SelectItem>
+              ) : productionUnitsError ? (
+                <SelectItem value="__error" disabled>{productionUnitsError}</SelectItem>
+              ) : productionUnitsList && productionUnitsList.length > 0 ? (
+                productionUnitsList.map((unit) => {
+                  const unitValue = String(unit.ProductionUnitID ?? unit.ProductionUnitName ?? '')
+                  if (!unitValue || unitValue === '' || unitValue === 'undefined' || unitValue === 'null') {
+                    return null
+                  }
+                  return (
+                    <SelectItem
+                      key={String(unit.ProductionUnitID ?? Math.random())}
+                      value={unitValue}
+                      className="truncate max-w-[250px]"
+                      title={unit.ProductionUnitName ?? `Unit ${unit.ProductionUnitID}`}
+                    >
+                      <span className="truncate block">{unit.ProductionUnitName ?? `Unit ${unit.ProductionUnitID}`}</span>
+                    </SelectItem>
+                  )
+                }).filter(Boolean)
+              ) : (
+                <SelectItem value="__none" disabled>No production units available</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Color Details Section */}
@@ -2089,6 +2152,29 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             ))}
           </div>
 
+        </div>
+
+        {/* Grain Direction */}
+        <div className="bg-white rounded-lg p-4 border border-slate-200">
+          <Label className="text-sm font-medium text-slate-700 mb-3 block">Grain Direction</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Both', value: 'both' },
+              { label: 'With Grain', value: 'along' },
+              { label: 'Across Grain', value: 'across' },
+            ].map((d) => (
+              <Button
+                key={d.value}
+                variant={jobData.grainDirection === d.value ? 'default' : 'outline'}
+                onClick={() => setJobData({ ...jobData, grainDirection: d.value as 'along' | 'across' | 'both' })}
+                className={`h-10 text-xs font-medium transition-all duration-300 whitespace-nowrap ${
+                  jobData.grainDirection === d.value ? 'bg-[#005180] text-white' : 'border border-slate-300 hover:border-[#005180]'
+                }`}
+              >
+                {d.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -2640,6 +2726,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       })(),
       PlanWastageValue: Number(jd.wastage) || 5,             // USER PROVIDED or default 5
 
+      // Production Unit - USER PROVIDED
+      ProductionUnitID: Number(jd.productionUnitId) || 0,
+
       // Trimming - USER PROVIDED
       Trimmingleft: Number(dims.trimming?.left) || 0,
       Trimmingright: Number(dims.trimming?.right) || 0,
@@ -2773,7 +2862,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       LedgerID: 0,
 
       // Plan display limit - DEFAULT
-      ShowPlanUptoWastePercent: 30,
+      ShowPlanUptoWastePercent: 100,
     }
 
     return payload
@@ -2890,6 +2979,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           return 'Choose Best'
         })(),
         PlanWastageValue: 0,
+        ProductionUnitID: Number(jobData.productionUnitId) || 0,
         Trimmingleft: 0,
         Trimmingright: 0,
         Trimmingtop: 0,
@@ -2959,7 +3049,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         SizeZipperLength: 0,
         ZipperWeightPerMeter: 0,
         JobSizeInputUnit: 'MM',
-        LedgerID: 4
+        LedgerID: 4,
+        ShowPlanUptoWastePercent: 100
       }
 
       console.log('=== Resolved OperIDs for Shirin Job ===', resolveOperIdFromProcesses(jobData))
@@ -3000,6 +3091,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         }
       } catch (shirinErr: any) {
         console.error('=== ShirinJob API failed (non-blocking) ===', shirinErr)
+        const errorMsg = extractErrorMessage(shirinErr, 'ShirinJob API failed')
+        showToast(`ShirinJob Error: ${errorMsg}`, 'error')
         // Set mock results even if Shirin Job fails
         setPlanningResults([{
           success: true,
@@ -3015,7 +3108,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       return true
     } catch (err: any) {
       console.error('=== SaveMultipleEnquiry failed ===', err)
-      setPlanningError(err?.message ?? 'Failed to save enquiry')
+      const errorMsg = extractErrorMessage(err, 'Failed to save enquiry')
+      setPlanningError(errorMsg)
+      showToast(`API Error: ${errorMsg}`, 'error')
       return false
     } finally {
       setPlanningLoading(false)
@@ -3181,8 +3276,9 @@ Generated with KAM Printing Wizard
       setTimeout(() => setSaveEnquirySuccess(false), 3000)
     } catch (err: any) {
       console.error('Failed to save enquiry', err)
-      setSaveEnquiryError(err?.message ?? 'Failed to save enquiry')
-      showToast(`Failed to save enquiry: ${err?.message}`, 'error')
+      const errorMsg = extractErrorMessage(err, 'Failed to save enquiry')
+      setSaveEnquiryError(errorMsg)
+      showToast(`Failed to save enquiry: ${errorMsg}`, 'error')
     } finally {
       setSaveEnquiryLoading(false)
     }

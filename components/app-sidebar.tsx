@@ -13,6 +13,7 @@ import {
   LogOut,
   UserCircle,
   Home,
+  DollarSign,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -59,6 +60,11 @@ const roleBasedNavItems = {
       url: "/quotations",
       icon: FileCheck,
       badge: 8,
+    },
+    {
+      title: "Ask Rate",
+      url: "/ask-rate",
+      icon: DollarSign,
     },
     {
       title: "Projects",
@@ -151,6 +157,18 @@ const roleBasedNavItems = {
       icon: Settings,
     },
   ],
+  Purchase: [
+    {
+      title: "Rate Queries",
+      url: "/rate-queries",
+      icon: DollarSign,
+    },
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: Settings,
+    },
+  ],
 }
 
 export function AppSidebar() {
@@ -221,6 +239,9 @@ export function AppSidebar() {
     // Clear localStorage
     localStorage.removeItem("userAuth")
     localStorage.removeItem("userProfile")
+
+    // Clear authentication cookie
+    document.cookie = "userAuth=; path=/; max-age=0; SameSite=Strict"
 
     // Redirect to login page
     router.push("/login")

@@ -2,7 +2,7 @@
  * Role-based permission utilities
  */
 
-export type UserRole = "KAM" | "H.O.D" | "Vertical Head"
+export type UserRole = "KAM" | "H.O.D" | "Vertical Head" | "Purchase"
 
 export interface UserAuth {
   name: string
@@ -54,6 +54,13 @@ export function isHOD(): boolean {
  */
 export function isVerticalHead(): boolean {
   return hasRole("Vertical Head")
+}
+
+/**
+ * Check if user is Purchase (can answer rate queries)
+ */
+export function isPurchase(): boolean {
+  return hasRole("Purchase")
 }
 
 /**

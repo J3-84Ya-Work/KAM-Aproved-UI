@@ -75,6 +75,11 @@ export default function MorePage() {
 
   const handleLogout = () => {
     localStorage.removeItem("userAuth")
+    localStorage.removeItem("userProfile")
+
+    // Clear authentication cookie
+    document.cookie = "userAuth=; path=/; max-age=0; SameSite=Strict"
+
     router.push("/login")
   }
 

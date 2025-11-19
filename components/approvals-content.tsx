@@ -329,13 +329,26 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
           return `${year}-${month}-${day} 00:00:00.000`
         }
 
-        const response = await QuotationsAPI.getQuotations({
+        const requestParams = {
           FilterSTR: 'All',
           FromDate: formatDate(fromDate),
           ToDate: formatDate(toDate),
-        }, null)
+        }
 
-        console.log('📋 Fetched quotations for approval:', response.data?.length || 0)
+        console.log('\n' + '='.repeat(80))
+        console.log('📋 FETCHING QUOTATIONS FOR APPROVAL')
+        console.log('='.repeat(80))
+        console.log('📍 API Endpoint: POST https://api.indusanalytics.co.in/api/planwindow/getallbookings')
+        console.log('='.repeat(80))
+        console.log('📤 Request Parameters:')
+        console.log(JSON.stringify(requestParams, null, 2))
+        console.log('='.repeat(80))
+
+        const response = await QuotationsAPI.getQuotations(requestParams, null)
+
+        console.log('📥 API Response:')
+        console.log('Total Quotations Received:', response.data?.length || 0)
+        console.log('='.repeat(80) + '\n')
 
         if (response.success && response.data) {
           console.log('📊 Sample quotation for debugging:', response.data[0])
@@ -356,7 +369,9 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
           const pendingQuotations = response.data
             .filter((item: any) => {
               // Show quotations that are sent for approval (not yet approved)
-              const shouldShow = (item.Status === 'Sent to HOD' || item.Status === 'Sent to Vertical Head') && item.IsInternalApproved !== true
+              const isCorrectStatus = item.Status === 'Sent to HOD' || item.Status === 'Sent to Vertical Head'
+              const notYetApproved = item.IsInternalApproved !== true
+              const shouldShow = isCorrectStatus && notYetApproved
 
               console.log(`🔍 Checking quotation ${item.BookingNo}:`, {
                 Status: item.Status,
@@ -364,11 +379,17 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                 IsSentToHOD: item.Status === 'Sent to HOD',
                 IsSentToVH: item.Status === 'Sent to Vertical Head',
                 IsInternalApproved: item.IsInternalApproved,
+                IsInternalApprovedType: typeof item.IsInternalApproved,
+                JobApproved: item.JobApproved,
+                IsCorrectStatus: isCorrectStatus,
+                NotYetApproved: notYetApproved,
                 ShouldShow: shouldShow
               })
 
               if (shouldShow) {
                 console.log('✅ Including quotation:', item.BookingNo, 'Status:', item.Status, 'Margin:', item.Margin)
+              } else {
+                console.log('❌ Excluding quotation:', item.BookingNo, 'Reason:', !isCorrectStatus ? 'Wrong status' : 'Already approved')
               }
               return shouldShow
             })
@@ -468,20 +489,41 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
 
     setIsUpdatingStatus(true)
     try {
-      console.log(`🔄 ${status === 'Approved' ? 'Approving' : 'Rejecting'} quotation:`, bookingId)
-
-      const response = await QuotationsAPI.updateQuotationStatus({
+      const requestBody = {
         BookingID: bookingId,
         Status: status
-      }, null)
+      }
+
+      console.log('\n' + '='.repeat(80))
+      console.log(`🔄 ${status === 'Approved' ? 'APPROVING' : 'REJECTING'} QUOTATION`)
+      console.log('='.repeat(80))
+      console.log('📍 API Endpoint: POST https://api.indusanalytics.co.in/api/planwindow/updateqoutestatus')
+      console.log('='.repeat(80))
+      console.log('📤 Request Body:')
+      console.log(JSON.stringify(requestBody, null, 2))
+      console.log('='.repeat(80))
+
+      const response = await QuotationsAPI.updateQuotationStatus(requestBody, null)
+
+      console.log('📥 API Response:')
+      console.log('Status:', response.success ? '✅ SUCCESS' : '❌ FAILED')
+      console.log('Response Data:', JSON.stringify(response.data, null, 2))
+      console.log('Error:', response.error || 'None')
+      console.log('='.repeat(80) + '\n')
 
       if (response.success) {
         alert(`✅ Quotation ${status.toLowerCase()} successfully!${remark ? `\nRemark: ${remark}` : ''}`)
         setRemark("")
         setSelectedApproval(null)
 
-        // Refresh the data
+        // Add a small delay to ensure API has processed the update
+        console.log('⏳ Waiting 500ms before refreshing data from API...')
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Refresh the data from API
+        console.log('🔄 Refreshing approval list from API after status update...')
         await fetchQuotationsForApproval()
+        console.log('✅ Approval list refreshed from API')
       } else {
         alert(`❌ Failed to ${status.toLowerCase()} quotation: ${response.error}`)
       }
