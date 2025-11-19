@@ -146,6 +146,9 @@ export async function loadDraft(draftId: number): Promise<any> {
   try {
     const endpoint = `${API_BASE_URL}/api/draftsystem/load/${draftId}`
 
+    console.log('[Load Draft API] Endpoint:', endpoint)
+    console.log('[Load Draft API] Draft ID:', draftId)
+
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: {
@@ -159,13 +162,19 @@ export async function loadDraft(draftId: number): Promise<any> {
       cache: 'no-store',
     })
 
+    console.log('[Load Draft API] Response status:', response.status)
+
     if (!response.ok) {
       throw new Error(`Failed to load draft: ${response.status}`)
     }
 
-    return await response.json()
+    const data = await response.json()
+    console.log('[Load Draft API] Raw response:', data)
+    console.log('[Load Draft API] Response keys:', Object.keys(data))
+
+    return data
   } catch (error) {
-    console.error('Error loading draft:', error)
+    console.error('[Load Draft API] Error loading draft:', error)
     throw error
   }
 }

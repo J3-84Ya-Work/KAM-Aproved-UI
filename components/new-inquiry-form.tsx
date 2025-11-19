@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, Save, X, Edit, Trash2, Upload } from "lucide-react"
+import { Plus, Save, X, Edit, Trash2, Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { EnquiryAPI, MasterDataAPI, formatDateForAPI, formatDateForDisplay, type BasicEnquiryData, type DetailedEnquiryData } from "@/lib/api/enquiry"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { useAutoSaveDraft, type FormType } from "@/hooks/use-auto-save-draft"
 
 // Dropdown options
 const ENQUIRY_FORM_TYPE_OPTIONS = [
@@ -141,6 +142,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   const [isLoading, setIsLoading] = useState(false)
   const [isFetchingEnquiryNo, setIsFetchingEnquiryNo] = useState(!editMode) // Don't fetch if editing
 
+  // Track loaded draft ID for updates
+  const [loadedDraftId, setLoadedDraftId] = useState<number | null>(null)
+
   // API data state
   const [categories, setCategories] = useState<any[]>([])
   const [contentTypes, setContentTypes] = useState<any[]>([])
@@ -206,6 +210,41 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   const [millOptions, setMillOptions] = useState<any[]>([])
   const [finishOptions, setFinishOptions] = useState<any[]>([])
 
+  // Prepare draft data for auto-save
+  const draftFormData = {
+    ...formData,
+    formType: formType,
+    selectedCategoryId,
+    selectedContentIds,
+    contentGridData,
+    planDetails,
+    selectedProcesses,
+    sizeInputs,
+    selectedContent,
+  }
+
+  // Auto-save hook - only enable if not in edit mode and form has data
+  const { saveStatus, lastSaved, currentDraftId } = useAutoSaveDraft({
+    formData: draftFormData,
+    formType: 'ManualForm',
+    draftName: formData.jobName
+      ? `${formData.jobName}_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}`
+      : `Manual_Inquiry_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}`,
+    enabled: !editMode && (formData.jobName !== '' || formData.clientName !== ''), // Only save if there's meaningful data
+    debounceMs: 2000,  // Save 2 seconds after user stops typing
+    initialDraftId: loadedDraftId,  // Pass the loaded draft ID for updates
+    onSaveSuccess: (draftId) => {
+      console.log('[Manual Form] Draft saved/updated with ID:', draftId)
+      // Update the loaded draft ID if this was a new save
+      if (!loadedDraftId && draftId) {
+        setLoadedDraftId(draftId)
+      }
+    },
+    onSaveError: (error) => {
+      console.error('[Manual Form] Failed to save draft:', error)
+    },
+  })
+
   // Set form type based on selected form type (Basic or Detailed)
   useEffect(() => {
     if (formType === 'basic') {
@@ -214,6 +253,121 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       setFormData(prev => ({ ...prev, formType: 'Detailed' }))
     }
   }, [formType])
+
+  // Load draft from sessionStorage if loadDraft=true
+  // Wait for master data to be loaded before applying draft data
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const shouldLoadDraft = urlParams.get('loadDraft') === 'true'
+
+    // Only load draft after master data is available
+    const masterDataLoaded = categories.length > 0 && clients.length > 0
+
+    if (shouldLoadDraft && masterDataLoaded) {
+      const draftDataStr = sessionStorage.getItem('loadedDraft')
+      if (draftDataStr) {
+        try {
+          const draftData = JSON.parse(draftDataStr)
+
+          console.log('[Draft Load] Loaded draft data:', draftData)
+          console.log('[Draft Load] Master data loaded - Categories:', categories.length, 'Clients:', clients.length)
+
+          // The draft data structure is flat at the top level
+          // Extract the form data fields directly
+          const {
+            FormType,
+            formType,
+            selectedCategoryId,
+            selectedContentIds,
+            contentGridData,
+            planDetails,
+            selectedProcesses,
+            sizeInputs,
+            selectedContent,
+            LoadedDraftID,  // Extract the draft ID
+            ...formFields
+          } = draftData
+
+          // Set the loaded draft ID so it can be used for updates
+          if (LoadedDraftID) {
+            setLoadedDraftId(LoadedDraftID)
+            console.log('[Draft Load] Set loaded draft ID:', LoadedDraftID)
+          }
+
+          // Restore basic form fields (all fields except the special state ones)
+          if (Object.keys(formFields).length > 0) {
+            setFormData(prev => ({ ...prev, ...formFields }))
+            console.log('[Draft Load] Restored form fields:', formFields)
+          }
+
+          // Restore form type
+          if (formType) {
+            setFormType(formType)
+            console.log('[Draft Load] Restored form type:', formType)
+          }
+
+          // Restore selected category
+          if (selectedCategoryId) {
+            setSelectedCategoryId(selectedCategoryId)
+            console.log('[Draft Load] Restored category ID:', selectedCategoryId)
+          }
+
+          // Restore selected content
+          if (selectedContentIds && selectedContentIds.length > 0) {
+            setSelectedContentIds(selectedContentIds)
+            console.log('[Draft Load] Restored content IDs:', selectedContentIds)
+          }
+
+          if (selectedContent) {
+            setSelectedContent(selectedContent)
+            console.log('[Draft Load] Restored selected content:', selectedContent)
+          }
+
+          // Restore content grid data
+          if (contentGridData && contentGridData.length > 0) {
+            setContentGridData(contentGridData)
+            console.log('[Draft Load] Restored content grid data')
+          }
+
+          // Restore plan details
+          if (planDetails && Object.keys(planDetails).length > 0) {
+            setPlanDetails(planDetails)
+            console.log('[Draft Load] Restored plan details:', planDetails)
+          }
+
+          // Restore selected processes
+          if (selectedProcesses && selectedProcesses.length > 0) {
+            setSelectedProcesses(selectedProcesses)
+            console.log('[Draft Load] Restored processes:', selectedProcesses)
+          }
+
+          // Restore size inputs
+          if (sizeInputs && Object.keys(sizeInputs).length > 0) {
+            setSizeInputs(sizeInputs)
+            console.log('[Draft Load] Restored size inputs:', sizeInputs)
+          }
+
+          // Prevent enquiry number from being fetched
+          setIsFetchingEnquiryNo(false)
+
+          // Clear session storage after loading
+          sessionStorage.removeItem('loadedDraft')
+
+          toast({
+            title: "Draft Loaded",
+            description: "Your draft has been loaded successfully. Continue where you left off.",
+          })
+        } catch (error) {
+          console.error('Failed to parse draft data:', error)
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to load draft data.",
+          })
+        }
+      }
+    }
+  }, [categories, clients, toast])
 
   // Populate form with initial data when in edit mode
   useEffect(() => {
@@ -1951,6 +2105,35 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           </div>
         </CardContent>
       </Card>
+
+      {/* Auto-save Status Indicator */}
+      {!editMode && (formData.jobName !== '' || formData.clientName !== '') && (
+        <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground pb-2">
+          {saveStatus === 'saving' && (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Saving draft...</span>
+            </>
+          )}
+          {saveStatus === 'saved' && (
+            <>
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              <span className="text-green-600">Draft saved</span>
+              {lastSaved && (
+                <span className="text-muted-foreground">
+                  {lastSaved.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </>
+          )}
+          {saveStatus === 'error' && (
+            <>
+              <AlertCircle className="h-3 w-3 text-red-600" />
+              <span className="text-red-600">Failed to save draft</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row justify-end gap-3 pb-20 md:pb-6">

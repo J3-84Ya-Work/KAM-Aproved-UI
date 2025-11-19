@@ -2,11 +2,13 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import type React from "react"
 import { useRouter } from "next/navigation"
-import { Send, Loader2, Mic, ArrowLeft } from "lucide-react"
+import { Send, Loader2, Mic, ArrowLeft, Save, CheckCircle2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { sendMessage } from "@/lib/chat-api"
+import { useAutoSaveDraft, type FormType } from "@/hooks/use-auto-save-draft"
+import { Badge } from "@/components/ui/badge"
 
 interface Message {
   id: string
@@ -44,7 +46,13 @@ export function AICostingChat({
   chatId,
   initialMessage,
   onBackToWelcome,
-}: { chatId?: string | null; initialMessage?: string | null; onBackToWelcome?: () => void }) {
+  loadedDraftData,
+}: {
+  chatId?: string | null
+  initialMessage?: string | null
+  onBackToWelcome?: () => void
+  loadedDraftData?: any
+}) {
   const router = useRouter()
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [messages, setMessages] = useState<Message[]>([])
@@ -55,6 +63,42 @@ export function AICostingChat({
   const inputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Track loaded draft ID for updates
+  const [loadedDraftId, setLoadedDraftId] = useState<number | null>(null)
+
+  // Prepare form data for auto-save
+  const formData = {
+    conversationType: 'DynamicFill',
+    messages: messages.map(msg => ({
+      content: msg.content,
+      sender: msg.sender,
+      timestamp: msg.timestamp,
+      options: msg.options,
+    })),
+    currentInput: inputValue,
+    chatId: chatId,
+  }
+
+  // Auto-save hook
+  const { saveStatus, lastSaved, currentDraftId } = useAutoSaveDraft({
+    formData,
+    formType: 'DynamicFill',
+    draftName: `AI_Chat_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}`,
+    enabled: messages.length > 0, // Only save if there are messages
+    debounceMs: 2000,  // Save 2 seconds after user stops typing
+    initialDraftId: loadedDraftId,  // Pass the loaded draft ID for updates
+    onSaveSuccess: (draftId) => {
+      console.log('[AI Chat] Draft saved/updated with ID:', draftId)
+      // Update the loaded draft ID if this was a new save
+      if (!loadedDraftId && draftId) {
+        setLoadedDraftId(draftId)
+      }
+    },
+    onSaveError: (error) => {
+      console.error('[AI Chat] Failed to save draft:', error)
+    },
+  })
 
   // Initialize speech recognition
   useEffect(() => {
@@ -159,7 +203,60 @@ export function AICostingChat({
     const timer = setTimeout(() => {
       setIsInitialLoading(false)
 
-      if (initialMessage) {
+      // Check if we need to load a draft
+      const urlParams = new URLSearchParams(window.location.search)
+      const shouldLoadDraft = urlParams.get('loadDraft') === 'true'
+
+      if (shouldLoadDraft) {
+        const draftDataStr = sessionStorage.getItem('loadedDraft')
+        if (draftDataStr) {
+          try {
+            const draftData = JSON.parse(draftDataStr)
+
+            console.log('[AI Chat] Loading draft data:', draftData)
+
+            // The draft data is flat at the top level with FormType added
+            // Extract the loaded draft ID
+            if (draftData.LoadedDraftID) {
+              setLoadedDraftId(draftData.LoadedDraftID)
+              console.log('[AI Chat] Set loaded draft ID:', draftData.LoadedDraftID)
+            }
+
+            // Restore messages
+            if (draftData.messages && Array.isArray(draftData.messages)) {
+              setMessages(draftData.messages)
+            }
+
+            // Restore current input
+            if (draftData.currentInput) {
+              setInputValue(draftData.currentInput)
+            }
+
+            // Restore chat ID
+            if (draftData.chatId) {
+              setChatId(draftData.chatId)
+            }
+
+            // Clear session storage after loading
+            sessionStorage.removeItem('loadedDraft')
+
+            console.log('[AI Chat] Draft loaded successfully')
+
+            // Show toast notification (create a custom event since we can't use toast hook in timeout)
+            setTimeout(() => {
+              const toastEvent = new CustomEvent('show-toast', {
+                detail: {
+                  title: "Draft Loaded",
+                  description: "Your conversation has been restored. Continue where you left off.",
+                }
+              })
+              window.dispatchEvent(toastEvent)
+            }, 100)
+          } catch (error) {
+            console.error('[AI Chat] Failed to parse draft data:', error)
+          }
+        }
+      } else if (initialMessage) {
         // Mark this as the first message so it sends "I want costing" to API
         // but displays the user's original message in the chat
         sendChatMessage(initialMessage, { isFirstMessage: true })
@@ -338,6 +435,34 @@ export function AICostingChat({
 
       {/* Fixed Input Area */}
       <div className="border-t border-border/50 bg-background px-4 py-3 shadow-sm shrink-0 z-10">
+        {/* Auto-save status indicator */}
+        {messages.length > 0 && (
+          <div className="flex items-center justify-end gap-2 mb-2 text-xs text-muted-foreground">
+            {saveStatus === 'saving' && (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Saving draft...</span>
+              </>
+            )}
+            {saveStatus === 'saved' && (
+              <>
+                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                <span className="text-green-600">Draft saved</span>
+                {lastSaved && (
+                  <span className="text-muted-foreground">
+                    {lastSaved.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+              </>
+            )}
+            {saveStatus === 'error' && (
+              <>
+                <AlertCircle className="h-3 w-3 text-red-600" />
+                <span className="text-red-600">Failed to save draft</span>
+              </>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-3 input-focus-glow focus-within:border-primary">
           <Button
             variant="ghost"
