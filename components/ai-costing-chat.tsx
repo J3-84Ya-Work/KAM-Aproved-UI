@@ -71,14 +71,26 @@ export function AICostingChat({
   const formData = {
     conversationType: 'DynamicFill',
     messages: messages.map(msg => ({
+      id: msg.id,
       content: msg.content,
       sender: msg.sender,
-      timestamp: msg.timestamp,
+      timestamp: msg.timestamp.toISOString(), // Convert Date to string for JSON serialization
       options: msg.options,
     })),
     currentInput: inputValue,
     chatId: chatId,
   }
+
+  // Log formData when messages change for debugging
+  useEffect(() => {
+    if (messages.length > 0) {
+      console.log('[AI Chat] FormData for auto-save:', {
+        messageCount: messages.length,
+        hasInput: !!inputValue,
+        chatId: chatId,
+      })
+    }
+  }, [messages, inputValue, chatId])
 
   // Auto-save hook
   const { saveStatus, lastSaved, currentDraftId } = useAutoSaveDraft({
@@ -222,9 +234,14 @@ export function AICostingChat({
               console.log('[AI Chat] Set loaded draft ID:', draftData.LoadedDraftID)
             }
 
-            // Restore messages
+            // Restore messages (convert timestamp strings back to Date objects)
             if (draftData.messages && Array.isArray(draftData.messages)) {
-              setMessages(draftData.messages)
+              const restoredMessages = draftData.messages.map((msg: any) => ({
+                ...msg,
+                timestamp: new Date(msg.timestamp), // Convert string back to Date
+              }))
+              setMessages(restoredMessages)
+              console.log('[AI Chat] Restored messages:', restoredMessages.length)
             }
 
             // Restore current input
@@ -232,10 +249,8 @@ export function AICostingChat({
               setInputValue(draftData.currentInput)
             }
 
-            // Restore chat ID
-            if (draftData.chatId) {
-              setChatId(draftData.chatId)
-            }
+            // Note: chatId is passed as a prop, so we don't restore it from draft
+            // The component will use the chatId prop if provided
 
             // Clear session storage after loading
             sessionStorage.removeItem('loadedDraft')

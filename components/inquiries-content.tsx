@@ -1077,7 +1077,7 @@ export function InquiriesContent() {
 
       {/* Edit Inquiry Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-7xl max-h-[95vh] p-0 flex flex-col">
+        <DialogContent className="max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] p-0 flex flex-col m-0">
           <DialogHeader className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-slate-100 to-gray-100 flex-shrink-0">
             <DialogTitle className="text-xl font-bold text-gray-900">Edit Enquiry</DialogTitle>
             <DialogDescription className="text-sm font-semibold text-gray-600">

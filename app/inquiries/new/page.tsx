@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation'
 import { NewInquiryForm } from '@/components/new-inquiry-form'
 import { PrintingWizard } from '@/components/printing-wizard'
+import { AICostingChat } from '@/components/ai-costing-chat'
 import { AppHeader } from '@/components/app-header'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'

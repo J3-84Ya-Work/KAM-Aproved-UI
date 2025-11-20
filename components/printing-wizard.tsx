@@ -5,6 +5,8 @@ import { useReactToPrint } from 'react-to-print'
 import { useRouter } from 'next/navigation'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { useAutoSaveDraft } from "@/hooks/use-auto-save-draft"
+import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -201,8 +203,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     return e?.message || fallback
   }
 
-  // Local storage key for persistence
-  const LOCAL_STORAGE_KEY = 'printingWizard.jobData.v1'
+  // Local storage key removed - now using Draft System API instead
 
   const DEFAULT_JOB_DATA: JobData = {
     clientType: "existing",
@@ -269,27 +270,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     quantities: [],
   }
 
-  const [jobData, setJobData] = useState<JobData>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const raw = localStorage.getItem(LOCAL_STORAGE_KEY)
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          // prefer saved arrays/objects where present (avoid shallow-merge losing arrays)
-          return {
-            ...DEFAULT_JOB_DATA,
-            ...parsed,
-            processes: Array.isArray(parsed.processes) ? parsed.processes : DEFAULT_JOB_DATA.processes,
-            paperDetails: { ...DEFAULT_JOB_DATA.paperDetails, ...(parsed.paperDetails ?? {}) },
-            dimensions: { ...DEFAULT_JOB_DATA.dimensions, ...(parsed.dimensions ?? {}) },
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Failed to hydrate jobData from localStorage', e)
-    }
-    return DEFAULT_JOB_DATA
-  })
+  // Track loaded draft ID for updates
+  const [loadedDraftId, setLoadedDraftId] = useState<number | null>(null)
+
+  const [jobData, setJobData] = useState<JobData>(DEFAULT_JOB_DATA)
 
   const [showQuantityDialog, setShowQuantityDialog] = useState(false)
   const [newQuantity, setNewQuantity] = useState("")
@@ -309,20 +293,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [productionUnitsList, setProductionUnitsList] = useState<any[]>([])
   const [loadingProductionUnits, setLoadingProductionUnits] = useState(false)
   const [productionUnitsError, setProductionUnitsError] = useState<string | null>(null)
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const raw = localStorage.getItem(LOCAL_STORAGE_KEY)
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          return parsed.selectedCategoryId || ""
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load selectedCategoryId from localStorage', e)
-    }
-    return ""
-  })
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [categorySearch, setCategorySearch] = useState<string>("")
   const [contentSearch, setContentSearch] = useState<string>("")
@@ -348,39 +319,157 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [planningError, setPlanningError] = useState<string | null>(null)
   const [quotationNumber, setQuotationNumber] = useState<string | null>(null)
   const [quotationData, setQuotationData] = useState<any | null>(null)
-  // Track SaveMultipleEnquiry response - load from localStorage if available
-  const [enquiryNumber, setEnquiryNumber] = useState<string | null>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('printingWizard.enquiryNumber')
-        if (saved) {
-          console.log('📦 Loaded enquiry number from localStorage:', saved)
-          return saved
-        }
+  const [enquiryNumber, setEnquiryNumber] = useState<string | null>(null)
+
+  // localStorage auto-save removed - now using Draft System API
+  const { toast: toastHook } = useToast()
+
+  // Prepare form data for auto-save
+  const draftFormData = {
+    ...jobData,
+    selectedCategoryId,
+    currentStep,
+    planningResults,
+    quotationNumber,
+    enquiryNumber,
+  }
+
+  // Auto-save hook with 2 second debounce
+  const { saveStatus, lastSaved, currentDraftId } = useAutoSaveDraft({
+    formData: draftFormData,
+    formType: 'DynamicFill',
+    draftName: jobData.jobName
+      ? `${jobData.jobName}_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}`
+      : `Dynamic_Fill_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}`,
+    enabled: jobData.jobName !== '' || jobData.clientName !== '', // Only save if there's meaningful data
+    debounceMs: 2000,  // Save 2 seconds after user stops typing
+    initialDraftId: loadedDraftId,  // Pass the loaded draft ID for updates
+    onSaveSuccess: (draftId) => {
+      console.log('[PrintingWizard] Draft saved/updated with ID:', draftId)
+      if (!loadedDraftId && draftId) {
+        setLoadedDraftId(draftId)
       }
-    } catch (e) {
-      console.error('Failed to load enquiryNumber from localStorage', e)
-    }
-    return null
+    },
+    onSaveError: (error) => {
+      console.error('[PrintingWizard] Failed to save draft:', error)
+    },
   })
 
-  // Persist jobData and selectedCategoryId to localStorage (debounced)
-  useEffect(() => {
-    const LOCAL_STORAGE_KEY = 'printingWizard.jobData.v1'
-    const handle = setTimeout(() => {
-      try {
-        if (typeof window !== 'undefined') {
-          const dataToSave = { ...jobData, selectedCategoryId }
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave))
-        }
-      } catch (e) {
-        console.error('Failed to save jobData to localStorage', e)
-      }
-    }, 700)
-
-    return () => clearTimeout(handle)
-  }, [jobData, selectedCategoryId])
   const [showJsonPreview, setShowJsonPreview] = useState(false)
+
+  // Load draft from sessionStorage on mount - wait for categories to load first
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const shouldLoadDraft = urlParams.get('loadDraft') === 'true'
+
+    // First check: categories must be loaded
+    const categoriesLoaded = categories.length > 0
+
+    if (shouldLoadDraft && categoriesLoaded) {
+      const draftDataStr = sessionStorage.getItem('loadedDraft')
+      if (draftDataStr) {
+        try {
+          const draftData = JSON.parse(draftDataStr)
+          console.log('[PrintingWizard] Loading draft data:', draftData)
+          console.log('[PrintingWizard] Categories loaded:', categories.length)
+
+          // Extract the loaded draft ID
+          if (draftData.LoadedDraftID) {
+            setLoadedDraftId(draftData.LoadedDraftID)
+            console.log('[PrintingWizard] Set loaded draft ID:', draftData.LoadedDraftID)
+          }
+
+          // Restore job data - merge nested objects properly
+          const { FormType, LoadedDraftID, selectedCategoryId: savedCategoryId, currentStep: savedStep, planningResults: savedPlanning, quotationNumber: savedQuotation, enquiryNumber: savedEnquiry, ...restoredJobData } = draftData
+
+          console.log('[PrintingWizard] Restoring job data:', JSON.stringify(restoredJobData, null, 2))
+          console.log('[PrintingWizard] Key fields:', {
+            clientName: restoredJobData.clientName,
+            jobName: restoredJobData.jobName,
+            cartonType: restoredJobData.cartonType,
+            quantity: restoredJobData.quantity,
+            quality: restoredJobData.paperDetails?.quality,
+            gsm: restoredJobData.paperDetails?.gsm,
+          })
+
+          // Deep merge for nested objects
+          setJobData(prevData => {
+            const mergedData = {
+              ...prevData,
+              ...restoredJobData,
+              dimensions: restoredJobData.dimensions ? {
+                ...prevData.dimensions,
+                ...restoredJobData.dimensions,
+                trimming: restoredJobData.dimensions?.trimming ? {
+                  ...prevData.dimensions.trimming,
+                  ...restoredJobData.dimensions.trimming
+                } : prevData.dimensions.trimming
+              } : prevData.dimensions,
+              paperDetails: restoredJobData.paperDetails ? {
+                ...prevData.paperDetails,
+                ...restoredJobData.paperDetails
+              } : prevData.paperDetails,
+              costs: restoredJobData.costs ? {
+                ...prevData.costs,
+                ...restoredJobData.costs
+              } : prevData.costs,
+              processes: Array.isArray(restoredJobData.processes) ? restoredJobData.processes : prevData.processes,
+              quantities: Array.isArray(restoredJobData.quantities) ? restoredJobData.quantities : prevData.quantities,
+            }
+
+            console.log('[PrintingWizard] Merged data to set:', {
+              clientName: mergedData.clientName,
+              jobName: mergedData.jobName,
+              cartonType: mergedData.cartonType,
+              quantity: mergedData.quantity,
+            })
+
+            return mergedData
+          })
+
+          // Restore other state
+          if (savedCategoryId) {
+            console.log('[PrintingWizard] Restoring category ID:', savedCategoryId)
+            setSelectedCategoryId(savedCategoryId)
+          }
+          if (typeof savedStep === 'number') {
+            console.log('[PrintingWizard] Restoring step:', savedStep)
+            setCurrentStep(savedStep)
+          }
+          if (savedPlanning) {
+            console.log('[PrintingWizard] Restoring planning results')
+            setPlanningResults(savedPlanning)
+          }
+          if (savedQuotation) {
+            console.log('[PrintingWizard] Restoring quotation number:', savedQuotation)
+            setQuotationNumber(savedQuotation)
+          }
+          if (savedEnquiry) {
+            console.log('[PrintingWizard] Restoring enquiry number:', savedEnquiry)
+            setEnquiryNumber(savedEnquiry)
+          }
+
+          // Clear session storage after loading
+          sessionStorage.removeItem('loadedDraft')
+
+          console.log('[PrintingWizard] Draft loaded successfully')
+          toastHook({
+            title: "Draft Loaded",
+            description: "Your form data has been restored. Continue where you left off.",
+          })
+        } catch (error) {
+          console.error('[PrintingWizard] Failed to parse draft data:', error)
+          toastHook({
+            variant: "destructive",
+            title: "Failed to Load Draft",
+            description: "Could not restore your draft data.",
+          })
+        }
+      }
+    } else if (shouldLoadDraft && !categoriesLoaded) {
+      console.log('[PrintingWizard] Waiting for categories to load before restoring draft...')
+    }
+  }, [categories, toastHook])
 
   // Load qualities for the selected content (reusable for retry)
   const loadQualitiesForSelection = useCallback(async (overrideContentType?: string) => {
@@ -1030,10 +1119,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           console.log('🗑️ CLEARING ALL FORM DATA')
           console.log('='.repeat(80))
 
-          localStorage.removeItem(LOCAL_STORAGE_KEY)
-          localStorage.removeItem('printingWizard.enquiryNumber')
-          console.log('✅ Cleared cached form data from localStorage')
-
           setJobData(DEFAULT_JOB_DATA)
           console.log('✅ Reset form fields to default values')
 
@@ -1219,9 +1304,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           console.log('=== Quotation Number ===', quotationNum)
 
           // Clear all cached form data
-          localStorage.removeItem(LOCAL_STORAGE_KEY)
-          console.log('=== Cleared cached form data ===')
-
           // Move to next step on success
           const newStep = currentStep + 1
           setCurrentStep(newStep)
@@ -1480,15 +1562,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             variant="outline"
             size="sm"
             onClick={() => {
-              if (confirm('This will clear all stored data and reset the form. Continue?')) {
-                localStorage.removeItem(LOCAL_STORAGE_KEY)
-                localStorage.removeItem('printingWizard.enquiryNumber') // Remove enquiry number from localStorage
+              if (confirm('This will clear all form data and reset. Continue?')) {
                 setJobData(DEFAULT_JOB_DATA)
                 setCurrentStep(0)
-                setEnquiryNumber(null) // Reset enquiry number
-                setPlanningResults(null) // Reset planning results
-                setQuotationNumber(null) // Reset quotation number
-                showToast('All stored data cleared', 'success')
+                setEnquiryNumber(null)
+                setPlanningResults(null)
+                setQuotationNumber(null)
+                setLoadedDraftId(null) // Clear loaded draft ID
+                showToast('All form data cleared', 'success')
               }
             }}
             className="flex items-center gap-1.5 h-8 px-3 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300"
@@ -2607,22 +2688,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     )
   }
 
-  // Persist enquiryNumber to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        if (enquiryNumber) {
-          localStorage.setItem('printingWizard.enquiryNumber', enquiryNumber)
-          console.log('💾 Saved enquiry number to localStorage:', enquiryNumber)
-        } else {
-          localStorage.removeItem('printingWizard.enquiryNumber')
-          console.log('🗑️ Removed enquiry number from localStorage')
-        }
-      }
-    } catch (e) {
-      console.error('Failed to save enquiryNumber to localStorage', e)
-    }
-  }, [enquiryNumber])
+  // enquiryNumber persistence removed - now using Draft System API
 
   const quotationPrintRef = useRef<HTMLDivElement>(null)
 
@@ -4384,6 +4450,32 @@ Generated with KAM Printing Wizard
 
   return (
     <div className="flex flex-col h-full">
+      {/* Auto-save Status Indicator */}
+      {(jobData.jobName !== '' || jobData.clientName !== '') && (
+        <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground px-4 pt-2">
+          {saveStatus === 'saving' && (
+            <>
+              <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+              <span>Saving draft...</span>
+            </>
+          )}
+          {saveStatus === 'saved' && lastSaved && (
+            <>
+              <div className="h-2 w-2 rounded-full bg-green-600" />
+              <span className="text-green-600">Draft saved</span>
+              <span className="text-muted-foreground">
+                {lastSaved.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </>
+          )}
+          {saveStatus === 'error' && (
+            <>
+              <div className="h-2 w-2 rounded-full bg-red-600" />
+              <span className="text-red-600">Failed to save draft</span>
+            </>
+          )}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto pb-16">{renderCurrentStep()}</div>
 
       {/* Fixed bottom navigation */}

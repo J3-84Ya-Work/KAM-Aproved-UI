@@ -200,13 +200,13 @@ export function DraftsContent() {
           // Navigate to AI Chat with draft data
           // Store draft data in sessionStorage for the chat to pick up
           sessionStorage.setItem('loadedDraft', JSON.stringify(draftDataWithId))
-          console.log('[Draft Load] Navigating to AI Chat with Draft ID:', draftId)
-          router.push('/new-inquiry?mode=chat&loadDraft=true')
+          console.log('[Draft Load] Navigating to Dynamic Fill with Draft ID:', draftId)
+          router.push('/inquiries/new?mode=dynamic&loadDraft=true')
         } else if (draftData.FormType === 'ManualForm') {
           // Navigate to Manual Form with draft data
           sessionStorage.setItem('loadedDraft', JSON.stringify(draftDataWithId))
           console.log('[Draft Load] Navigating to Manual Form with Draft ID:', draftId)
-          router.push('/new-inquiry?loadDraft=true')
+          router.push('/inquiries/new?mode=manual&loadDraft=true')
         } else {
           console.error('[Draft Load] Unknown FormType:', draftData.FormType)
           toast({

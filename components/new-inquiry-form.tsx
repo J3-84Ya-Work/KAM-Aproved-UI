@@ -372,9 +372,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Populate form with initial data when in edit mode
   useEffect(() => {
     if (editMode && initialData && categories.length > 0) {
+      console.log('[Edit Mode] Populating form with initial data:', initialData)
+      console.log('[Edit Mode] Available categories:', categories.length)
+      console.log('[Edit Mode] Available clients:', clients.length)
 
       // Find the category to verify it exists
       const category = categories.find(c => c.CategoryId === initialData.categoryId)
+      console.log('[Edit Mode] Found category:', category)
 
       // Populate basic form data
       setFormData(prev => ({
@@ -394,6 +398,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         typeOfPrinting: initialData.jobType || '',
       }))
 
+      console.log('[Edit Mode] Form data populated with basic fields')
+
       // Set category ID to trigger content types loading
       if (initialData.categoryId) {
         setSelectedCategoryId(initialData.categoryId)
@@ -402,10 +408,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       // If detailed data is available, populate dimensions and other fields
       if (initialData.detailedData) {
         const detailedData = initialData.detailedData
+        console.log('[Edit Mode] Detailed data found:', detailedData)
 
         // Populate plan details (dimensions) if available
         if (detailedData.DetailsData && detailedData.DetailsData.length > 0) {
           const details = detailedData.DetailsData[0]
+          console.log('[Edit Mode] Details data:', details)
 
           // Parse ContentSizeValues to extract dimensions
           // Example: "SizeHeight=200AndOrSizeLength=100AndOrSizeWidth=100..."
@@ -419,12 +427,14 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               }
             })
 
+            console.log('[Edit Mode] Parsed size values:', sizeValues)
             setPlanDetails(sizeValues)
           }
 
           // Store content type to be selected after content types are loaded
           if (details.PlanContentType || details.PlanContName) {
             const contentTypeToSelect = details.PlanContentType || details.PlanContName
+            console.log('[Edit Mode] Content type to select:', contentTypeToSelect)
             // Store in a temporary state to select after content types load
             setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
           }
@@ -433,8 +443,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         // Populate selected processes if available
         if (detailedData.ProcessData && detailedData.ProcessData.length > 0) {
           const processNames = detailedData.ProcessData.map((p: any) => p.ProcessName)
+          console.log('[Edit Mode] Process names to select:', processNames)
           setSelectedProcesses(processNames)
         }
+      } else {
+        console.log('[Edit Mode] No detailed data available')
       }
 
       setIsFetchingEnquiryNo(false)
@@ -444,6 +457,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Select content type after content types are loaded (for edit mode)
   useEffect(() => {
     if (editMode && formData.contentType && contentTypes.length > 0 && selectedContentIds.length === 0) {
+      console.log('[Edit Mode] Attempting to select content type:', formData.contentType)
+      console.log('[Edit Mode] Available content types:', contentTypes.length)
+
       // Normalize the search term (remove spaces, dashes, underscores and convert to lowercase)
       const normalizeString = (str: string) => str?.replace(/[\s\-_]+/g, '').toLowerCase() || ''
       const searchTerm = normalizeString(formData.contentType)
@@ -481,8 +497,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       }
 
       if (matchingContent) {
+        console.log('[Edit Mode] Found matching content:', matchingContent)
         setSelectedContentIds([matchingContent.ContentID])
         setSelectedContent(matchingContent)
+      } else {
+        console.log('[Edit Mode] No matching content found for:', formData.contentType)
       }
     }
   }, [editMode, formData.contentType, contentTypes, selectedContentIds])
