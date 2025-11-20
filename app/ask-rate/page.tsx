@@ -43,7 +43,7 @@ const TEAM_MEMBERS = [
 export default function AskRatePage() {
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
   const [selectedPerson, setSelectedPerson] = useState<string>("")
-  const [department, setDepartment] = useState<"Purchase" | "Operations">("Purchase")
+  const [department, setDepartment] = useState<"Purchase" | "Operations" | "Sales">("Purchase")
   const [message, setMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [myRequests, setMyRequests] = useState<RateQuery[]>([])
@@ -57,7 +57,7 @@ export default function AskRatePage() {
     setSelectedPerson(personId)
     const person = TEAM_MEMBERS.find(p => p.id === personId)
     if (person) {
-      setDepartment(person.department as "Purchase" | "Operations")
+      setDepartment(person.department as "Purchase" | "Operations" | "Sales")
     }
   }
 
@@ -346,9 +346,10 @@ export default function AskRatePage() {
                         {(request.rate || request.providedRate) && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
                             <div className="flex items-center gap-2 text-green-700 font-semibold">
-                              <span className="text-lg">Rate: {typeof (request.providedRate || request.rate) === 'number'
-                                ? (request.providedRate || request.rate).toFixed(2)
-                                : (request.providedRate || request.rate)}</span>
+                              <span className="text-lg">Rate: {(() => {
+                                const rate = request.providedRate || request.rate
+                                return typeof rate === 'number' ? rate.toFixed(2) : rate
+                              })()}</span>
                             </div>
                             {request.respondedAt && (
                               <p className="text-xs text-gray-500 mt-1">

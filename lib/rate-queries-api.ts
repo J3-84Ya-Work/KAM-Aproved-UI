@@ -16,7 +16,7 @@ interface RateRequest {
 
 interface CreateRateRequestPayload {
   requestorId: number
-  department: 'Sales' | 'Operations'
+  department: 'Purchase' | 'Operations' | 'Sales'
   requestMessage: string
 }
 
