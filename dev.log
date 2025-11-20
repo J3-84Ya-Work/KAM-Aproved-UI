@@ -9,3 +9,13 @@
 
  ✓ Starting...
  ✓ Ready in 2.9s
+ ✓ Compiled /middleware in 242ms (72 modules)
+ ○ Compiling /ask-rate ...
+ ✓ Compiled /ask-rate in 5.7s (940 modules)
+ GET /ask-rate 200 in 6006ms
+ ✓ Compiled in 765ms (940 modules)
+ ✓ Compiled in 449ms (940 modules)
+ ✓ Compiled in 654ms (940 modules)
+ ✓ Compiled in 444ms (940 modules)
+ GET /ask-rate 200 in 143ms
+ ✓ Compiled in 834ms (940 modules)

@@ -32,8 +32,17 @@ interface RateQuery {
   respondedAt?: string
 }
 
+// Team members list with their departments
+const TEAM_MEMBERS = [
+  { id: 'bhumika', name: 'Bhumika', email: 'bhumika.indusanalytics@gmail.com', department: 'Purchase' },
+  { id: 'rajesh', name: 'Rajesh Kumar', email: 'rajesh@example.com', department: 'Purchase' },
+  { id: 'amit', name: 'Amit Sharma', email: 'amit@example.com', department: 'Operations' },
+  { id: 'priya', name: 'Priya Singh', email: 'priya@example.com', department: 'Operations' },
+] as const
+
 export default function AskRatePage() {
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+  const [selectedPerson, setSelectedPerson] = useState<string>("")
   const [department, setDepartment] = useState<"Purchase" | "Operations">("Purchase")
   const [message, setMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -42,6 +51,15 @@ export default function AskRatePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [showTimeline, setShowTimeline] = useState(false)
   const [selectedRequestForTimeline, setSelectedRequestForTimeline] = useState<RateQuery | null>(null)
+
+  // Auto-set department when person is selected
+  const handlePersonChange = (personId: string) => {
+    setSelectedPerson(personId)
+    const person = TEAM_MEMBERS.find(p => p.id === personId)
+    if (person) {
+      setDepartment(person.department as "Purchase" | "Operations")
+    }
+  }
 
   const handleMenuToggle = useCallback((toggle: () => void) => {
     setToggleMenu(() => toggle)
@@ -92,6 +110,11 @@ export default function AskRatePage() {
       return
     }
 
+    if (!selectedPerson) {
+      alert('Please select a person')
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const result = await createRateRequest({
@@ -103,6 +126,7 @@ export default function AskRatePage() {
       if (result.success) {
         alert('✅ Rate request sent successfully!')
         setMessage("")
+        setSelectedPerson("")
         setDepartment("Purchase")
         await fetchMyRequests()
       } else {
@@ -207,16 +231,38 @@ export default function AskRatePage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="department">Department</Label>
-                  <Select value={department} onValueChange={(value: any) => setDepartment(value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Purchase">Purchase</SelectItem>
-                      <SelectItem value="Operations">Operations</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="person">Select Person *</Label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <Select value={selectedPerson} onValueChange={handlePersonChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose team member" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEAM_MEMBERS.map((person) => (
+                            <SelectItem key={person.id} value={person.id}>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{person.name}</span>
+                                <span className="text-xs text-gray-500">({person.email})</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {selectedPerson && (
+                      <Badge
+                        variant="outline"
+                        className={
+                          department === "Purchase"
+                            ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
+                            : "bg-purple-50 text-purple-700 border-purple-200 font-medium"
+                        }
+                      >
+                        {department}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -233,7 +279,7 @@ export default function AskRatePage() {
 
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !message.trim()}
+                  disabled={isSubmitting || !message.trim() || !selectedPerson}
                   className="w-full bg-[#005180] hover:bg-[#004060]"
                 >
                   {isSubmitting ? (
