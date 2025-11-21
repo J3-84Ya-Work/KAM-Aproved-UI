@@ -336,22 +336,22 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
         }
 
         console.log('\n' + '='.repeat(80))
-        console.log('📋 FETCHING QUOTATIONS FOR APPROVAL')
+        console.log('FETCHING QUOTATIONS FOR APPROVAL')
         console.log('='.repeat(80))
-        console.log('📍 API Endpoint: POST https://api.indusanalytics.co.in/api/planwindow/getallbookings')
+        console.log('API Endpoint: POST https://api.indusanalytics.co.in/api/planwindow/getallbookings')
         console.log('='.repeat(80))
-        console.log('📤 Request Parameters:')
+        console.log('Request Parameters:')
         console.log(JSON.stringify(requestParams, null, 2))
         console.log('='.repeat(80))
 
         const response = await QuotationsAPI.getQuotations(requestParams, null)
 
-        console.log('📥 API Response:')
+        console.log('API Response:')
         console.log('Total Quotations Received:', response.data?.length || 0)
         console.log('='.repeat(80) + '\n')
 
         if (response.success && response.data) {
-          console.log('📊 Sample quotation for debugging:', response.data[0])
+          console.log('Sample quotation for debugging:', response.data[0])
 
           // Log the approval status fields for debugging
           const approvalStatusBreakdown = response.data.map((item: any) => ({
@@ -362,35 +362,18 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
             IsInternalApproved: item.IsInternalApproved,
             JobApproved: item.JobApproved
           }))
-          console.log('📋 Approval status breakdown:', approvalStatusBreakdown)
+          console.log('Approval status breakdown:', approvalStatusBreakdown)
 
           // Filter quotations that need approval
           // Show quotations with Status = "Sent to HOD" or "Sent to Vertical Head"
+          // Exclude quotations with Status = "Approved" or "Disapproved"
           const pendingQuotations = response.data
             .filter((item: any) => {
-              // Show quotations that are sent for approval (not yet approved)
+              // Show quotations that are sent for approval (not yet approved/disapproved)
               const isCorrectStatus = item.Status === 'Sent to HOD' || item.Status === 'Sent to Vertical Head'
+              const notAlreadyProcessed = item.Status !== 'Approved' && item.Status !== 'Disapproved'
               const notYetApproved = item.IsInternalApproved !== true
-              const shouldShow = isCorrectStatus && notYetApproved
-
-              console.log(`🔍 Checking quotation ${item.BookingNo}:`, {
-                Status: item.Status,
-                StatusType: typeof item.Status,
-                IsSentToHOD: item.Status === 'Sent to HOD',
-                IsSentToVH: item.Status === 'Sent to Vertical Head',
-                IsInternalApproved: item.IsInternalApproved,
-                IsInternalApprovedType: typeof item.IsInternalApproved,
-                JobApproved: item.JobApproved,
-                IsCorrectStatus: isCorrectStatus,
-                NotYetApproved: notYetApproved,
-                ShouldShow: shouldShow
-              })
-
-              if (shouldShow) {
-                console.log('✅ Including quotation:', item.BookingNo, 'Status:', item.Status, 'Margin:', item.Margin)
-              } else {
-                console.log('❌ Excluding quotation:', item.BookingNo, 'Reason:', !isCorrectStatus ? 'Wrong status' : 'Already approved')
-              }
+              const shouldShow = isCorrectStatus && notAlreadyProcessed && notYetApproved
               return shouldShow
             })
             .map((item: any) => {
@@ -460,13 +443,13 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
               }
             })
 
-          console.log('✅ Quotations pending approval:', pendingQuotations.length)
-          console.log('📊 First pending quotation:', pendingQuotations[0])
+          console.log('Quotations pending approval:', pendingQuotations.length)
+          console.log('First pending quotation:', pendingQuotations[0])
 
           setQuotationsForApproval(pendingQuotations)
         }
       } catch (error) {
-        console.error('❌ Error fetching quotations for approval:', error)
+        console.error('Error fetching quotations for approval:', error)
       } finally {
         setIsLoadingQuotations(false)
       }
@@ -475,7 +458,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   useEffect(() => {
     // Get user's approval level (HOD = L1, Vertical Head = L2)
     const level = getApprovalLevel()
-    console.log('👤 Current user approval level:', level, '(L1 = HOD, L2 = Vertical Head)')
+    console.log('Current user approval level:', level, '(L1 = HOD, L2 = Vertical Head)')
     setUserLevel(level)
     fetchQuotationsForApproval()
   }, [])
@@ -487,6 +470,15 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
       return
     }
 
+    // Confirm action
+    const confirmMessage = status === 'Approved'
+      ? `Are you sure you want to APPROVE quotation ${bookingId}?${remark ? `\n\nYour remark: ${remark}` : ''}`
+      : `Are you sure you want to REJECT quotation ${bookingId}?${remark ? `\n\nYour remark: ${remark}` : ''}`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
     setIsUpdatingStatus(true)
     try {
       const requestBody = {
@@ -495,41 +487,43 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
       }
 
       console.log('\n' + '='.repeat(80))
-      console.log(`🔄 ${status === 'Approved' ? 'APPROVING' : 'REJECTING'} QUOTATION`)
+      console.log(`${status === 'Approved' ? 'APPROVING' : 'REJECTING'} QUOTATION`)
       console.log('='.repeat(80))
-      console.log('📍 API Endpoint: POST https://api.indusanalytics.co.in/api/planwindow/updateqoutestatus')
-      console.log('='.repeat(80))
-      console.log('📤 Request Body:')
-      console.log(JSON.stringify(requestBody, null, 2))
+      console.log('API: POST https://api.indusanalytics.co.in/api/planwindow/updateqoutestatus')
+      console.log('Body:', JSON.stringify(requestBody, null, 2))
+      console.log('Remark:', remark || 'None')
+      console.log('User Level:', userLevel)
       console.log('='.repeat(80))
 
       const response = await QuotationsAPI.updateQuotationStatus(requestBody, null)
 
-      console.log('📥 API Response:')
-      console.log('Status:', response.success ? '✅ SUCCESS' : '❌ FAILED')
-      console.log('Response Data:', JSON.stringify(response.data, null, 2))
+      console.log('\n' + '='.repeat(80))
+      console.log('API RESPONSE')
+      console.log('='.repeat(80))
+      console.log('Success:', response.success)
+      console.log('Data:', response.data)
       console.log('Error:', response.error || 'None')
       console.log('='.repeat(80) + '\n')
 
       if (response.success) {
-        alert(`✅ Quotation ${status.toLowerCase()} successfully!${remark ? `\nRemark: ${remark}` : ''}`)
+        alert(`Quotation ${status.toLowerCase()} successfully!${remark ? `\nRemark: ${remark}` : ''}`)
         setRemark("")
         setSelectedApproval(null)
 
-        // Add a small delay to ensure API has processed the update
-        console.log('⏳ Waiting 500ms before refreshing data from API...')
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Add a longer delay to ensure backend has processed the update
+        console.log('Waiting 1000ms before refreshing data from API...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
 
         // Refresh the data from API
-        console.log('🔄 Refreshing approval list from API after status update...')
+        console.log('Refreshing approval list from API after status update...')
         await fetchQuotationsForApproval()
-        console.log('✅ Approval list refreshed from API')
+        console.log('Approval list refreshed from API')
       } else {
-        alert(`❌ Failed to ${status.toLowerCase()} quotation: ${response.error}`)
+        alert(`Failed to ${status.toLowerCase()} quotation: ${response.error || 'Unknown error'}`)
       }
     } catch (error: any) {
-      console.error(`❌ Error ${status.toLowerCase()} quotation:`, error)
-      alert(`❌ Error: ${error.message}`)
+      console.error(`Error ${status.toLowerCase()} quotation:`, error)
+      alert(`Error: ${error.message}`)
     } finally {
       setIsUpdatingStatus(false)
     }
@@ -538,7 +532,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   // Use only API quotations (no hardcoded data)
   const allPendingApprovals = quotationsForApproval
 
-  console.log('🔄 Pending approvals (API only):', {
+  console.log('Pending approvals (API only):', {
     quotationsFromAPI: quotationsForApproval.length,
     total: allPendingApprovals.length
   })
@@ -550,7 +544,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
     ? allPendingApprovals.filter(a => a.kamName && viewableKams.includes(a.kamName))
     : allPendingApprovals
 
-  console.log('👤 User filtered pending approvals:', {
+  console.log('User filtered pending approvals:', {
     isRestrictedUser,
     isHODUser,
     isVerticalHeadUser,

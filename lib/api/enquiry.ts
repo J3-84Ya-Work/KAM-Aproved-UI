@@ -408,16 +408,16 @@ export class EnquiryAPI {
    */
   static async saveDetailedEnquiry(enquiryData: DetailedEnquiryData, session: any) {
     try {
-      console.log('🌐 API Call: saveDetailedEnquiry')
-      console.log('📍 URL:', `${API_BASE_URL}/api/enquiry/SaveMultipleEnquiry`)
-      console.log('📋 Headers:', getHeaders(session))
-      console.log('📦 Request Body (Full):', JSON.stringify(enquiryData, null, 2))
-      console.log('📊 MainData:', enquiryData.MainData)
-      console.log('📊 DetailsData:', enquiryData.DetailsData)
-      console.log('📊 ProcessData:', enquiryData.ProcessData)
-      console.log('📊 Quantity:', (enquiryData as any).Quantity)
-      console.log('📊 Prefix:', (enquiryData as any).Prefix)
-      console.log('📊 IsEdit:', (enquiryData as any).IsEdit)
+      console.log('API Call: saveDetailedEnquiry')
+      console.log('URL:', `${API_BASE_URL}/api/enquiry/SaveMultipleEnquiry`)
+      console.log('Headers:', getHeaders(session))
+      console.log('Request Body (Full):', JSON.stringify(enquiryData, null, 2))
+      console.log('MainData:', enquiryData.MainData)
+      console.log('DetailsData:', enquiryData.DetailsData)
+      console.log('ProcessData:', enquiryData.ProcessData)
+      console.log('Quantity:', (enquiryData as any).Quantity)
+      console.log('Prefix:', (enquiryData as any).Prefix)
+      console.log('IsEdit:', (enquiryData as any).IsEdit)
 
       const response = await fetch(`${API_BASE_URL}/api/enquiry/SaveMultipleEnquiry`, {
         method: 'POST',
@@ -425,11 +425,11 @@ export class EnquiryAPI {
         body: JSON.stringify(enquiryData),
       })
 
-      console.log('📥 Response Status:', response.status, response.statusText)
-      console.log('📥 Response OK:', response.ok)
+      console.log('Response Status:', response.status, response.statusText)
+      console.log('Response OK:', response.ok)
 
       const data = await response.json()
-      console.log('📥 Response Data:', data)
+      console.log('Response Data:', data)
 
       return {
         success: response.ok,
@@ -437,7 +437,7 @@ export class EnquiryAPI {
         error: response.ok ? null : (data.error || 'Failed to save enquiry'),
       }
     } catch (error: any) {
-      console.error('❌ API Error:', error)
+      console.error('API Error:', error)
       return {
         success: false,
         data: null,
@@ -1041,6 +1041,11 @@ export class QuotationsAPI {
     Status: string
   }, session: any) {
     try {
+      console.log('\n[API] updateQuotationStatus')
+      console.log('URL:', `${API_BASE_URL}/api/planwindow/updateqoutestatus`)
+      console.log('Method: POST')
+      console.log('Body:', JSON.stringify(request, null, 2))
+      console.log('Headers:', JSON.stringify(getHeaders(session), null, 2))
 
       const response = await fetch(`${API_BASE_URL}/api/planwindow/updateqoutestatus`, {
         method: 'POST',
@@ -1048,12 +1053,35 @@ export class QuotationsAPI {
         body: JSON.stringify(request),
       })
 
-      let data = await response.json()
+      console.log('\n[Response]')
+      console.log('Status:', response.status, response.statusText)
+      console.log('OK:', response.ok)
+
+      const rawText = await response.text()
+      console.log('Body:', rawText)
+
+      let data
+      try {
+        data = JSON.parse(rawText)
+      } catch (e) {
+        console.error('Failed to parse response as JSON')
+        // If it's just "Success" or "Updated" string, treat as success
+        if (rawText.toLowerCase().includes('success') || rawText.toLowerCase().includes('updated')) {
+          console.log('Detected success message in plain text')
+          return {
+            success: true,
+            data: rawText,
+            error: null,
+          }
+        }
+        throw new Error('Invalid JSON response from API')
+      }
 
       // Handle multiple levels of JSON encoding
       let parseAttempts = 0
       while (typeof data === 'string' && parseAttempts < 5) {
         try {
+          console.log(`Parsing nested JSON (attempt ${parseAttempts + 1})`)
           data = JSON.parse(data)
           parseAttempts++
         } catch (e) {
@@ -1061,12 +1089,24 @@ export class QuotationsAPI {
         }
       }
 
+      console.log('\n[Parsed]')
+      console.log('Data:', data)
+      console.log('Type:', typeof data)
+
+      // Check if response indicates success even if response.ok is false
+      const isSuccess = response.ok ||
+                       (typeof data === 'string' && (data.toLowerCase().includes('success') || data.toLowerCase().includes('updated'))) ||
+                       (data && typeof data === 'object' && (data.success === true || data.Success === true))
+
+      console.log('Success:', isSuccess)
+
       return {
-        success: response.ok,
+        success: isSuccess,
         data: data,
-        error: response.ok ? null : 'Failed to update quotation status',
+        error: isSuccess ? null : (data?.error || data?.message || 'Failed to update quotation status'),
       }
     } catch (error: any) {
+      console.error('Exception in updateQuotationStatus:', error)
       return {
         success: false,
         data: null,

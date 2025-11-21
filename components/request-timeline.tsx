@@ -100,24 +100,26 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] w-[95vw] sm:w-full overflow-hidden">
-        <DialogHeader className="space-y-3 pb-4 border-b">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="bg-[#005180] p-2 rounded-lg flex-shrink-0">
-              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] w-[95vw] sm:w-full flex flex-col p-0">
+        <div className="px-6 pt-6">
+          <DialogHeader className="space-y-3 pb-4 border-b">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="bg-[#005180] p-2 rounded-lg flex-shrink-0">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-lg sm:text-xl font-bold truncate">Request Timeline</DialogTitle>
+                <p className="text-xs sm:text-sm text-gray-500">Request #{requestId}</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-lg sm:text-xl font-bold truncate">Request Timeline</DialogTitle>
-              <p className="text-xs sm:text-sm text-gray-500">Request #{requestId}</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs font-medium text-blue-900 mb-1">Request Message</p>
+              <p className="text-sm text-blue-800 break-words">{requestMessage}</p>
             </div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs font-medium text-blue-900 mb-1">Request Message</p>
-            <p className="text-sm text-blue-800 break-words">{requestMessage}</p>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
+        </div>
 
-        <div className="h-[450px] sm:h-[500px] mt-4 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 mt-4" style={{ maxHeight: 'calc(90vh - 200px)' }}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#005180]"></div>
@@ -170,7 +172,8 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage 
                       )}
 
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-sm">
-                        {entry.fromUserName && (
+                        {/* Show from/to users only if they are different, or show single user for certain actions */}
+                        {entry.fromUserName && entry.toUserName && entry.fromUserName !== entry.toUserName ? (
                           <>
                             <div className="flex items-center gap-2 bg-white/60 rounded-lg px-2 sm:px-3 py-2 border border-gray-200 w-full sm:w-auto">
                               <User className="h-4 w-4 text-[#005180] flex-shrink-0" />
@@ -180,9 +183,23 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage 
                               </div>
                             </div>
                             <ArrowRight className="h-4 w-4 text-[#005180] hidden sm:block flex-shrink-0" />
+                            <div className="flex items-center gap-2 bg-white/60 rounded-lg px-2 sm:px-3 py-2 border border-gray-200 w-full sm:w-auto">
+                              <User className="h-4 w-4 text-[#005180] flex-shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{entry.toUserName}</p>
+                                <p className="text-xs text-gray-600 truncate">{entry.toUserRole}</p>
+                              </div>
+                            </div>
                           </>
-                        )}
-                        {entry.toUserName && (
+                        ) : entry.fromUserName ? (
+                          <div className="flex items-center gap-2 bg-white/60 rounded-lg px-2 sm:px-3 py-2 border border-gray-200 w-full sm:w-auto">
+                            <User className="h-4 w-4 text-[#005180] flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{entry.fromUserName}</p>
+                              <p className="text-xs text-gray-600 truncate">{entry.fromUserRole}</p>
+                            </div>
+                          </div>
+                        ) : entry.toUserName ? (
                           <div className="flex items-center gap-2 bg-white/60 rounded-lg px-2 sm:px-3 py-2 border border-gray-200 w-full sm:w-auto">
                             <User className="h-4 w-4 text-[#005180] flex-shrink-0" />
                             <div className="min-w-0 flex-1">
@@ -190,7 +207,7 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage 
                               <p className="text-xs text-gray-600 truncate">{entry.toUserRole}</p>
                             </div>
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
                       <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-gray-200">

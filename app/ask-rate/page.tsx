@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Clock, CheckCircle, RefreshCw, History, AlertCircle } from "lucide-react"
+import { Send, MessageSquare, Clock, CheckCircle, RefreshCw, AlertCircle } from "lucide-react"
 import { getUserRateRequests, createRateRequest } from "@/lib/rate-queries-api"
 import { getCurrentUser } from "@/lib/permissions"
 import { formatDistanceToNow, differenceInHours } from "date-fns"
@@ -51,6 +51,8 @@ export default function AskRatePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [showTimeline, setShowTimeline] = useState(false)
   const [selectedRequestForTimeline, setSelectedRequestForTimeline] = useState<RateQuery | null>(null)
+  const [requestFilter, setRequestFilter] = useState<"all" | "answered" | "unanswered">("all")
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest")
 
   // Auto-set department when person is selected
   const handlePersonChange = (personId: string) => {
@@ -226,7 +228,6 @@ export default function AskRatePage() {
           <Card className="border border-border/60">
             <CardHeader>
               <CardTitle className="text-xl font-semibold">Ask Purchase Department</CardTitle>
-              <CardDescription>Submit your rate query to the purchase team</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -298,8 +299,28 @@ export default function AskRatePage() {
           {/* My Requests */}
           <Card className="border border-border/60">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold">My Rate Requests</CardTitle>
-              <CardDescription>Track your submitted queries and responses</CardDescription>
+              <CardTitle className="text-xl font-semibold mb-3">My Rate Requests</CardTitle>
+              <div className="flex gap-2">
+                <Select value={requestFilter} onValueChange={(value: "all" | "answered" | "unanswered") => setRequestFilter(value)}>
+                  <SelectTrigger className="w-[140px] sm:w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Requests</SelectItem>
+                    <SelectItem value="answered">Answered</SelectItem>
+                    <SelectItem value="unanswered">Unanswered</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sortOrder} onValueChange={(value: "latest" | "oldest") => setSortOrder(value)}>
+                  <SelectTrigger className="w-[140px] sm:w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="latest">Latest First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -310,16 +331,51 @@ export default function AskRatePage() {
                   <p>No rate requests yet</p>
                   <p className="text-sm mt-2">Submit your first question above</p>
                 </div>
-              ) : (
-                <ScrollArea className="h-[500px]">
-                  <div className="space-y-4">
-                    {myRequests.map((request) => (
+              ) : (() => {
+                // Filter requests based on selection
+                const filteredRequests = myRequests
+                  .filter(request => {
+                    const isAnswered = !!(request.rate || request.providedRate || request.currentStatus?.toLowerCase() === 'responded')
+
+                    if (requestFilter === 'answered') {
+                      return isAnswered
+                    } else if (requestFilter === 'unanswered') {
+                      return !isAnswered
+                    }
+                    return true // 'all'
+                  })
+                  .sort((a, b) => {
+                    // Sort by requestId (higher ID = newer request)
+                    if (sortOrder === 'latest') {
+                      return b.requestId - a.requestId // Newest first (higher IDs first)
+                    } else {
+                      return a.requestId - b.requestId // Oldest first (lower IDs first)
+                    }
+                  })
+
+                if (filteredRequests.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p>No {requestFilter === 'all' ? '' : requestFilter} requests found</p>
+                    </div>
+                  )
+                }
+
+                return (
+                  <ScrollArea className="h-[500px]">
+                    <div className="space-y-4">
+                      {filteredRequests.map((request) => (
                       <div
                         key={request.requestId}
-                        className={`border rounded-lg p-4 ${
+                        onClick={() => {
+                          setSelectedRequestForTimeline(request)
+                          setShowTimeline(true)
+                        }}
+                        className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
                           request.status?.toLowerCase() === 'pending'
-                            ? 'border-yellow-200 bg-yellow-50/30'
-                            : 'border-green-200 bg-green-50/30'
+                            ? 'border-yellow-200 bg-yellow-50/30 hover:bg-yellow-50/50'
+                            : 'border-green-200 bg-green-50/30 hover:bg-green-50/50'
                         }`}
                       >
                         <div className="flex items-start justify-between mb-3">
@@ -358,26 +414,12 @@ export default function AskRatePage() {
                             )}
                           </div>
                         )}
-
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRequestForTimeline(request)
-                              setShowTimeline(true)
-                            }}
-                            className="w-full"
-                          >
-                            <History className="h-4 w-4 mr-2" />
-                            View Timeline
-                          </Button>
-                        </div>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
-              )}
+                )
+              })()}
             </CardContent>
           </Card>
         </div>
