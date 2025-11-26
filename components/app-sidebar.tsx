@@ -181,6 +181,8 @@ export function AppSidebar() {
   const [navItems, setNavItems] = useState(roleBasedNavItems.KAM) // Default to KAM
   const [inquiryCount, setInquiryCount] = useState<number>(0)
   const [quotationCount, setQuotationCount] = useState<number>(0)
+  const [customerCount, setCustomerCount] = useState<number>(0)
+  const [approvalCount, setApprovalCount] = useState<number>(0)
 
   useEffect(() => {
     // Get current user info
@@ -199,9 +201,13 @@ export function AppSidebar() {
     // Fetch inquiry count
     const fetchInquiryCount = async () => {
       try {
+        // Get current financial year dates
+        const currentYear = new Date().getFullYear()
+        const nextYear = currentYear + 1
+
         const response = await EnquiryAPI.getEnquiries({
-          FromDate: '2025-01-01 00:00:00.000',
-          ToDate: '2026-12-31 23:59:59.999',
+          FromDate: `${currentYear}-01-01 00:00:00.000`,
+          ToDate: `${nextYear}-12-31 23:59:59.999`,
           ApplydateFilter: 'True',
           RadioValue: 'All',
         }, null)
@@ -217,10 +223,14 @@ export function AppSidebar() {
     // Fetch quotation count
     const fetchQuotationCount = async () => {
       try {
+        // Get current financial year dates
+        const currentYear = new Date().getFullYear()
+        const nextYear = currentYear + 1
+
         const response = await QuotationsAPI.getQuotations({
           FilterSTR: 'All',
-          FromDate: '2024-11-02 00:00:00.000',
-          ToDate: '2025-11-02 00:00:00.000',
+          FromDate: `${currentYear}-01-01 00:00:00.000`,
+          ToDate: `${nextYear}-12-31 23:59:59.999`,
         }, null)
 
         if (response.success && response.data) {
@@ -231,8 +241,65 @@ export function AppSidebar() {
       }
     }
 
+    // Fetch customer count
+    const fetchCustomerCount = async () => {
+      try {
+        console.log('📊 Sidebar - Fetching customer count...')
+        const response = await fetch('https://api.indusanalytics.co.in/api/planwindow/GetSbClient', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+            'CompanyID': '2',
+            'UserID': '2',
+            'Fyear': '2025-2026',
+            'ProductionUnitID': '1',
+            'Content-Type': 'application/json',
+          },
+        })
+
+        console.log('📊 Sidebar - Customer response status:', response.ok)
+        if (response.ok) {
+          const data = await response.json()
+          console.log('📊 Sidebar - Customer data:', data)
+          if (Array.isArray(data)) {
+            console.log('✅ Sidebar - Setting customer count:', data.length)
+            setCustomerCount(data.length)
+          }
+        }
+      } catch (error) {
+        console.error('❌ Sidebar - Failed to fetch customer count:', error)
+      }
+    }
+
+    // Fetch approvals count (pending quotations)
+    const fetchApprovalCount = async () => {
+      try {
+        console.log('📊 Sidebar - Fetching approval count...')
+        const currentYear = new Date().getFullYear()
+        const nextYear = currentYear + 1
+
+        const response = await QuotationsAPI.getQuotations({
+          FilterSTR: 'Pending',
+          FromDate: `${currentYear}-01-01 00:00:00.000`,
+          ToDate: `${nextYear}-12-31 23:59:59.999`,
+        }, null)
+
+        console.log('📊 Sidebar - Approval response:', response)
+        if (response.success && response.data) {
+          console.log('✅ Sidebar - Setting approval count:', response.data.length)
+          setApprovalCount(response.data.length)
+        }
+      } catch (error) {
+        console.error('❌ Sidebar - Failed to fetch approval count:', error)
+      }
+    }
+
+    console.log('🚀 Sidebar - Starting all count fetches...')
     fetchInquiryCount()
     fetchQuotationCount()
+    fetchCustomerCount()
+    fetchApprovalCount()
+    console.log('🚀 Sidebar - All fetch functions called')
   }, [])
 
   const handleLogout = () => {
@@ -315,6 +382,12 @@ export function AppSidebar() {
                   displayCount = inquiryCount
                 } else if (item.title === 'Quotations') {
                   displayCount = quotationCount
+                } else if (item.title === 'Customer') {
+                  displayCount = customerCount
+                  console.log('🔢 Sidebar - Customer menu item, count:', customerCount)
+                } else if (item.title === 'Approvals') {
+                  displayCount = approvalCount
+                  console.log('🔢 Sidebar - Approvals menu item, count:', approvalCount)
                 }
 
                 return (
@@ -329,8 +402,8 @@ export function AppSidebar() {
                           <item.icon className="h-6 w-6" />
                           <span className="text-base font-bold">{item.title}</span>
                         </div>
-                        {displayCount !== undefined && displayCount > 0 && !isCollapsed && (
-                          <Badge variant="secondary" className="ml-auto h-5 px-2 text-xs font-bold">
+                        {displayCount !== undefined && displayCount > 0 && (
+                          <Badge variant="secondary" className={`ml-auto h-5 px-2 text-xs font-bold ${isCollapsed ? 'hidden' : ''}`}>
                             {displayCount}
                           </Badge>
                         )}

@@ -19,6 +19,7 @@ const USERS = [
   { email: "kavita@parksons.com", password: "kavita@123", name: "Kavita Reddy", role: "H.O.D" },
   { email: "vertical@parksons.com", password: "vertical@123", name: "Vertical Head", role: "Vertical Head" },
   { email: "purchase@parksons.com", password: "purchase@123", name: "Purchase Manager", role: "Purchase" },
+  { email: "jatin@indusanalytics.co.in", password: "jatin@123", name: "Jatin", role: "Vertical Head" },
 ]
 
 export default function LoginPage() {

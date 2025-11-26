@@ -10,6 +10,7 @@ import { ArrowUpRight, TrendingUp, TrendingDown, Download, Calendar, Target, Dol
 import Link from "next/link"
 import Image from "next/image"
 import { getViewableKAMs, getCurrentUserHODName, isHOD, isKAM } from "@/lib/permissions"
+import { getAnalyticsKPIs, getMonthlyTrends, getConversionFunnel, getProjectsByType } from "@/lib/analytics-api"
 
 // KPI Data - Base data for all KAMs combined
 const baseKpiData: Record<string, any> = {
@@ -527,6 +528,10 @@ export function DashboardContent() {
   const [selectedPeriod, setSelectedPeriod] = useState("month")
   const [selectedHod, setSelectedHod] = useState("all")
   const [selectedKam, setSelectedKam] = useState("all")
+  const [realKpiData, setRealKpiData] = useState<any>(null)
+  const [realMonthlyData, setRealMonthlyData] = useState<any>(null)
+  const [realConversionData, setRealConversionData] = useState<any>(null)
+  const [realProjectsData, setRealProjectsData] = useState<any>(null)
 
   // Get viewable KAMs based on user role
   const viewableKams = getViewableKAMs()
@@ -604,6 +609,69 @@ export function DashboardContent() {
 
   // Get filtered data based on selected HOD and KAM
   const getFilteredData = () => {
+    console.log('📊 getFilteredData called - realKpiData:', realKpiData)
+    console.log('📊 getFilteredData called - realMonthlyData:', realMonthlyData)
+    console.log('📊 getFilteredData called - realConversionData:', realConversionData)
+
+    // Use real data if available
+    if (realKpiData && realMonthlyData && realConversionData) {
+      console.log('✅ Using real data for dashboard')
+      // Build KPI data from real analytics
+      const kpiData = [
+        {
+          title: "Total Inquiries",
+          value: String(realKpiData.totalInquiries || 0),
+          change: `${realKpiData.inquiryChange || 0}%`,
+          trend: (realKpiData.inquiryChange || 0) >= 0 ? "up" : "down",
+          icon: FileText,
+          color: "#005180",
+          bgGradient: "from-[#005180]/5 to-[#005180]/10",
+          comparison: "vs last month",
+        },
+        {
+          title: "Completed",
+          value: String(realKpiData.completed || 0),
+          change: "+0%",
+          trend: "up",
+          icon: CheckCircle,
+          color: "#78BE20",
+          bgGradient: "from-[#78BE20]/5 to-[#78BE20]/10",
+          comparison: "vs last month",
+        },
+        {
+          title: "Conversions",
+          value: String(realKpiData.conversions || 0),
+          change: "0%",
+          trend: "up",
+          icon: Package,
+          color: "#005180",
+          bgGradient: "from-[#005180]/10 to-[#005180]/15",
+          comparison: `conversion rate ${realKpiData.conversionRate}%`,
+        },
+        {
+          title: "Active Clients",
+          value: String(realKpiData.activeClients || 0),
+          change: "+0%",
+          trend: "up",
+          icon: Users,
+          color: "#78BE20",
+          bgGradient: "from-[#78BE20]/10 to-[#78BE20]/15",
+          comparison: "active this month",
+        },
+      ]
+
+      const result = {
+        kpiData,
+        monthlyInquiriesData: realMonthlyData || baseMonthlyInquiriesData.all,
+        salesVsTargetData: baseSalesVsTargetData.all, // Keep using base data for sales (not in API yet)
+        conversionFunnelData: realConversionData || baseConversionFunnelData.all,
+      }
+      console.log('📤 Returning real data result:', result)
+      return result
+    }
+
+    console.log('⚠️ Fallback to base data - real data not loaded yet')
+    // Fallback to base data if real data not loaded yet
     // If individual KAM is selected, show their data
     if (selectedKam !== "all") {
       return {
@@ -613,10 +681,6 @@ export function DashboardContent() {
         conversionFunnelData: baseConversionFunnelData[selectedKam] || baseConversionFunnelData.all,
       }
     }
-
-    // If "All KAMs" is selected, show combined data for their viewable KAMs
-    // For HOD users, this shows combined data for all KAMs under them
-    // For Vertical Head with HOD filter, this shows combined data for KAMs under that HOD
 
     // Check if HOD user and return team-specific combined data
     if (isHODUser && currentUserHod) {
@@ -650,6 +714,78 @@ export function DashboardContent() {
   }
 
   const { kpiData, monthlyInquiriesData, salesVsTargetData, conversionFunnelData } = getFilteredData()
+
+  // Use real projects data if available
+  const projectsByTypeData = realProjectsData || [
+    { type: "SDO", count: 42, color: "#005180" },
+    { type: "JDO", count: 35, color: "#78BE20" },
+    { type: "Commercial", count: 58, color: "#B92221" },
+    { type: "PN", count: 28, color: "#0066a1" },
+  ]
+
+  // Fetch real analytics data
+  useEffect(() => {
+    const fetchRealData = async () => {
+      console.log('🔄 Dashboard - Starting data fetch for selectedKam:', selectedKam)
+      setIsLoading(true)
+      try {
+        // Determine which KAM to filter by
+        let kamFilter: string | undefined = undefined
+        if (selectedKam !== 'all') {
+          kamFilter = selectedKam
+        }
+
+        console.log('🔍 Dashboard - Fetching with kamFilter:', kamFilter)
+
+        // Fetch all data in parallel
+        const [kpisResponse, monthlyResponse, conversionResponse, projectsResponse] = await Promise.all([
+          getAnalyticsKPIs(kamFilter),
+          getMonthlyTrends(kamFilter),
+          getConversionFunnel(kamFilter),
+          getProjectsByType(kamFilter)
+        ])
+
+        console.log('📥 Dashboard - KPIs Response:', kpisResponse)
+        console.log('📥 Dashboard - Monthly Response:', monthlyResponse)
+        console.log('📥 Dashboard - Conversion Response:', conversionResponse)
+        console.log('📥 Dashboard - Projects Response:', projectsResponse)
+
+        if (kpisResponse.success && kpisResponse.data) {
+          console.log('✅ Setting realKpiData:', kpisResponse.data)
+          setRealKpiData(kpisResponse.data)
+        } else {
+          console.error('❌ KPIs fetch failed or no data')
+        }
+
+        if (monthlyResponse.success && monthlyResponse.data) {
+          console.log('✅ Setting realMonthlyData:', monthlyResponse.data)
+          setRealMonthlyData(monthlyResponse.data)
+        } else {
+          console.error('❌ Monthly data fetch failed or no data')
+        }
+
+        if (conversionResponse.success && conversionResponse.data) {
+          console.log('✅ Setting realConversionData:', conversionResponse.data)
+          setRealConversionData(conversionResponse.data)
+        } else {
+          console.error('❌ Conversion data fetch failed or no data')
+        }
+
+        if (projectsResponse.success && projectsResponse.data) {
+          console.log('✅ Setting realProjectsData:', projectsResponse.data)
+          setRealProjectsData(projectsResponse.data)
+        } else {
+          console.error('❌ Projects data fetch failed or no data')
+        }
+      } catch (error) {
+        console.error('❌ Error fetching analytics data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRealData()
+  }, [selectedKam])
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 600)
@@ -707,8 +843,8 @@ export function DashboardContent() {
         </div>
       )}
 
-      {/* KPI Tiles - 4 Square Cards in 2 per row */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* KPI Tiles - 4 Cards: 2 per row on mobile, 4 in one row on desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {kpiData.map((kpi: any, index: number) => {
           // Define color scheme based on card type - using only brand colors with blue text for Card 2
           const colorSchemes = [
@@ -757,9 +893,9 @@ export function DashboardContent() {
         })}
       </div>
 
-      {/* Charts Grid - Top 3 Charts */}
+      {/* Row 1: Sales vs Target & Conversion Funnel */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Chart 2: Sales vs Target */}
+        {/* Chart: Sales vs Target */}
         <Card
           className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
           style={{
@@ -788,7 +924,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        {/* Chart 3: Conversion Funnel */}
+        {/* Chart: Conversion Funnel */}
         <Card
           className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
           style={{
@@ -818,8 +954,11 @@ export function DashboardContent() {
             </ChartContainer>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Chart 4: Projects by Type */}
+      {/* Row 2: Projects by Type & Monthly Inquiries vs Conversions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Chart: Projects by Type */}
         <Card
           className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
           style={{
@@ -840,7 +979,7 @@ export function DashboardContent() {
                   <YAxis className="text-xs" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                    {projectsByTypeData.map((entry, index) => (
+                    {projectsByTypeData.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Bar>
@@ -849,76 +988,36 @@ export function DashboardContent() {
             </ChartContainer>
           </CardContent>
         </Card>
+
+        {/* Chart: Monthly Inquiries vs Conversions */}
+        <Card
+          className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+          style={{
+            animationDelay: '700ms',
+            animationDuration: '600ms',
+            animationFillMode: 'forwards'
+          }}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold text-gray-900">Monthly Inquiries vs Conversions</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 pt-0">
+            <ChartContainer config={{ inquiries: { label: "Inquiries", color: "#005180" }, conversions: { label: "Conversions", color: "#78BE20" } }} className="h-[280px] w-full">
+              <ResponsiveContainer>
+                <AreaChart data={monthlyInquiriesData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend wrapperStyle={{ fontSize: "12px" }} />
+                  <Area type="monotone" dataKey="inquiries" stackId="1" stroke="#005180" fill="#005180" fillOpacity={0.6} />
+                  <Area type="monotone" dataKey="conversions" stackId="2" stroke="#78BE20" fill="#78BE20" fillOpacity={0.6} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Chart 1: Monthly Inquiries vs Conversions */}
-      <Card
-        className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.01]"
-        style={{
-          animationDelay: '700ms',
-          animationDuration: '600ms',
-          animationFillMode: 'forwards'
-        }}
-      >
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold text-gray-900">Monthly Inquiries vs Conversions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          <ChartContainer config={{ inquiries: { label: "Inquiries", color: "#005180" }, conversions: { label: "Conversions", color: "#78BE20" } }} className="h-[280px] w-full">
-            <ResponsiveContainer>
-              <AreaChart data={monthlyInquiriesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend wrapperStyle={{ fontSize: "12px" }} />
-                <Area type="monotone" dataKey="inquiries" stackId="1" stroke="#005180" fill="#005180" fillOpacity={0.6} />
-                <Area type="monotone" dataKey="conversions" stackId="2" stroke="#78BE20" fill="#78BE20" fillOpacity={0.6} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-
-      {/* Status Legends - At Bottom */}
-      <Card
-        className="border-0 shadow-md bg-white/90 backdrop-blur hover:shadow-lg transition-all duration-300"
-        style={{
-          animationDelay: '800ms',
-          animationDuration: '600ms',
-          animationFillMode: 'forwards'
-        }}
-      >
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold text-gray-900">Status Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 pt-2">
-          <div className="grid grid-cols-1 gap-2">
-            {statusLegend.map((status, index) => (
-              <div
-                key={status.name}
-                className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-gradient-to-r from-gray-50 to-white hover:shadow-md hover:scale-[1.02] transition-all duration-200 active:scale-95"
-                style={{
-                  animationDelay: `${900 + index * 80}ms`,
-                  animationDuration: '400ms',
-                  animationFillMode: 'forwards'
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-3 w-3 rounded-full shadow-sm transition-transform duration-200 hover:scale-125" style={{ backgroundColor: status.color }} />
-                  <span className="text-sm font-medium text-gray-700">{status.name}</span>
-                </div>
-                <Badge
-                  className="h-6 px-3 text-xs font-bold shadow-sm transition-all duration-200 hover:scale-110"
-                  style={{ backgroundColor: `${status.color}20`, color: status.color, border: `1px solid ${status.color}40` }}
-                >
-                  {status.count}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
