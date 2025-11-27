@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { clientLogger } from "@/lib/logger"
 
 // REMOVED: Static data - using only API data now
 /*
@@ -311,20 +312,20 @@ export function InquiriesContent() {
           RadioValue: 'All',
         }
 
-        console.log('📅 Fetching inquiries with request:', requestData)
+        clientLogger.log('📅 Fetching inquiries with request:', requestData)
 
         const response = await EnquiryAPI.getEnquiries(requestData, null)
 
-        console.log('📊 API Response:', {
+        clientLogger.log('📊 API Response:', {
           success: response.success,
           totalInquiries: response.data?.length || 0,
           error: response.error
         })
 
         if (response.success && response.data && response.data.length > 0) {
-          console.log('📋 Raw API Data (first 3 inquiries):', response.data.slice(0, 3))
-          console.log('📋 All API Data:', response.data)
-          console.log('🏷️ Category Data Check:', response.data.map((item: any) => ({
+          clientLogger.log('📋 Raw API Data (first 3 inquiries):', response.data.slice(0, 3))
+          clientLogger.log('📋 All API Data:', response.data)
+          clientLogger.log('🏷️ Category Data Check:', response.data.map((item: any) => ({
             id: item.EnquiryNo,
             CategoryID: item.CategoryID,
             CategoryName: item.CategoryName
@@ -362,12 +363,12 @@ export function InquiriesContent() {
             rawData: item,
           }))
 
-          console.log('✅ Transformed Data:', transformedData)
-          console.log('✅ Total transformed inquiries:', transformedData.length)
+          clientLogger.log('✅ Transformed Data:', transformedData)
+          clientLogger.log('✅ Total transformed inquiries:', transformedData.length)
 
           setInquiries(transformedData)
         } else {
-          console.log('⚠️ No inquiries found or API failed')
+          clientLogger.log('⚠️ No inquiries found or API failed')
           setError(response.error || 'No inquiries found')
           setInquiries([])
         }
@@ -395,14 +396,14 @@ export function InquiriesContent() {
     try {
       setLoadingEnquiryDetails(true)
 
-      console.log('📝 Opening edit for inquiry:', inquiry.id, 'EnquiryID:', inquiry.enquiryId)
+      clientLogger.log('📝 Opening edit for inquiry:', inquiry.id, 'EnquiryID:', inquiry.enquiryId)
 
       // Fetch detailed enquiry data including dimensions and processes
       if (inquiry.enquiryId) {
         const response = await (EnquiryAPI as any).getEnquiryDetails(inquiry.enquiryId, null)
 
         if (response.success && response.data) {
-          console.log('✅ Fetched detailed enquiry data:', response.data)
+          clientLogger.log('✅ Fetched detailed enquiry data:', response.data)
 
           // Merge the detailed data with the inquiry
           const detailedInquiry = {
@@ -413,7 +414,7 @@ export function InquiriesContent() {
           setEditingInquiry(detailedInquiry)
           setEditDialogOpen(true)
         } else {
-          console.error('❌ Failed to fetch enquiry details:', response.error)
+          clientLogger.error('❌ Failed to fetch enquiry details:', response.error)
           // Open with basic data if detailed fetch fails
           setEditingInquiry(inquiry)
           setEditDialogOpen(true)
@@ -424,7 +425,7 @@ export function InquiriesContent() {
         setEditDialogOpen(true)
       }
     } catch (error) {
-      console.error('❌ Error fetching enquiry details:', error)
+      clientLogger.error('❌ Error fetching enquiry details:', error)
       // Open with basic data on error
       setEditingInquiry(inquiry)
       setEditDialogOpen(true)
@@ -437,27 +438,27 @@ export function InquiriesContent() {
   const fetchEmailBody = async (inquiry: any) => {
     // Only fetch if source is "Email Scraper"
     if (inquiry.Source !== "Email Scraper") {
-      console.log('❌ Source is not Email Scraper:', inquiry.Source)
+      clientLogger.log('❌ Source is not Email Scraper:', inquiry.Source)
       return
     }
 
     // Check if inquiry has EmailEnquiryId
     if (!inquiry.EmailEnquiryId) {
-      console.warn('❌ No EmailEnquiryId for inquiry:', inquiry.id)
+      clientLogger.warn('❌ No EmailEnquiryId for inquiry:', inquiry.id)
       return
     }
 
     // Check if already fetched
     if (emailBodies[inquiry.id]) {
-      console.log('✅ Email body already fetched for:', inquiry.id)
+      clientLogger.log('✅ Email body already fetched for:', inquiry.id)
       return
     }
 
     try {
-      console.log('📧 Fetching email body for inquiry:', inquiry.id, 'EmailEnquiryId:', inquiry.EmailEnquiryId)
+      clientLogger.log('📧 Fetching email body for inquiry:', inquiry.id, 'EmailEnquiryId:', inquiry.EmailEnquiryId)
       const response = await (EnquiryAPI as any).getRawEmailBody(inquiry.EmailEnquiryId, null)
 
-      console.log('📧 Email body response:', response)
+      clientLogger.log('📧 Email body response:', response)
 
       if (response.success && response.data) {
         // Extract the actual email body text from the response
@@ -465,17 +466,17 @@ export function InquiriesContent() {
           ? response.data
           : response.data.rawEmailBody || response.data.RawEmailBody || ''
 
-        console.log('✅ Setting email body:', emailBodyText)
+        clientLogger.log('✅ Setting email body:', emailBodyText)
 
         setEmailBodies(prev => ({
           ...prev,
           [inquiry.id]: emailBodyText
         }))
       } else {
-        console.error('❌ Failed to fetch email body:', response.error)
+        clientLogger.error('❌ Failed to fetch email body:', response.error)
       }
     } catch (error) {
-      console.error('❌ Error fetching email body:', error)
+      clientLogger.error('❌ Error fetching email body:', error)
     }
   }
 
@@ -496,7 +497,7 @@ export function InquiriesContent() {
   //     })
   //   : inquiries
 
-  console.log('🔍 User Role Filtering:', {
+  clientLogger.log('🔍 User Role Filtering:', {
     totalInquiries: inquiries.length,
     afterUserFilter: userFilteredInquiries.length,
     isRestrictedUser,
@@ -530,7 +531,7 @@ export function InquiriesContent() {
       return matchesSearch && matchesStatus && matchesPriority && matchesHod && matchesKam
     })
 
-  console.log('📊 Final Filtering:', {
+  clientLogger.log('📊 Final Filtering:', {
     afterUserFilter: userFilteredInquiries.length,
     afterAllFilters: filteredInquiries.length,
     filters: {
@@ -568,7 +569,7 @@ export function InquiriesContent() {
   const endIndex = startIndex + itemsPerPage
   const paginatedInquiries = sortedInquiries.slice(startIndex, endIndex)
 
-  console.log('📄 Pagination:', {
+  clientLogger.log('📄 Pagination:', {
     totalInquiries: sortedInquiries.length,
     currentPage,
     totalPages,

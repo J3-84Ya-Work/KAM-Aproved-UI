@@ -8,6 +8,7 @@ import { FloatingActionButton } from "@/components/floating-action-button"
 import { ProjectBriefingForm, ProjectBriefingData } from "@/components/project-briefing-form"
 import { useState, useCallback } from "react"
 import { getViewableKAMs } from "@/lib/permissions"
+import { clientLogger } from "@/lib/logger"
 
 export default function ProjectsPage() {
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
@@ -60,7 +61,7 @@ export default function ProjectsPage() {
   }
 
   const handleProjectBriefingSubmit = (data: ProjectBriefingData) => {
-    console.log(`Creating new ${projectType}:`, data)
+    clientLogger.log(`Creating new ${projectType}:`, data)
     // TODO: Save project briefing data to database/API
     // TODO: Navigate to next step or show success message
     alert(`✅ ${projectType} Project Briefing saved successfully!\n\nNext: Create the actual ${projectType} order.`)

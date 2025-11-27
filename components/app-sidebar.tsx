@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { getCurrentUser } from "@/lib/permissions"
 import { EnquiryAPI, QuotationsAPI } from "@/lib/api/enquiry"
+import { clientLogger } from "@/lib/logger"
 
 const roleBasedNavItems = {
   KAM: [
@@ -187,15 +188,15 @@ export function AppSidebar() {
   useEffect(() => {
     // Get current user info
     const user = getCurrentUser()
-    console.log('AppSidebar - Current user:', user)
+    clientLogger.log('AppSidebar - Current user:', user)
     if (user) {
       setUserRole(user.role)
       setUserName(user.name)
-      console.log('AppSidebar - User role:', user.role, 'User name:', user.name)
+      clientLogger.log('AppSidebar - User role:', user.role, 'User name:', user.name)
       // Set navigation items based on role
       setNavItems(roleBasedNavItems[user.role as keyof typeof roleBasedNavItems] || roleBasedNavItems.KAM)
     } else {
-      console.log('AppSidebar - No user found in localStorage')
+      clientLogger.log('AppSidebar - No user found in localStorage')
     }
 
     // Fetch inquiry count
@@ -216,7 +217,7 @@ export function AppSidebar() {
           setInquiryCount(response.data.length)
         }
       } catch (error) {
-        console.error('Failed to fetch inquiry count:', error)
+        clientLogger.error('Failed to fetch inquiry count:', error)
       }
     }
 
@@ -237,14 +238,14 @@ export function AppSidebar() {
           setQuotationCount(response.data.length)
         }
       } catch (error) {
-        console.error('Failed to fetch quotation count:', error)
+        clientLogger.error('Failed to fetch quotation count:', error)
       }
     }
 
     // Fetch customer count
     const fetchCustomerCount = async () => {
       try {
-        console.log('📊 Sidebar - Fetching customer count...')
+        clientLogger.log('📊 Sidebar - Fetching customer count...')
         const response = await fetch('https://api.indusanalytics.co.in/api/planwindow/GetSbClient', {
           method: 'GET',
           headers: {
@@ -257,24 +258,24 @@ export function AppSidebar() {
           },
         })
 
-        console.log('📊 Sidebar - Customer response status:', response.ok)
+        clientLogger.log('📊 Sidebar - Customer response status:', response.ok)
         if (response.ok) {
           const data = await response.json()
-          console.log('📊 Sidebar - Customer data:', data)
+          clientLogger.log('📊 Sidebar - Customer data:', data)
           if (Array.isArray(data)) {
-            console.log('✅ Sidebar - Setting customer count:', data.length)
+            clientLogger.log('✅ Sidebar - Setting customer count:', data.length)
             setCustomerCount(data.length)
           }
         }
       } catch (error) {
-        console.error('❌ Sidebar - Failed to fetch customer count:', error)
+        clientLogger.error('❌ Sidebar - Failed to fetch customer count:', error)
       }
     }
 
     // Fetch approvals count (pending quotations)
     const fetchApprovalCount = async () => {
       try {
-        console.log('📊 Sidebar - Fetching approval count...')
+        clientLogger.log('📊 Sidebar - Fetching approval count...')
         const currentYear = new Date().getFullYear()
         const nextYear = currentYear + 1
 
@@ -284,22 +285,22 @@ export function AppSidebar() {
           ToDate: `${nextYear}-12-31 23:59:59.999`,
         }, null)
 
-        console.log('📊 Sidebar - Approval response:', response)
+        clientLogger.log('📊 Sidebar - Approval response:', response)
         if (response.success && response.data) {
-          console.log('✅ Sidebar - Setting approval count:', response.data.length)
+          clientLogger.log('✅ Sidebar - Setting approval count:', response.data.length)
           setApprovalCount(response.data.length)
         }
       } catch (error) {
-        console.error('❌ Sidebar - Failed to fetch approval count:', error)
+        clientLogger.error('❌ Sidebar - Failed to fetch approval count:', error)
       }
     }
 
-    console.log('🚀 Sidebar - Starting all count fetches...')
+    clientLogger.log('🚀 Sidebar - Starting all count fetches...')
     fetchInquiryCount()
     fetchQuotationCount()
     fetchCustomerCount()
     fetchApprovalCount()
-    console.log('🚀 Sidebar - All fetch functions called')
+    clientLogger.log('🚀 Sidebar - All fetch functions called')
   }, [])
 
   const handleLogout = () => {
@@ -384,10 +385,10 @@ export function AppSidebar() {
                   displayCount = quotationCount
                 } else if (item.title === 'Customer') {
                   displayCount = customerCount
-                  console.log('🔢 Sidebar - Customer menu item, count:', customerCount)
+                  clientLogger.log('🔢 Sidebar - Customer menu item, count:', customerCount)
                 } else if (item.title === 'Approvals') {
                   displayCount = approvalCount
-                  console.log('🔢 Sidebar - Approvals menu item, count:', approvalCount)
+                  clientLogger.log('🔢 Sidebar - Approvals menu item, count:', approvalCount)
                 }
 
                 return (

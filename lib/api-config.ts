@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 // API Configuration
 export const API_CONFIG = {
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.indusanalytics.co.in',
@@ -131,7 +132,7 @@ export const apiClient = {
 
       return responseData
     } catch (e) {
-      console.error('Failed to parse response:', e, 'Raw text:', text)
+      logger.error('Failed to parse response:', e, 'Raw text:', text)
       return null
     }
   },
@@ -403,8 +404,8 @@ export async function getMachineProductionUnitListAPI() {
 export async function postShirinJob(payload: any) {
   // payload expected to be a plain object following API spec
   const endpoint = 'api/planwindow/Shirin_Job'
-  console.log(`=== Calling endpoint: ${endpoint} ===`)
-  console.log('=== ShirinJob Payload ===', JSON.stringify(payload, null, 2))
+  logger.log(`=== Calling endpoint: ${endpoint} ===`)
+  logger.log('=== ShirinJob Payload ===', JSON.stringify(payload, null, 2))
 
   try {
     const res = await apiClient.post(endpoint, payload)
@@ -433,23 +434,23 @@ export async function createBooking(costingParams: any, enquiryData: any) {
     EnquiryData: enquiryData
   }
 
-  console.log('=== Calling DirectCosting API (to get BookingID) ===')
-  console.log('=== DirectCosting Payload ===', JSON.stringify(payload, null, 2))
+  logger.log('=== Calling DirectCosting API (to get BookingID) ===')
+  logger.log('=== DirectCosting Payload ===', JSON.stringify(payload, null, 2))
 
   const endpoint = 'api/parksons/directcosting'
   const res = await apiClient.post(endpoint, payload)
-  console.log('=== DirectCosting response (BookingID) ===', JSON.stringify(res, null, 2))
+  logger.log('=== DirectCosting response (BookingID) ===', JSON.stringify(res, null, 2))
   return res
 }
 
 // Helper: Get Quotation Detail by BookingID
 export async function getQuotationDetail(bookingId: number | string) {
   const endpoint = `api/planwindow/getquotationDetail/${bookingId}`
-  console.log(`=== Calling endpoint: ${endpoint} ===`)
+  logger.log(`=== Calling endpoint: ${endpoint} ===`)
 
   try {
     const res = await apiClient.get(endpoint)
-    console.log('=== GetQuotationDetail response ===', JSON.stringify(res, null, 2))
+    logger.log('=== GetQuotationDetail response ===', JSON.stringify(res, null, 2))
     return res
   } catch (err) {
     throw err
@@ -654,7 +655,7 @@ export async function saveMultipleEnquiry(enquiryData: {
     ],
   }
 
-  console.log('SaveMultipleEnquiry Payload:', JSON.stringify(payload, null, 2))
+  logger.log('SaveMultipleEnquiry Payload:', JSON.stringify(payload, null, 2))
 
   const endpoint = 'api/enquiry/SaveMultipleEnquiry'
   return apiClient.post(endpoint, payload)
@@ -768,7 +769,7 @@ export async function postDirectCosting(costingParams: any, enquiryData: any) {
     EnquiryData: enquiryData
   }
 
-  console.log('=== DirectCosting Payload ===', JSON.stringify(payload, null, 2))
+  logger.log('=== DirectCosting Payload ===', JSON.stringify(payload, null, 2))
 
   const endpoint = 'api/parksons/directcosting'
   return apiClient.post(endpoint, payload)

@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { sendMessage } from "@/lib/chat-api"
 import { useAutoSaveDraft, type FormType } from "@/hooks/use-auto-save-draft"
 import { Badge } from "@/components/ui/badge"
+import { clientLogger } from "@/lib/logger"
 
 interface Message {
   id: string
@@ -84,7 +85,7 @@ export function AICostingChat({
   // Log formData when messages change for debugging
   useEffect(() => {
     if (messages.length > 0) {
-      console.log('[AI Chat] FormData for auto-save:', {
+      clientLogger.log('[AI Chat] FormData for auto-save:', {
         messageCount: messages.length,
         hasInput: !!inputValue,
         chatId: chatId,
@@ -101,14 +102,14 @@ export function AICostingChat({
     debounceMs: 2000,  // Save 2 seconds after user stops typing
     initialDraftId: loadedDraftId,  // Pass the loaded draft ID for updates
     onSaveSuccess: (draftId) => {
-      console.log('[AI Chat] Draft saved/updated with ID:', draftId)
+      clientLogger.log('[AI Chat] Draft saved/updated with ID:', draftId)
       // Update the loaded draft ID if this was a new save
       if (!loadedDraftId && draftId) {
         setLoadedDraftId(draftId)
       }
     },
     onSaveError: (error) => {
-      console.error('[AI Chat] Failed to save draft:', error)
+      clientLogger.error('[AI Chat] Failed to save draft:', error)
     },
   })
 
@@ -129,7 +130,7 @@ export function AICostingChat({
         }
 
         recognition.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error)
+          clientLogger.error('Speech recognition error:', event.error)
           setIsListening(false)
         }
 
@@ -225,13 +226,13 @@ export function AICostingChat({
           try {
             const draftData = JSON.parse(draftDataStr)
 
-            console.log('[AI Chat] Loading draft data:', draftData)
+            clientLogger.log('[AI Chat] Loading draft data:', draftData)
 
             // The draft data is flat at the top level with FormType added
             // Extract the loaded draft ID
             if (draftData.LoadedDraftID) {
               setLoadedDraftId(draftData.LoadedDraftID)
-              console.log('[AI Chat] Set loaded draft ID:', draftData.LoadedDraftID)
+              clientLogger.log('[AI Chat] Set loaded draft ID:', draftData.LoadedDraftID)
             }
 
             // Restore messages (convert timestamp strings back to Date objects)
@@ -241,7 +242,7 @@ export function AICostingChat({
                 timestamp: new Date(msg.timestamp), // Convert string back to Date
               }))
               setMessages(restoredMessages)
-              console.log('[AI Chat] Restored messages:', restoredMessages.length)
+              clientLogger.log('[AI Chat] Restored messages:', restoredMessages.length)
             }
 
             // Restore current input
@@ -255,7 +256,7 @@ export function AICostingChat({
             // Clear session storage after loading
             sessionStorage.removeItem('loadedDraft')
 
-            console.log('[AI Chat] Draft loaded successfully')
+            clientLogger.log('[AI Chat] Draft loaded successfully')
 
             // Show toast notification (create a custom event since we can't use toast hook in timeout)
             setTimeout(() => {
@@ -268,7 +269,7 @@ export function AICostingChat({
               window.dispatchEvent(toastEvent)
             }, 100)
           } catch (error) {
-            console.error('[AI Chat] Failed to parse draft data:', error)
+            clientLogger.error('[AI Chat] Failed to parse draft data:', error)
           }
         }
       } else if (initialMessage) {
@@ -342,7 +343,7 @@ export function AICostingChat({
         recognitionRef.current.start()
         setIsListening(true)
       } catch (error) {
-        console.error('Error starting speech recognition:', error)
+        clientLogger.error('Error starting speech recognition:', error)
       }
     }
   }

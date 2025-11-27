@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { getAllDrafts, getMockDrafts, loadDraft, deleteDraft, renameDraft, type DraftRecord } from "@/lib/drafts-api"
 import { useToast } from "@/hooks/use-toast"
+import { clientLogger } from "@/lib/logger"
 
 export function DraftsContent() {
   const router = useRouter()
@@ -72,14 +73,14 @@ export function DraftsContent() {
         setDraftRecords(result.data)
       } else {
         // Fallback to mock data if API fails
-        console.warn('API failed, using mock data:', result.error)
+        clientLogger.warn('API failed, using mock data:', result.error)
         setDraftRecords(getMockDrafts())
         setUsingMockData(true)
         setError(`API Error: ${result.error} (showing sample data)`)
       }
     } catch (err) {
       // Fallback to mock data on error
-      console.warn('Error fetching drafts, using mock data:', err)
+      clientLogger.warn('Error fetching drafts, using mock data:', err)
       setDraftRecords(getMockDrafts())
       setUsingMockData(true)
       setError(`Error: ${err instanceof Error ? err.message : 'Unknown error'} (showing sample data)`)
@@ -109,7 +110,7 @@ export function DraftsContent() {
         }
 
         recognitionInstance.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error)
+          clientLogger.error('Speech recognition error:', event.error)
           setIsListening(false)
           toast({
             variant: "destructive",
@@ -146,7 +147,7 @@ export function DraftsContent() {
         recognition.start()
         setIsListening(true)
       } catch (error) {
-        console.error('Error starting recognition:', error)
+        clientLogger.error('Error starting recognition:', error)
         toast({
           variant: "destructive",
           title: "Error",
@@ -177,17 +178,17 @@ export function DraftsContent() {
   // Handle load draft
   const handleLoadDraft = async (draft: DraftRecord) => {
     try {
-      console.log('[Draft Load] Loading draft:', draft.DraftID)
+      clientLogger.log('[Draft Load] Loading draft:', draft.DraftID)
       const result = await loadDraft(draft.DraftID)
-      console.log('[Draft Load] API response:', result)
+      clientLogger.log('[Draft Load] API response:', result)
 
       // Response format: { success: true, data: { DraftData: {...}, DraftID: ..., etc } }
       if (result && result.success && result.data && result.data.DraftData) {
         const draftData = result.data.DraftData
         const draftId = result.data.DraftID
-        console.log('[Draft Load] Draft data:', draftData)
-        console.log('[Draft Load] Draft ID:', draftId)
-        console.log('[Draft Load] Draft data FormType:', draftData.FormType)
+        clientLogger.log('[Draft Load] Draft data:', draftData)
+        clientLogger.log('[Draft Load] Draft ID:', draftId)
+        clientLogger.log('[Draft Load] Draft data FormType:', draftData.FormType)
 
         // Add the DraftID to the draft data so it can be used for updates
         const draftDataWithId = {
@@ -200,15 +201,15 @@ export function DraftsContent() {
           // Navigate to AI Chat with draft data
           // Store draft data in sessionStorage for the chat to pick up
           sessionStorage.setItem('loadedDraft', JSON.stringify(draftDataWithId))
-          console.log('[Draft Load] Navigating to Dynamic Fill with Draft ID:', draftId)
+          clientLogger.log('[Draft Load] Navigating to Dynamic Fill with Draft ID:', draftId)
           router.push('/inquiries/new?mode=dynamic&loadDraft=true')
         } else if (draftData.FormType === 'ManualForm') {
           // Navigate to Manual Form with draft data
           sessionStorage.setItem('loadedDraft', JSON.stringify(draftDataWithId))
-          console.log('[Draft Load] Navigating to Manual Form with Draft ID:', draftId)
+          clientLogger.log('[Draft Load] Navigating to Manual Form with Draft ID:', draftId)
           router.push('/inquiries/new?mode=manual&loadDraft=true')
         } else {
-          console.error('[Draft Load] Unknown FormType:', draftData.FormType)
+          clientLogger.error('[Draft Load] Unknown FormType:', draftData.FormType)
           toast({
             variant: "destructive",
             title: "Unknown Form Type",
@@ -216,7 +217,7 @@ export function DraftsContent() {
           })
         }
       } else {
-        console.error('[Draft Load] Invalid response structure:', result)
+        clientLogger.error('[Draft Load] Invalid response structure:', result)
         toast({
           variant: "destructive",
           title: "Error",
@@ -224,7 +225,7 @@ export function DraftsContent() {
         })
       }
     } catch (error) {
-      console.error('[Draft Load] Error:', error)
+      clientLogger.error('[Draft Load] Error:', error)
       toast({
         variant: "destructive",
         title: "Error",

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { logger } from "@/lib/logger"
 
 export function useVoiceInput() {
   const [isListening, setIsListening] = useState(false)
@@ -22,7 +23,7 @@ export function useVoiceInput() {
         }
 
         recognition.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error)
+          logger.error('Speech recognition error:', event.error)
           setIsListening(false)
         }
 

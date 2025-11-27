@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
+import { clientLogger } from "@/lib/logger"
 
 interface Client {
   ClientID: number
@@ -55,7 +56,7 @@ export function ClientDropdown({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch clients")
-      console.error("Error fetching clients:", err)
+      clientLogger.error("Error fetching clients:", err)
       setClients([])
     } finally {
       setLoading(false)

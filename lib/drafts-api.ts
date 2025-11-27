@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 // Drafts API integration for Draft System
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.indusanalytics.co.in'
@@ -55,11 +56,11 @@ export async function getAllDrafts(): Promise<DraftsApiResponse> {
       ? `${API_BASE_URL}/api/draftsystem/list`
       : '/api/drafts'
 
-    console.log('=== DRAFTS API REQUEST ===')
-    console.log('Endpoint:', endpoint)
-    console.log('Method: GET')
-    console.log('Mode:', USE_DIRECT_API ? 'Direct (from browser)' : 'Proxy (from server)')
-    console.log('========================')
+    logger.log('=== DRAFTS API REQUEST ===')
+    logger.log('Endpoint:', endpoint)
+    logger.log('Method: GET')
+    logger.log('Mode:', USE_DIRECT_API ? 'Direct (from browser)' : 'Proxy (from server)')
+    logger.log('========================')
 
     const headers: Record<string, string> = USE_DIRECT_API
       ? {
@@ -73,7 +74,7 @@ export async function getAllDrafts(): Promise<DraftsApiResponse> {
           'Content-Type': 'application/json',
         }
 
-    console.log('Headers:', headers)
+    logger.log('Headers:', headers)
 
     const response = await fetch(endpoint, {
       method: 'GET',
@@ -82,54 +83,54 @@ export async function getAllDrafts(): Promise<DraftsApiResponse> {
       cache: 'no-store', // Ensure fresh data on each request
     })
 
-    console.log('=== DRAFTS API RESPONSE ===')
-    console.log('Status:', response.status, response.statusText)
-    console.log('OK:', response.ok)
+    logger.log('=== DRAFTS API RESPONSE ===')
+    logger.log('Status:', response.status, response.statusText)
+    logger.log('OK:', response.ok)
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null)
-      console.log('Error Data:', errorData)
-      console.log('===========================')
+      logger.log('Error Data:', errorData)
+      logger.log('===========================')
       throw new Error(errorData?.error || `HTTP error! status: ${response.status}`)
     }
 
     const data = await response.json()
-    console.log('Response Data:', data)
-    console.log('Data Type:', Array.isArray(data) ? 'Array' : typeof data)
-    console.log('===========================')
+    logger.log('Response Data:', data)
+    logger.log('Data Type:', Array.isArray(data) ? 'Array' : typeof data)
+    logger.log('===========================')
 
     // Handle different response formats
     if (Array.isArray(data)) {
-      console.log('✓ Returning array data, length:', data.length)
+      logger.log('✓ Returning array data, length:', data.length)
       return {
         success: true,
         data: data,
       }
     } else if (data.data && Array.isArray(data.data)) {
-      console.log('✓ Returning nested data.data array, length:', data.data.length)
+      logger.log('✓ Returning nested data.data array, length:', data.data.length)
       return {
         success: true,
         data: data.data,
       }
     } else if (data.success && data.data) {
-      console.log('✓ Returning data.data with success flag')
+      logger.log('✓ Returning data.data with success flag')
       return {
         success: true,
         data: Array.isArray(data.data) ? data.data : [data.data],
       }
     }
 
-    console.log('⚠ No data found in response, returning empty array')
+    logger.log('⚠ No data found in response, returning empty array')
     return {
       success: true,
       data: [],
     }
   } catch (error) {
-    console.error('=== DRAFTS API ERROR ===')
-    console.error('Error:', error)
-    console.error('Error Message:', error instanceof Error ? error.message : 'Unknown error')
-    console.error('⚠️ NOTE: If you see "ConnectionString" errors, the backend API may need to whitelist your server IP')
-    console.error('========================')
+    logger.error('=== DRAFTS API ERROR ===')
+    logger.error('Error:', error)
+    logger.error('Error Message:', error instanceof Error ? error.message : 'Unknown error')
+    logger.error('⚠️ NOTE: If you see "ConnectionString" errors, the backend API may need to whitelist your server IP')
+    logger.error('========================')
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -146,8 +147,8 @@ export async function loadDraft(draftId: number): Promise<any> {
   try {
     const endpoint = `${API_BASE_URL}/api/draftsystem/load/${draftId}`
 
-    console.log('[Load Draft API] Endpoint:', endpoint)
-    console.log('[Load Draft API] Draft ID:', draftId)
+    logger.log('[Load Draft API] Endpoint:', endpoint)
+    logger.log('[Load Draft API] Draft ID:', draftId)
 
     const response = await fetch(endpoint, {
       method: 'GET',
@@ -162,19 +163,19 @@ export async function loadDraft(draftId: number): Promise<any> {
       cache: 'no-store',
     })
 
-    console.log('[Load Draft API] Response status:', response.status)
+    logger.log('[Load Draft API] Response status:', response.status)
 
     if (!response.ok) {
       throw new Error(`Failed to load draft: ${response.status}`)
     }
 
     const data = await response.json()
-    console.log('[Load Draft API] Raw response:', data)
-    console.log('[Load Draft API] Response keys:', Object.keys(data))
+    logger.log('[Load Draft API] Raw response:', data)
+    logger.log('[Load Draft API] Response keys:', Object.keys(data))
 
     return data
   } catch (error) {
-    console.error('[Load Draft API] Error loading draft:', error)
+    logger.error('[Load Draft API] Error loading draft:', error)
     throw error
   }
 }
@@ -209,7 +210,7 @@ export async function saveDraft(draftData: any): Promise<any> {
 
     return await response.json()
   } catch (error) {
-    console.error('Error saving draft:', error)
+    logger.error('Error saving draft:', error)
     throw error
   }
 }
@@ -245,7 +246,7 @@ export async function renameDraft(draftId: number, newName: string): Promise<any
 
     return await response.json()
   } catch (error) {
-    console.error('Error renaming draft:', error)
+    logger.error('Error renaming draft:', error)
     throw error
   }
 }
@@ -278,7 +279,7 @@ export async function deleteDraft(draftId: number): Promise<any> {
 
     return await response.json()
   } catch (error) {
-    console.error('Error deleting draft:', error)
+    logger.error('Error deleting draft:', error)
     throw error
   }
 }

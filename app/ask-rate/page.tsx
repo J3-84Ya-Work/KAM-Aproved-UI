@@ -17,6 +17,7 @@ import { getUserRateRequests, createRateRequest } from "@/lib/rate-queries-api"
 import { getCurrentUser } from "@/lib/permissions"
 import { formatDistanceToNow, differenceInHours } from "date-fns"
 import { RequestTimeline } from "@/components/request-timeline"
+import { clientLogger } from "@/lib/logger"
 
 interface RateQuery {
   requestId: number
@@ -92,7 +93,7 @@ export default function AskRatePage() {
         setMyRequests(result.data)
       }
     } catch (error) {
-      console.error('Error fetching requests:', error)
+      clientLogger.error('Error fetching requests:', error)
     } finally {
       setLoading(false)
     }

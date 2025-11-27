@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ChatListSkeleton } from "@/components/loading-skeleton"
+import { clientLogger } from "@/lib/logger"
 
 interface Chat {
   id: string
@@ -89,7 +90,7 @@ export function RecentChats({
   }, [])
 
   const handleChatClick = (chatId: string) => {
-    console.log("[v0] Chat item clicked:", chatId)
+    clientLogger.log("[v0] Chat item clicked:", chatId)
     if (onOpenChat) {
       onOpenChat(chatId)
     }

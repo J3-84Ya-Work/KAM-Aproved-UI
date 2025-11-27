@@ -1,5 +1,6 @@
 "use client"
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { clientLogger } from "@/lib/logger"
 
 type FontSize = "small" | "medium" | "large"
 
@@ -47,11 +48,11 @@ export function FontSizeProvider({ children }: { children: ReactNode }) {
     }
     html.style.fontSize = fontSizes[size]
 
-    console.log("[v0] Font size applied:", size, "- HTML font-size:", html.style.fontSize)
+    clientLogger.log("[v0] Font size applied:", size, "- HTML font-size:", html.style.fontSize)
   }
 
   const setFontSize = (size: FontSize) => {
-    console.log("[v0] Setting font size to:", size)
+    clientLogger.log("[v0] Setting font size to:", size)
     setFontSizeState(size)
     localStorage.setItem("fontSize", size)
     applyFontSize(size)

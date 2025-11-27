@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { saveDraft } from '@/lib/drafts-api'
+import { logger } from "@/lib/logger"
 
 export type FormType = 'DynamicFill' | 'ManualForm'
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -85,7 +86,7 @@ export function useAutoSaveDraft({
         ...(currentDraftId && { DraftID: currentDraftId }), // Include draft ID for updates
       }
 
-      console.log('[Auto-Save] Saving draft:', payload)
+      logger.log('[Auto-Save] Saving draft:', payload)
 
       const response = await saveDraft(payload)
 
@@ -101,7 +102,7 @@ export function useAutoSaveDraft({
         setLastSaved(new Date())
         previousDataRef.current = currentDataString
 
-        console.log('[Auto-Save] Draft saved successfully:', draftId)
+        logger.log('[Auto-Save] Draft saved successfully:', draftId)
 
         if (onSaveSuccess && draftId) {
           onSaveSuccess(draftId)
@@ -115,7 +116,7 @@ export function useAutoSaveDraft({
         }, 2000)
       }
     } catch (error) {
-      console.error('[Auto-Save] Error saving draft:', error)
+      logger.error('[Auto-Save] Error saving draft:', error)
 
       if (isMountedRef.current) {
         setSaveStatus('error')

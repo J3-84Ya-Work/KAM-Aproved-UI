@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 // Rate Queries API Configuration
 const RATE_API_BASE_URL = 'http://localhost:5003'
 
@@ -124,8 +125,8 @@ export async function createRateRequest(payload: CreateRateRequestPayload): Prom
 // Provide rate for a request
 export async function provideRate(payload: ProvideRatePayload): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    console.log('Endpoint:', `${RATE_API_BASE_URL}/api/raterequest/provide-rate`)
-    console.log('Body:', payload)
+    logger.log('Endpoint:', `${RATE_API_BASE_URL}/api/raterequest/provide-rate`)
+    logger.log('Body:', payload)
 
     const response = await fetch(`${RATE_API_BASE_URL}/api/raterequest/provide-rate`, {
       method: 'POST',

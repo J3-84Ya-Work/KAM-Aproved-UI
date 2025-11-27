@@ -17,6 +17,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Slider } from "@/components/ui/slider"
 import { ClientDropdown } from "@/components/ui/client-dropdown"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { clientLogger } from "@/lib/logger"
 import {
   ArrowLeft,
   Search,
@@ -345,13 +346,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     debounceMs: 2000,  // Save 2 seconds after user stops typing
     initialDraftId: loadedDraftId,  // Pass the loaded draft ID for updates
     onSaveSuccess: (draftId) => {
-      console.log('[PrintingWizard] Draft saved/updated with ID:', draftId)
+      clientLogger.log('[PrintingWizard] Draft saved/updated with ID:', draftId)
       if (!loadedDraftId && draftId) {
         setLoadedDraftId(draftId)
       }
     },
     onSaveError: (error) => {
-      console.error('[PrintingWizard] Failed to save draft:', error)
+      clientLogger.error('[PrintingWizard] Failed to save draft:', error)
     },
   })
 
@@ -370,20 +371,20 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       if (draftDataStr) {
         try {
           const draftData = JSON.parse(draftDataStr)
-          console.log('[PrintingWizard] Loading draft data:', draftData)
-          console.log('[PrintingWizard] Categories loaded:', categories.length)
+          clientLogger.log('[PrintingWizard] Loading draft data:', draftData)
+          clientLogger.log('[PrintingWizard] Categories loaded:', categories.length)
 
           // Extract the loaded draft ID
           if (draftData.LoadedDraftID) {
             setLoadedDraftId(draftData.LoadedDraftID)
-            console.log('[PrintingWizard] Set loaded draft ID:', draftData.LoadedDraftID)
+            clientLogger.log('[PrintingWizard] Set loaded draft ID:', draftData.LoadedDraftID)
           }
 
           // Restore job data - merge nested objects properly
           const { FormType, LoadedDraftID, selectedCategoryId: savedCategoryId, currentStep: savedStep, planningResults: savedPlanning, quotationNumber: savedQuotation, enquiryNumber: savedEnquiry, ...restoredJobData } = draftData
 
-          console.log('[PrintingWizard] Restoring job data:', JSON.stringify(restoredJobData, null, 2))
-          console.log('[PrintingWizard] Key fields:', {
+          clientLogger.log('[PrintingWizard] Restoring job data:', JSON.stringify(restoredJobData, null, 2))
+          clientLogger.log('[PrintingWizard] Key fields:', {
             clientName: restoredJobData.clientName,
             jobName: restoredJobData.jobName,
             cartonType: restoredJobData.cartonType,
@@ -417,7 +418,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               quantities: Array.isArray(restoredJobData.quantities) ? restoredJobData.quantities : prevData.quantities,
             }
 
-            console.log('[PrintingWizard] Merged data to set:', {
+            clientLogger.log('[PrintingWizard] Merged data to set:', {
               clientName: mergedData.clientName,
               jobName: mergedData.jobName,
               cartonType: mergedData.cartonType,
@@ -429,36 +430,36 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           // Restore other state
           if (savedCategoryId) {
-            console.log('[PrintingWizard] Restoring category ID:', savedCategoryId)
+            clientLogger.log('[PrintingWizard] Restoring category ID:', savedCategoryId)
             setSelectedCategoryId(savedCategoryId)
           }
           if (typeof savedStep === 'number') {
-            console.log('[PrintingWizard] Restoring step:', savedStep)
+            clientLogger.log('[PrintingWizard] Restoring step:', savedStep)
             setCurrentStep(savedStep)
           }
           if (savedPlanning) {
-            console.log('[PrintingWizard] Restoring planning results')
+            clientLogger.log('[PrintingWizard] Restoring planning results')
             setPlanningResults(savedPlanning)
           }
           if (savedQuotation) {
-            console.log('[PrintingWizard] Restoring quotation number:', savedQuotation)
+            clientLogger.log('[PrintingWizard] Restoring quotation number:', savedQuotation)
             setQuotationNumber(savedQuotation)
           }
           if (savedEnquiry) {
-            console.log('[PrintingWizard] Restoring enquiry number:', savedEnquiry)
+            clientLogger.log('[PrintingWizard] Restoring enquiry number:', savedEnquiry)
             setEnquiryNumber(savedEnquiry)
           }
 
           // Clear session storage after loading
           sessionStorage.removeItem('loadedDraft')
 
-          console.log('[PrintingWizard] Draft loaded successfully')
+          clientLogger.log('[PrintingWizard] Draft loaded successfully')
           toastHook({
             title: "Draft Loaded",
             description: "Your form data has been restored. Continue where you left off.",
           })
         } catch (error) {
-          console.error('[PrintingWizard] Failed to parse draft data:', error)
+          clientLogger.error('[PrintingWizard] Failed to parse draft data:', error)
           toastHook({
             variant: "destructive",
             title: "Failed to Load Draft",
@@ -467,7 +468,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         }
       }
     } else if (shouldLoadDraft && !categoriesLoaded) {
-      console.log('[PrintingWizard] Waiting for categories to load before restoring draft...')
+      clientLogger.log('[PrintingWizard] Waiting for categories to load before restoring draft...')
     }
   }, [categories, toastHook])
 
@@ -503,7 +504,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       }
       return Array.isArray(res) ? res : []
     } catch (err: any) {
-      console.error('Failed to load qualities', err)
+      clientLogger.error('Failed to load qualities', err)
       setQualities([])
       setQualitiesError(err?.message ? String(err.message) : 'Failed to load qualities')
       return []
@@ -534,7 +535,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       else setOperations([])
       return Array.isArray(res) ? res : []
     } catch (err: any) {
-      console.error('Failed to load operations', err)
+      clientLogger.error('Failed to load operations', err)
       setOperations([])
       setOperationsError(err?.message ? String(err.message) : 'Failed to load operations')
       return []
@@ -554,7 +555,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       else setMachinesList([])
       return Array.isArray(res) ? res : []
     } catch (err: any) {
-      console.error('Failed to load machines', err)
+      clientLogger.error('Failed to load machines', err)
       setMachinesList([])
       setMachinesError(err?.message ? String(err.message) : 'Failed to load machines')
       return []
@@ -573,7 +574,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       else setProductionUnitsList([])
       return Array.isArray(res) ? res : []
     } catch (err: any) {
-      console.error('Failed to load production units', err)
+      clientLogger.error('Failed to load production units', err)
       setProductionUnitsList([])
       setProductionUnitsError(err?.message ? String(err.message) : 'Failed to load production units')
       return []
@@ -607,7 +608,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       }
       return Array.isArray(res) ? res : []
     } catch (err: any) {
-      console.error('Failed to load GSM options', err)
+      clientLogger.error('Failed to load GSM options', err)
       setGsms([])
       setGsmError(err?.message ? String(err.message) : 'Failed to load GSM')
       return []
@@ -639,14 +640,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       setMillError(null)
       const { getMillAPI } = await import('@/lib/api-config')
       const contentType = (contents.find((c: any) => c.ContentName === content)?.ContentName) ?? content
-      console.log('Loading mills with:', { contentType, quality, gsm, thickness })
+      clientLogger.log('Loading mills with:', { contentType, quality, gsm, thickness })
       const res = await getMillAPI(contentType, String(quality), String(gsm), String(thickness))
-      console.log('Mill API response:', res)
+      clientLogger.log('Mill API response:', res)
       if (Array.isArray(res) && res.length > 0) setMills(res)
       else setMills([])
       return Array.isArray(res) ? res : []
     } catch (err: any) {
-      console.error('Failed to load mills', err)
+      clientLogger.error('Failed to load mills', err)
       setMills([])
       setMillError(err?.message ? String(err.message) : 'Failed to load mills')
       return []
@@ -686,14 +687,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       setLoadingFinish(true)
       setFinishError(null)
       const { getFinishAPI } = await import('@/lib/api-config')
-      console.log('Loading finishes with:', { quality, gsm, mill })
+      clientLogger.log('Loading finishes with:', { quality, gsm, mill })
       const res = await getFinishAPI(String(quality), String(gsm), String(mill))
-      console.log('Finish API response:', res)
+      clientLogger.log('Finish API response:', res)
       if (Array.isArray(res) && res.length > 0) setFinishes(res)
       else setFinishes([])
       return Array.isArray(res) ? res : []
     } catch (err: any) {
-      console.error('Failed to load finishes', err)
+      clientLogger.error('Failed to load finishes', err)
       setFinishes([])
       setFinishError(err?.message ? String(err.message) : 'Failed to load finishes')
       return []
@@ -770,7 +771,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         setCategories([])
       }
     } catch (e) {
-      console.error('Error fetching categories:', e)
+      clientLogger.error('Error fetching categories:', e)
       setCategories([])
     }
   }
@@ -796,7 +797,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
       setContents(items)
     } catch (error) {
-      console.error('Error fetching contents:', error)
+      clientLogger.error('Error fetching contents:', error)
       setContents([])
     } finally {
       setLoadingContents(false)
@@ -804,7 +805,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   }
 
   const nextStep = async () => {
-    console.log('=== nextStep called ===', { currentStep, stepName: steps[currentStep] })
+    clientLogger.log('=== nextStep called ===', { currentStep, stepName: steps[currentStep] })
 
     // Validate mandatory fields before moving to next step
     const currentStepName = steps[currentStep]
@@ -854,33 +855,33 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
       // If we're on Processes and moving to Best Plans, run planning first and wait
       if (currentStep === processesIndex) {
-        console.log('=== On Processes step, triggering planning ===')
+        clientLogger.log('=== On Processes step, triggering planning ===')
         try {
           setPlanningError(null)
           const ok = await runPlanning()
-          console.log('=== Planning result ===', { ok })
+          clientLogger.log('=== Planning result ===', { ok })
           if (ok) {
             const newStep = currentStep + 1
             setCurrentStep(newStep)
             onStepChange?.(steps[newStep])
           } else {
-            console.log('=== Planning failed, staying on Processes step ===')
+            clientLogger.log('=== Planning failed, staying on Processes step ===')
             // planning failed, remain on processes step
           }
         } catch (e: any) {
-          console.error('Planning failed during nextStep navigation', e)
+          clientLogger.error('Planning failed during nextStep navigation', e)
           const errorMsg = extractErrorMessage(e, 'Planning failed')
           setPlanningError(errorMsg)
           showToast(`Planning Error: ${errorMsg}`, 'error')
         }
       } else if (currentStep === bestPlansIndex) {
         // If on Best Plans, create booking first, then get quotation details
-        console.log('=== On Best Plans step, creating quotation ===')
+        clientLogger.log('=== On Best Plans step, creating quotation ===')
 
         // Check if a plan is selected
-        console.log('=== Checking selectedPlan ===', selectedPlan)
+        clientLogger.log('=== Checking selectedPlan ===', selectedPlan)
         if (!selectedPlan) {
-          console.error('=== No plan selected ===')
+          clientLogger.error('=== No plan selected ===')
           setPlanningError('Please select a plan first')
           showToast('Please select a plan first', 'error')
           return
@@ -892,9 +893,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           // Check if quotation already exists
           if (quotationNumber && quotationData) {
-            console.log('=== Quotation already exists ===')
-            console.log('Quotation Number:', quotationNumber)
-            console.log('Skipping API calls and moving to next step')
+            clientLogger.log('=== Quotation already exists ===')
+            clientLogger.log('Quotation Number:', quotationNumber)
+            clientLogger.log('Skipping API calls and moving to next step')
 
             // Move to next step directly
             const newStep = currentStep + 1
@@ -907,11 +908,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           const { createBooking, getQuotationDetail } = await import('@/lib/api-config')
 
           // Step 1: Call directcosting API to get quotation number
-          console.log('\n' + '='.repeat(80))
-          console.log('CREATE QUOTATION BUTTON CLICKED')
-          console.log('='.repeat(80))
-          console.log('STEP 1: Getting Quotation Number via DirectCosting API')
-          console.log('='.repeat(80) + '\n')
+          clientLogger.log('\n' + '='.repeat(80))
+          clientLogger.log('CREATE QUOTATION BUTTON CLICKED')
+          clientLogger.log('='.repeat(80))
+          clientLogger.log('STEP 1: Getting Quotation Number via DirectCosting API')
+          clientLogger.log('='.repeat(80) + '\n')
 
           // Build CostignParams and EnquiryData
           const dims = jobData.dimensions || {}
@@ -1019,8 +1020,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           // Validate we have EnquiryID before proceeding
           if (!enquiryNumber) {
-            console.warn('⚠️ WARNING: No EnquiryID available! This may cause issues.')
-            console.warn('⚠️ Make sure you clicked "Get Plans" first to generate an enquiry.')
+            clientLogger.warn('⚠️ WARNING: No EnquiryID available! This may cause issues.')
+            clientLogger.warn('⚠️ Make sure you clicked "Get Plans" first to generate an enquiry.')
           }
 
           const enquiryData = {
@@ -1044,34 +1045,34 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             SalesType: 'Export',
           }
 
-          console.log('\n' + '='.repeat(80))
-          console.log('API CALL #1: DirectCosting (to get BookingID)')
-          console.log('='.repeat(80))
-          console.log('Endpoint: POST /api/parksons/directcosting')
-          console.log('='.repeat(80))
-          console.log('🔑 EnquiryID Status:')
-          console.log('  - EnquiryID value:', enquiryNumber)
-          console.log('  - Will send:', enquiryNumber || 0)
-          console.log('  - Is valid?', enquiryNumber ? '✅ YES' : '❌ NO (will send 0)')
-          console.log('='.repeat(80))
-          console.log('\n📤 REQUEST BODY - CostingParams:')
-          console.log(JSON.stringify(costingParams, null, 2))
-          console.log('\n📤 REQUEST BODY - EnquiryData:')
-          console.log(JSON.stringify(enquiryData, null, 2))
-          console.log('\n📤 FULL REQUEST BODY:')
-          console.log(JSON.stringify({
+          clientLogger.log('\n' + '='.repeat(80))
+          clientLogger.log('API CALL #1: DirectCosting (to get BookingID)')
+          clientLogger.log('='.repeat(80))
+          clientLogger.log('Endpoint: POST /api/parksons/directcosting')
+          clientLogger.log('='.repeat(80))
+          clientLogger.log('🔑 EnquiryID Status:')
+          clientLogger.log('  - EnquiryID value:', enquiryNumber)
+          clientLogger.log('  - Will send:', enquiryNumber || 0)
+          clientLogger.log('  - Is valid?', enquiryNumber ? '✅ YES' : '❌ NO (will send 0)')
+          clientLogger.log('='.repeat(80))
+          clientLogger.log('\n📤 REQUEST BODY - CostingParams:')
+          clientLogger.log(JSON.stringify(costingParams, null, 2))
+          clientLogger.log('\n📤 REQUEST BODY - EnquiryData:')
+          clientLogger.log(JSON.stringify(enquiryData, null, 2))
+          clientLogger.log('\n📤 FULL REQUEST BODY:')
+          clientLogger.log(JSON.stringify({
             CostignParams: costingParams,
             EnquiryData: enquiryData
           }, null, 2))
-          console.log('='.repeat(80) + '\n')
+          clientLogger.log('='.repeat(80) + '\n')
 
           const bookingResponse = await createBooking(costingParams, enquiryData)
 
-          console.log('\n' + '='.repeat(80))
-          console.log('DirectCosting Response:')
-          console.log('='.repeat(80))
-          console.log(JSON.stringify(bookingResponse, null, 2))
-          console.log('='.repeat(80) + '\n')
+          clientLogger.log('\n' + '='.repeat(80))
+          clientLogger.log('DirectCosting Response:')
+          clientLogger.log('='.repeat(80))
+          clientLogger.log(JSON.stringify(bookingResponse, null, 2))
+          clientLogger.log('='.repeat(80) + '\n')
 
           // Extract Quotation Number from response (API returns just a number like "117")
           let quotationNum = 'N/A'
@@ -1089,53 +1090,53 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             throw new Error('Quotation number not received from DirectCosting API')
           }
 
-          console.log('\n' + '='.repeat(80))
-          console.log('Quotation Number Extracted: ' + quotationNum)
-          console.log('='.repeat(80) + '\n')
+          clientLogger.log('\n' + '='.repeat(80))
+          clientLogger.log('Quotation Number Extracted: ' + quotationNum)
+          clientLogger.log('='.repeat(80) + '\n')
 
           // Step 2: Get quotation details using quotation number
-          console.log('\n' + '='.repeat(80))
-          console.log('STEP 2: Getting Quotation Details')
-          console.log('='.repeat(80))
-          console.log('API CALL #2: GetQuotationDetail')
-          console.log('Endpoint: GET /api/planwindow/getquotationDetail/' + quotationNum)
-          console.log('='.repeat(80) + '\n')
+          clientLogger.log('\n' + '='.repeat(80))
+          clientLogger.log('STEP 2: Getting Quotation Details')
+          clientLogger.log('='.repeat(80))
+          clientLogger.log('API CALL #2: GetQuotationDetail')
+          clientLogger.log('Endpoint: GET /api/planwindow/getquotationDetail/' + quotationNum)
+          clientLogger.log('='.repeat(80) + '\n')
 
           const quotationResponse = await getQuotationDetail(quotationNum)
 
-          console.log('\n' + '='.repeat(80))
-          console.log('GetQuotationDetail Response:')
-          console.log('='.repeat(80))
-          console.log(JSON.stringify(quotationResponse, null, 2))
-          console.log('='.repeat(80) + '\n')
+          clientLogger.log('\n' + '='.repeat(80))
+          clientLogger.log('GetQuotationDetail Response:')
+          clientLogger.log('='.repeat(80))
+          clientLogger.log(JSON.stringify(quotationResponse, null, 2))
+          clientLogger.log('='.repeat(80) + '\n')
 
           setQuotationNumber(quotationNum)
           setQuotationData(quotationResponse)
-          console.log('=== Quotation Number ===', quotationNum)
-          console.log('=== Quotation Data stored in state ===')
+          clientLogger.log('=== Quotation Number ===', quotationNum)
+          clientLogger.log('=== Quotation Data stored in state ===')
 
           // Clear all form data and reset to defaults
-          console.log('\n' + '='.repeat(80))
-          console.log('🗑️ CLEARING ALL FORM DATA')
-          console.log('='.repeat(80))
+          clientLogger.log('\n' + '='.repeat(80))
+          clientLogger.log('🗑️ CLEARING ALL FORM DATA')
+          clientLogger.log('='.repeat(80))
 
           setJobData(DEFAULT_JOB_DATA)
-          console.log('✅ Reset form fields to default values')
+          clientLogger.log('✅ Reset form fields to default values')
 
           setEnquiryNumber(null)
-          console.log('✅ Cleared enquiry number')
+          clientLogger.log('✅ Cleared enquiry number')
 
           setPlanningResults(null)
-          console.log('✅ Cleared planning results')
+          clientLogger.log('✅ Cleared planning results')
 
-          console.log('='.repeat(80) + '\n')
+          clientLogger.log('='.repeat(80) + '\n')
 
           // Move to next step on success
           const newStep = currentStep + 1
           setCurrentStep(newStep)
           onStepChange?.(steps[newStep])
         } catch (e: any) {
-          console.error('Create quotation failed', e)
+          clientLogger.error('Create quotation failed', e)
           const errorMsg = extractErrorMessage(e, 'Failed to create quotation')
           setPlanningError(errorMsg)
           showToast(`Quotation Error: ${errorMsg}`, 'error')
@@ -1271,9 +1272,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           SalesType: 'Export',
         }
 
-        console.log('=== Quotation Body ===')
-        console.log('CostignParams:', JSON.stringify(costingParams, null, 2))
-        console.log('EnquiryData:', JSON.stringify(enquiryData, null, 2))
+        clientLogger.log('=== Quotation Body ===')
+        clientLogger.log('CostignParams:', JSON.stringify(costingParams, null, 2))
+        clientLogger.log('EnquiryData:', JSON.stringify(enquiryData, null, 2))
 
         try {
           setPlanningLoading(true)
@@ -1281,9 +1282,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           const { postDirectCosting } = await import('@/lib/api-config')
 
-          console.log('=== Calling directcosting API ===')
+          clientLogger.log('=== Calling directcosting API ===')
           const res = await postDirectCosting(costingParams, enquiryData)
-          console.log('=== DirectCosting response ===', JSON.stringify(res, null, 2))
+          clientLogger.log('=== DirectCosting response ===', JSON.stringify(res, null, 2))
 
           // Extract quotation number from response - handle both object and direct number
           let quotationNum = 'N/A'
@@ -1301,7 +1302,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           }
 
           setQuotationNumber(quotationNum)
-          console.log('=== Quotation Number ===', quotationNum)
+          clientLogger.log('=== Quotation Number ===', quotationNum)
 
           // Clear all cached form data
           // Move to next step on success
@@ -1309,7 +1310,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           setCurrentStep(newStep)
           onStepChange?.(steps[newStep])
         } catch (e: any) {
-          console.error('DirectCosting failed', e)
+          clientLogger.error('DirectCosting failed', e)
           const errorMsg = extractErrorMessage(e, 'Failed to create quotation')
           setPlanningError(errorMsg)
           showToast(`DirectCosting Error: ${errorMsg}`, 'error')
@@ -1338,7 +1339,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         runPlanning()
       } catch (e) {
-        console.error('Failed to auto-run planning on step change', e)
+        clientLogger.error('Failed to auto-run planning on step change', e)
       }
     }
     prevStepRef.current = currentStep
@@ -1393,7 +1394,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           onStepChange?.(steps[stepIndex])
         }
       } catch (e: any) {
-        console.error('Planning failed during handleStepClick navigation', e)
+        clientLogger.error('Planning failed during handleStepClick navigation', e)
         const errorMsg = extractErrorMessage(e, 'Planning failed')
         setPlanningError(errorMsg)
         showToast(`Planning Error: ${errorMsg}`, 'error')
@@ -1514,7 +1515,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     try {
       await navigator.clipboard.writeText(getExportJson())
     } catch (e) {
-      console.error('Clipboard write failed', e)
+      clientLogger.error('Clipboard write failed', e)
     }
   }
 
@@ -2619,7 +2620,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               }`}
               onClick={() => {
                 setSelectedPlan(plan)
-                console.log('=== Plan selected ===', plan)
+                clientLogger.log('=== Plan selected ===', plan)
               }}
             >
               <div className="space-y-3">
@@ -2698,9 +2699,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   })
 
   const handlePrint = useCallback(() => {
-    console.log('handlePrint called, quotationPrintRef.current:', quotationPrintRef.current)
+    clientLogger.log('handlePrint called, quotationPrintRef.current:', quotationPrintRef.current)
     if (!quotationPrintRef.current) {
-      console.error('Cannot print: quotationPrintRef is null')
+      clientLogger.error('Cannot print: quotationPrintRef is null')
       showToast('Unable to print. Please try again.', 'error')
       return
     }
@@ -2936,7 +2937,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
 
   const runPlanning = async () => {
-    console.log('=== runPlanning started (SaveMultipleEnquiry) ===')
+    clientLogger.log('=== runPlanning started (SaveMultipleEnquiry) ===')
     setPlanningLoading(true)
     setPlanningError(null)
     setPlanningResults(null)
@@ -2947,7 +2948,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
       // Only call SaveMultipleEnquiry if we don't have an enquiry number yet
       if (!currentEnquiryNumber) {
-        console.log('=== No existing enquiry number, calling SaveMultipleEnquiry ===')
+        clientLogger.log('=== No existing enquiry number, calling SaveMultipleEnquiry ===')
 
         // Build the enquiry data
         const enquiryData = {
@@ -2967,23 +2968,23 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           remark: '',
         }
 
-        console.log('\n' + '='.repeat(80))
-        console.log('GET PLAN BUTTON CLICKED - API CALL #1: SaveMultipleEnquiry')
-        console.log('='.repeat(80))
-        console.log('Endpoint: POST /api/parksons/SaveMultipleEnquiry')
-        console.log('='.repeat(80))
-        console.log('\n📤 REQUEST BODY:')
-        console.log(JSON.stringify(enquiryData, null, 2))
-        console.log('='.repeat(80) + '\n')
+        clientLogger.log('\n' + '='.repeat(80))
+        clientLogger.log('GET PLAN BUTTON CLICKED - API CALL #1: SaveMultipleEnquiry')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('Endpoint: POST /api/parksons/SaveMultipleEnquiry')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('\n📤 REQUEST BODY:')
+        clientLogger.log(JSON.stringify(enquiryData, null, 2))
+        clientLogger.log('='.repeat(80) + '\n')
 
         const res = await saveMultipleEnquiry(enquiryData)
 
-        console.log('\n' + '='.repeat(80))
-        console.log('📥 SaveMultipleEnquiry RESPONSE:')
-        console.log('='.repeat(80))
-        console.log('Response Type:', typeof res)
-        console.log('Response Data:')
-        console.log(JSON.stringify(res, null, 2))
+        clientLogger.log('\n' + '='.repeat(80))
+        clientLogger.log('📥 SaveMultipleEnquiry RESPONSE:')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('Response Type:', typeof res)
+        clientLogger.log('Response Data:')
+        clientLogger.log(JSON.stringify(res, null, 2))
 
         // The API returns either:
         // 1. A plain number: 10326
@@ -2995,24 +2996,24 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           extractedId = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
         }
 
-        console.log('\n🔑 Extracted Enquiry ID:', extractedId || 'NOT FOUND')
-        console.log('='.repeat(80) + '\n')
+        clientLogger.log('\n🔑 Extracted Enquiry ID:', extractedId || 'NOT FOUND')
+        clientLogger.log('='.repeat(80) + '\n')
 
         // Store the enquiry ID (number) from response - this is what we send to DirectCosting
         currentEnquiryNumber = extractedId
         if (currentEnquiryNumber) {
           setEnquiryNumber(currentEnquiryNumber)
-          console.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
+          clientLogger.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
         }
       } else {
-        console.log('\n' + '='.repeat(80))
-        console.log('✅ ENQUIRY ALREADY EXISTS - SKIPPING API CALL')
-        console.log('='.repeat(80))
-        console.log('Existing Enquiry ID:', currentEnquiryNumber)
-        console.log('Action: Skipping SaveMultipleEnquiry API call')
-        console.log('Reason: Enquiry already created for this session')
-        console.log('Next: Will proceed directly to ShirinJob API')
-        console.log('='.repeat(80) + '\n')
+        clientLogger.log('\n' + '='.repeat(80))
+        clientLogger.log('✅ ENQUIRY ALREADY EXISTS - SKIPPING API CALL')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('Existing Enquiry ID:', currentEnquiryNumber)
+        clientLogger.log('Action: Skipping SaveMultipleEnquiry API call')
+        clientLogger.log('Reason: Enquiry already created for this session')
+        clientLogger.log('Next: Will proceed directly to ShirinJob API')
+        clientLogger.log('='.repeat(80) + '\n')
       }
 
       // Call Shirin Job API when Get Plan is clicked
@@ -3119,29 +3120,29 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         ShowPlanUptoWastePercent: 100
       }
 
-      console.log('=== Resolved OperIDs for Shirin Job ===', resolveOperIdFromProcesses(jobData))
-      console.log('=== Process Names ===', getProcessNames(jobData))
+      clientLogger.log('=== Resolved OperIDs for Shirin Job ===', resolveOperIdFromProcesses(jobData))
+      clientLogger.log('=== Process Names ===', getProcessNames(jobData))
 
       // Call Shirin Job API (non-blocking - don't fail planning if this fails)
-      console.log('\n' + '='.repeat(80))
-      console.log('GET PLAN BUTTON CLICKED - API CALL #2: ShirinJob')
-      console.log('='.repeat(80))
-      console.log('Endpoint: POST /api/planwindow/Shirin_Job')
-      console.log('Request Body:', JSON.stringify(shrinkJobParams, null, 2))
-      console.log('='.repeat(80) + '\n')
+      clientLogger.log('\n' + '='.repeat(80))
+      clientLogger.log('GET PLAN BUTTON CLICKED - API CALL #2: ShirinJob')
+      clientLogger.log('='.repeat(80))
+      clientLogger.log('Endpoint: POST /api/planwindow/Shirin_Job')
+      clientLogger.log('Request Body:', JSON.stringify(shrinkJobParams, null, 2))
+      clientLogger.log('='.repeat(80) + '\n')
 
       try {
         const shrinkJobRes = await postShirinJob(shrinkJobParams)
 
-        console.log('\n' + '='.repeat(80))
-        console.log('ShirinJob Response:')
-        console.log('='.repeat(80))
-        console.log(JSON.stringify(shrinkJobRes, null, 2))
-        console.log('='.repeat(80) + '\n')
+        clientLogger.log('\n' + '='.repeat(80))
+        clientLogger.log('ShirinJob Response:')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log(JSON.stringify(shrinkJobRes, null, 2))
+        clientLogger.log('='.repeat(80) + '\n')
 
         // If we got plans from Shirin Job, use them
         if (shrinkJobRes && Array.isArray(shrinkJobRes) && shrinkJobRes.length > 0) {
-          console.log('=== Setting planning results from ShirinJob ===')
+          clientLogger.log('=== Setting planning results from ShirinJob ===')
           setPlanningResults(shrinkJobRes)
         } else {
           // Set mock planning results to show success and allow progression
@@ -3156,7 +3157,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           }])
         }
       } catch (shirinErr: any) {
-        console.error('=== ShirinJob API failed (non-blocking) ===', shirinErr)
+        clientLogger.error('=== ShirinJob API failed (non-blocking) ===', shirinErr)
         const errorMsg = extractErrorMessage(shirinErr, 'ShirinJob API failed')
         showToast(`ShirinJob Error: ${errorMsg}`, 'error')
         // Set mock results even if Shirin Job fails
@@ -3173,21 +3174,21 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
       return true
     } catch (err: any) {
-      console.error('=== SaveMultipleEnquiry failed ===', err)
+      clientLogger.error('=== SaveMultipleEnquiry failed ===', err)
       const errorMsg = extractErrorMessage(err, 'Failed to save enquiry')
       setPlanningError(errorMsg)
       showToast(`API Error: ${errorMsg}`, 'error')
       return false
     } finally {
       setPlanningLoading(false)
-      console.log('=== runPlanning completed ===')
+      clientLogger.log('=== runPlanning completed ===')
     }
   }
 
   // Call costing API for a specific quantity with the selected machine
   const getCostingForQuantity = async (quantity: number) => {
     if (!selectedPlan) {
-      console.error('No plan selected')
+      clientLogger.error('No plan selected')
       return null
     }
 
@@ -3211,7 +3212,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       // Return the first result (since we're requesting for a specific machine)
       return res && res.length > 0 ? res[0] : null
     } catch (err: any) {
-      console.error('Costing failed for quantity', quantity, err)
+      clientLogger.error('Costing failed for quantity', quantity, err)
       return null
     }
   }
@@ -3255,7 +3256,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       // Auto-hide success message after 3 seconds
       setTimeout(() => setSaveSuccess(false), 3000)
     } catch (err: any) {
-      console.error('Failed to save quotation', err)
+      clientLogger.error('Failed to save quotation', err)
       setSaveError(err?.message ?? 'Failed to save quotation')
     } finally {
       setSaveLoading(false)
@@ -3292,7 +3293,7 @@ Generated with KAM Printing Wizard
         showToast('Quotation copied to clipboard!', 'success')
       }
     } catch (err: any) {
-      console.error('Failed to share quotation', err)
+      clientLogger.error('Failed to share quotation', err)
       // Silently fail if user cancels share dialog
     }
   }
@@ -3327,13 +3328,13 @@ Generated with KAM Printing Wizard
         remark: '',
       }
 
-      console.log('=== SAVE ENQUIRY DATA ===')
-      console.log('enquiryData:', JSON.stringify(enquiryData, null, 2))
+      clientLogger.log('=== SAVE ENQUIRY DATA ===')
+      clientLogger.log('enquiryData:', JSON.stringify(enquiryData, null, 2))
 
       const response = await saveMultipleEnquiry(enquiryData)
 
-      console.log('=== SAVE ENQUIRY RESPONSE ===')
-      console.log('response:', JSON.stringify(response, null, 2))
+      clientLogger.log('=== SAVE ENQUIRY RESPONSE ===')
+      clientLogger.log('response:', JSON.stringify(response, null, 2))
 
       setSaveEnquirySuccess(true)
       showToast('Enquiry saved successfully!', 'success')
@@ -3341,7 +3342,7 @@ Generated with KAM Printing Wizard
       // Auto-hide success message after 3 seconds
       setTimeout(() => setSaveEnquirySuccess(false), 3000)
     } catch (err: any) {
-      console.error('Failed to save enquiry', err)
+      clientLogger.error('Failed to save enquiry', err)
       const errorMsg = extractErrorMessage(err, 'Failed to save enquiry')
       setSaveEnquiryError(errorMsg)
       showToast(`Failed to save enquiry: ${errorMsg}`, 'error')
@@ -3582,7 +3583,7 @@ Generated with KAM Printing Wizard
           // Save PDF
           pdf.save(`Quotation-${quotationNumber}.pdf`)
         } catch (error) {
-          console.error('Failed to generate PDF:', error)
+          clientLogger.error('Failed to generate PDF:', error)
           showToast(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
         }
       }
@@ -3906,7 +3907,7 @@ Generated with KAM Printing Wizard
                   pdf.autoPrint()
                   window.open(pdf.output('bloburl'), '_blank')
                 } catch (error) {
-                  console.error('Failed to print:', error)
+                  clientLogger.error('Failed to print:', error)
                   showToast(`Failed to print: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
                 }
               }}
@@ -3918,7 +3919,7 @@ Generated with KAM Printing Wizard
               variant="outline"
               className="flex-1 border-green-600 text-green-600 hover:bg-green-50"
               onClick={() => {
-                console.log('Download PDF button clicked!')
+                clientLogger.log('Download PDF button clicked!')
                 handleDownloadPDF()
               }}
             >

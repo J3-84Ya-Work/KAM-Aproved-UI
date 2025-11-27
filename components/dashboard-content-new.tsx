@@ -11,6 +11,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { getViewableKAMs, getCurrentUserHODName, isHOD, isKAM } from "@/lib/permissions"
 import { getAnalyticsKPIs, getMonthlyTrends, getConversionFunnel, getProjectsByType } from "@/lib/analytics-api"
+import { clientLogger } from "@/lib/logger"
 
 // KPI Data - Base data for all KAMs combined
 const baseKpiData: Record<string, any> = {
@@ -609,13 +610,13 @@ export function DashboardContent() {
 
   // Get filtered data based on selected HOD and KAM
   const getFilteredData = () => {
-    console.log('📊 getFilteredData called - realKpiData:', realKpiData)
-    console.log('📊 getFilteredData called - realMonthlyData:', realMonthlyData)
-    console.log('📊 getFilteredData called - realConversionData:', realConversionData)
+    clientLogger.log('📊 getFilteredData called - realKpiData:', realKpiData)
+    clientLogger.log('📊 getFilteredData called - realMonthlyData:', realMonthlyData)
+    clientLogger.log('📊 getFilteredData called - realConversionData:', realConversionData)
 
     // Use real data if available
     if (realKpiData && realMonthlyData && realConversionData) {
-      console.log('✅ Using real data for dashboard')
+      clientLogger.log('✅ Using real data for dashboard')
       // Build KPI data from real analytics
       const kpiData = [
         {
@@ -666,11 +667,11 @@ export function DashboardContent() {
         salesVsTargetData: baseSalesVsTargetData.all, // Keep using base data for sales (not in API yet)
         conversionFunnelData: realConversionData || baseConversionFunnelData.all,
       }
-      console.log('📤 Returning real data result:', result)
+      clientLogger.log('📤 Returning real data result:', result)
       return result
     }
 
-    console.log('⚠️ Fallback to base data - real data not loaded yet')
+    clientLogger.log('⚠️ Fallback to base data - real data not loaded yet')
     // Fallback to base data if real data not loaded yet
     // If individual KAM is selected, show their data
     if (selectedKam !== "all") {
@@ -726,7 +727,7 @@ export function DashboardContent() {
   // Fetch real analytics data
   useEffect(() => {
     const fetchRealData = async () => {
-      console.log('🔄 Dashboard - Starting data fetch for selectedKam:', selectedKam)
+      clientLogger.log('🔄 Dashboard - Starting data fetch for selectedKam:', selectedKam)
       setIsLoading(true)
       try {
         // Determine which KAM to filter by
@@ -735,7 +736,7 @@ export function DashboardContent() {
           kamFilter = selectedKam
         }
 
-        console.log('🔍 Dashboard - Fetching with kamFilter:', kamFilter)
+        clientLogger.log('🔍 Dashboard - Fetching with kamFilter:', kamFilter)
 
         // Fetch all data in parallel
         const [kpisResponse, monthlyResponse, conversionResponse, projectsResponse] = await Promise.all([
@@ -745,40 +746,40 @@ export function DashboardContent() {
           getProjectsByType(kamFilter)
         ])
 
-        console.log('📥 Dashboard - KPIs Response:', kpisResponse)
-        console.log('📥 Dashboard - Monthly Response:', monthlyResponse)
-        console.log('📥 Dashboard - Conversion Response:', conversionResponse)
-        console.log('📥 Dashboard - Projects Response:', projectsResponse)
+        clientLogger.log('📥 Dashboard - KPIs Response:', kpisResponse)
+        clientLogger.log('📥 Dashboard - Monthly Response:', monthlyResponse)
+        clientLogger.log('📥 Dashboard - Conversion Response:', conversionResponse)
+        clientLogger.log('📥 Dashboard - Projects Response:', projectsResponse)
 
         if (kpisResponse.success && kpisResponse.data) {
-          console.log('✅ Setting realKpiData:', kpisResponse.data)
+          clientLogger.log('✅ Setting realKpiData:', kpisResponse.data)
           setRealKpiData(kpisResponse.data)
         } else {
-          console.error('❌ KPIs fetch failed or no data')
+          clientLogger.error('❌ KPIs fetch failed or no data')
         }
 
         if (monthlyResponse.success && monthlyResponse.data) {
-          console.log('✅ Setting realMonthlyData:', monthlyResponse.data)
+          clientLogger.log('✅ Setting realMonthlyData:', monthlyResponse.data)
           setRealMonthlyData(monthlyResponse.data)
         } else {
-          console.error('❌ Monthly data fetch failed or no data')
+          clientLogger.error('❌ Monthly data fetch failed or no data')
         }
 
         if (conversionResponse.success && conversionResponse.data) {
-          console.log('✅ Setting realConversionData:', conversionResponse.data)
+          clientLogger.log('✅ Setting realConversionData:', conversionResponse.data)
           setRealConversionData(conversionResponse.data)
         } else {
-          console.error('❌ Conversion data fetch failed or no data')
+          clientLogger.error('❌ Conversion data fetch failed or no data')
         }
 
         if (projectsResponse.success && projectsResponse.data) {
-          console.log('✅ Setting realProjectsData:', projectsResponse.data)
+          clientLogger.log('✅ Setting realProjectsData:', projectsResponse.data)
           setRealProjectsData(projectsResponse.data)
         } else {
-          console.error('❌ Projects data fetch failed or no data')
+          clientLogger.error('❌ Projects data fetch failed or no data')
         }
       } catch (error) {
-        console.error('❌ Error fetching analytics data:', error)
+        clientLogger.error('❌ Error fetching analytics data:', error)
       } finally {
         setIsLoading(false)
       }

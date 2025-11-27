@@ -8,24 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Image from "next/image"
-
-// Hardcoded user credentials with roles (matching database)
-const USERS = [
-  { email: "rajesh@parksons.com", password: "rajesh@123", name: "Rajesh Kumar", role: "KAM" },
-  { email: "amit@parksons.com", password: "amit@123", name: "Amit Patel", role: "KAM" },
-  { email: "priya@parksons.com", password: "priya@123", name: "Priya Sharma", role: "KAM" },
-  { email: "sneha@parksons.com", password: "sneha@123", name: "Sneha Gupta", role: "KAM" },
-  { email: "suresh@parksons.com", password: "suresh@123", name: "Suresh Menon", role: "H.O.D" },
-  { email: "kavita@parksons.com", password: "kavita@123", name: "Kavita Reddy", role: "H.O.D" },
-  { email: "vertical@parksons.com", password: "vertical@123", name: "Vertical Head", role: "Vertical Head" },
-  { email: "purchase@parksons.com", password: "purchase@123", name: "Purchase Manager", role: "Purchase" },
-  { email: "jatin@indusanalytics.co.in", password: "jatin@123", name: "Jatin", role: "Vertical Head" },
-]
+import { clientLogger } from "@/lib/logger"
 
 export default function LoginPage() {
   const router = useRouter()
   const [formData, setFormData] = useState({
-    email: "",
+    username: "",
     password: "",
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -35,102 +23,165 @@ export default function LoginPage() {
 
   // Load saved credentials on component mount
   useEffect(() => {
-    console.log("🔐 Login page loaded")
-    console.log("📋 Available users:", USERS.map(u => u.email).join(", "))
+    clientLogger.log("🔐 Login page loaded")
 
-    const savedEmail = localStorage.getItem("rememberedEmail")
+    const savedUsername = localStorage.getItem("rememberedUsername")
     const savedPassword = localStorage.getItem("rememberedPassword")
-    if (savedEmail && savedPassword) {
-      console.log("✅ Found remembered credentials for:", savedEmail)
-      setFormData({ email: savedEmail, password: savedPassword })
+    if (savedUsername && savedPassword) {
+      clientLogger.log("✅ Found remembered credentials for:", savedUsername)
+      setFormData({ username: savedUsername, password: savedPassword })
       setRememberMe(true)
     } else {
-      console.log("ℹ️ No remembered credentials found")
+      clientLogger.log("ℹ️ No remembered credentials found")
     }
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
 
-    console.log("🔐 Login attempt started")
-    console.log("📧 Email entered:", formData.email)
-
-    // Convert email to lowercase for comparison
-    const emailLowerCase = formData.email.toLowerCase().trim()
-    console.log("📧 Email normalized:", emailLowerCase)
-
-    // Find matching user
-    const user = USERS.find(
-      (u) => u.email === emailLowerCase && u.password === formData.password
-    )
-
-    if (!user) {
-      console.log("❌ Login failed: Invalid credentials")
-      setError("Invalid email or password")
-      setIsLoading(false)
-      return
-    }
-
-    console.log("✅ User found:", user.name, user.role)
-
-    const authData = {
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      loggedInAt: new Date().toISOString(),
-    }
+    clientLogger.log("🔐 Login attempt started")
+      clientLogger.log("📧 Username entered:", formData.username)
 
     try {
+      // Call the login API with JSON body
+      const requestBody = {
+        UserName: formData.username,
+        Password: formData.password,
+      }
+
+      clientLogger.log('🔗 Using login proxy API')
+      clientLogger.log('📦 Request body:', requestBody)
+
+      // Use our proxy API endpoint to handle GET with body on server side
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      clientLogger.log('📊 Response status code:', response.status)
+      clientLogger.log('📊 Login API response status:', response.ok)
+
+      // Get response text first to see what we're receiving
+      const responseText = await response.text()
+      clientLogger.log('📊 Raw response text:', responseText)
+
+      if (!response.ok) {
+        clientLogger.log("❌ Login failed: API error")
+        setError("Invalid username or password")
+        setIsLoading(false)
+        return
+      }
+
+      let data
+      try {
+        data = JSON.parse(responseText)
+        clientLogger.log('📊 Login API response data:', data)
+      } catch (e) {
+        clientLogger.error('❌ Failed to parse response as JSON:', e)
+      clientLogger.error('Response was:', responseText.substring(0, 200))
+        setError("Invalid response from server")
+        setIsLoading(false)
+        return
+      }
+
+      // Handle double-encoded JSON string response
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data)
+        } catch (e) {
+          clientLogger.error('Failed to parse JSON string:', e)
+        }
+      }
+
+      // Check if user data exists
+      if (!Array.isArray(data) || data.length === 0) {
+        clientLogger.log("❌ Login failed: No user found")
+        setError("Invalid username or password")
+        setIsLoading(false)
+        return
+      }
+
+      const user = data[0]
+      clientLogger.log("✅ User found:", user.UserName, user.Designation)
+
+      // Determine role based on designation
+      let userRole = "KAM" // Default role
+      if (user.Designation && typeof user.Designation === 'string') {
+        const designation = user.Designation.toLowerCase()
+        if (designation.includes('head') || designation.includes('officer')) {
+          userRole = "Vertical Head"
+        } else if (designation.includes('manager') || designation.includes('hod')) {
+          userRole = "H.O.D"
+        } else if (designation.includes('purchase')) {
+          userRole = "Purchase"
+        }
+      }
+
+      // Map user data to our auth structure
+      const authData = {
+        name: user.UserName,
+        email: user.EmailID || formData.username,
+        role: userRole,
+        loggedInAt: new Date().toISOString(),
+        userId: user.UserID,
+        companyId: user.CompanyID,
+        fyear: user.FYear,
+        productionUnitId: user.ProductionUnitID,
+      }
+
       localStorage.setItem("userAuth", JSON.stringify(authData))
       localStorage.setItem(
         "userProfile",
         JSON.stringify({
-          name: user.name,
-          email: user.email,
-          phone: "",
-          company: "Parksons",
-          role: user.role,
+          name: user.UserName,
+          email: user.EmailID || formData.username,
+          phone: user.ContactNo || "",
+          company: user.CompanyName || "Parksons",
+          role: userRole,
         }),
       )
 
       // Also set cookie for server-side middleware
       document.cookie = `userAuth=${JSON.stringify(authData)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Strict`
 
-      console.log("✅ Auth data saved to localStorage and cookie")
-      console.log("[v0] User logged in:", authData)
+      clientLogger.log("✅ Auth data saved to localStorage and cookie")
+      clientLogger.log("[v0] User logged in:", authData)
 
       // Handle Remember Me functionality
       if (rememberMe) {
-        localStorage.setItem("rememberedEmail", formData.email)
+        localStorage.setItem("rememberedUsername", formData.username)
         localStorage.setItem("rememberedPassword", formData.password)
-        console.log("✅ Remember Me credentials saved")
+        clientLogger.log("✅ Remember Me credentials saved")
       } else {
-        localStorage.removeItem("rememberedEmail")
+        localStorage.removeItem("rememberedUsername")
         localStorage.removeItem("rememberedPassword")
-        console.log("✅ Remember Me credentials cleared")
+        clientLogger.log("✅ Remember Me credentials cleared")
       }
 
       // Dispatch event to notify other components
       window.dispatchEvent(new Event("profileUpdated"))
-      console.log("✅ profileUpdated event dispatched")
+      clientLogger.log("✅ profileUpdated event dispatched")
 
       setTimeout(() => {
         let redirectPath = "/"
-        if (user.role === "KAM") {
+        if (userRole === "KAM") {
           redirectPath = "/"
-        } else if (user.role === "Purchase") {
+        } else if (userRole === "Purchase") {
           redirectPath = "/rate-queries"
         } else {
           redirectPath = "/approvals"
         }
-        console.log("🔄 Redirecting to:", redirectPath)
+        clientLogger.log("🔄 Redirecting to:", redirectPath)
         router.push(redirectPath)
       }, 500)
     } catch (error) {
-      console.error("❌ Error saving auth data:", error)
-      setError("Failed to save login information. Please try again.")
+      clientLogger.error("❌ Login error:", error)
+      setError("Login failed. Please check your credentials and try again.")
       setIsLoading(false)
     }
   }
@@ -166,15 +217,15 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700 lg:text-base">
-                  Email Address
+                <Label htmlFor="username" className="text-sm font-medium text-gray-700 lg:text-base">
+                  Username
                 </Label>
                 <Input
-                  id="email"
+                  id="username"
                   type="text"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })}
+                  placeholder="Enter your username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   required
                   className="h-12 lg:h-14 text-base lg:text-lg border-gray-300 focus:border-[#005180] focus:ring-[#005180] focus:ring-2 rounded-lg"
                 />

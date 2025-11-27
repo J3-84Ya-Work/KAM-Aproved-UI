@@ -7,6 +7,7 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { useRouter } from "next/navigation"
 import { useState, useCallback } from "react"
+import { clientLogger } from "@/lib/logger"
 
 export default function Page() {
   const router = useRouter()
@@ -14,7 +15,7 @@ export default function Page() {
 
   const handleExport = () => {
     // Export functionality - can be implemented later
-    console.log("Exporting dashboard data...")
+    clientLogger.log("Exporting dashboard data...")
     alert("Export functionality will be implemented")
   }
 

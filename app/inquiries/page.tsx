@@ -15,6 +15,7 @@ import { MessageSquare, FileText, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useCallback, useEffect } from "react"
 import { canCreate, isHOD } from "@/lib/permissions"
+import { clientLogger } from "@/lib/logger"
 
 export default function InquiriesPage() {
   const router = useRouter()
@@ -66,7 +67,7 @@ export default function InquiriesPage() {
   }
 
   const handleSubmitInquiry = () => {
-    console.log("New Inquiry:", formData)
+    clientLogger.log("New Inquiry:", formData)
     alert("Inquiry created successfully!")
     setShowNewInquiryDialog(false)
     setFormData({

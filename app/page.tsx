@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { NewChatWelcome } from "@/components/new-chat-welcome"
 import { AICostingChat } from "@/components/ai-costing-chat"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
+import { clientLogger } from "@/lib/logger"
 
 export default function Page() {
   const router = useRouter()
@@ -19,54 +20,54 @@ export default function Page() {
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
 
   useEffect(() => {
-    console.log("[v0] Checking authentication status")
+    clientLogger.log("[v0] Checking authentication status")
     const authData = localStorage.getItem("userAuth")
 
     if (!authData) {
-      console.log("[v0] No auth data found, redirecting to login")
+      clientLogger.log("[v0] No auth data found, redirecting to login")
       router.push("/login")
       return
     }
 
     try {
       const auth = JSON.parse(authData)
-      console.log("[v0] User authenticated:", auth)
+      clientLogger.log("[v0] User authenticated:", auth)
 
       // Extract first name
       if (auth.name) {
         const firstName = auth.name.split(" ")[0]
         setUserName(firstName)
-        console.log("[v0] Set userName to:", firstName)
+        clientLogger.log("[v0] Set userName to:", firstName)
       }
 
       setIsAuthChecked(true)
     } catch (error) {
-      console.error("[v0] Error parsing auth data:", error)
+      clientLogger.error("[v0] Error parsing auth data:", error)
       router.push("/login")
     }
   }, [router])
 
   useEffect(() => {
-    console.log("[v0] useEffect running - checking for user profile in localStorage")
+    clientLogger.log("[v0] useEffect running - checking for user profile in localStorage")
 
     const loadUserName = () => {
       const authData = localStorage.getItem("userAuth")
-      console.log("[v0] localStorage.getItem('userAuth'):", authData)
+      clientLogger.log("[v0] localStorage.getItem('userAuth'):", authData)
 
       if (authData) {
         try {
           const auth = JSON.parse(authData)
-          console.log("[v0] Parsed auth:", auth)
+          clientLogger.log("[v0] Parsed auth:", auth)
           if (auth.name) {
             const firstName = auth.name.split(" ")[0]
             setUserName(firstName)
-            console.log("[v0] Set userName to:", firstName)
+            clientLogger.log("[v0] Set userName to:", firstName)
           }
         } catch (error) {
-          console.error("[v0] Error loading user profile:", error)
+          clientLogger.error("[v0] Error loading user profile:", error)
         }
       } else {
-        console.log("[v0] No profile data found in localStorage")
+        clientLogger.log("[v0] No profile data found in localStorage")
       }
     }
 
@@ -75,7 +76,7 @@ export default function Page() {
 
     const handleProfileUpdate = () => {
       loadUserName()
-      console.log("[v0] Profile updated, reloading user name")
+      clientLogger.log("[v0] Profile updated, reloading user name")
     }
 
     window.addEventListener("profileUpdated", handleProfileUpdate)
@@ -91,30 +92,30 @@ export default function Page() {
     const autoStartParam = searchParams.get("autoStart")
 
     if (chatIdParam) {
-      console.log("[v0] Loading chat from URL param:", chatIdParam)
+      clientLogger.log("[v0] Loading chat from URL param:", chatIdParam)
       handleOpenChat(chatIdParam)
     } else if (autoStartParam === "true") {
-      console.log("[v0] Auto-starting new chat with 'I want costing'")
+      clientLogger.log("[v0] Auto-starting new chat with 'I want costing'")
       handleStartChat("I want costing")
     }
   }, [searchParams, isAuthChecked])
 
   const handleStartChat = (message: string) => {
-    console.log("[v0] Starting new chat with message:", message)
+    clientLogger.log("[v0] Starting new chat with message:", message)
     setInitialMessage(message)
     setChatId(null)
     setChatStarted(true)
   }
 
   const handleOpenChat = (id: string) => {
-    console.log("[v0] Opening existing chat with ID:", id)
+    clientLogger.log("[v0] Opening existing chat with ID:", id)
     setChatId(id)
     setInitialMessage(null)
     setChatStarted(true)
   }
 
   const handleBackToWelcome = () => {
-    console.log("[v0] Returning to welcome screen - resetting chat state")
+    clientLogger.log("[v0] Returning to welcome screen - resetting chat state")
     setChatStarted(false)
     setInitialMessage(null)
     setChatId(null)

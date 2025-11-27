@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // Public routes that don't require authentication
-const publicRoutes = ['/login']
+const publicRoutes = ['/login', '/api/login']
 
 // Check if the route is public
 function isPublicRoute(pathname: string): boolean {

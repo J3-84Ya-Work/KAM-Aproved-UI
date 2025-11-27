@@ -15,6 +15,7 @@ import { EnquiryAPI, MasterDataAPI, formatDateForAPI, formatDateForDisplay, type
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { useAutoSaveDraft, type FormType } from "@/hooks/use-auto-save-draft"
+import { clientLogger } from "@/lib/logger"
 
 // Dropdown options
 const ENQUIRY_FORM_TYPE_OPTIONS = [
@@ -234,14 +235,14 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     debounceMs: 2000,  // Save 2 seconds after user stops typing
     initialDraftId: loadedDraftId,  // Pass the loaded draft ID for updates
     onSaveSuccess: (draftId) => {
-      console.log('[Manual Form] Draft saved/updated with ID:', draftId)
+      clientLogger.log('[Manual Form] Draft saved/updated with ID:', draftId)
       // Update the loaded draft ID if this was a new save
       if (!loadedDraftId && draftId) {
         setLoadedDraftId(draftId)
       }
     },
     onSaveError: (error) => {
-      console.error('[Manual Form] Failed to save draft:', error)
+      clientLogger.error('[Manual Form] Failed to save draft:', error)
     },
   })
 
@@ -269,8 +270,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         try {
           const draftData = JSON.parse(draftDataStr)
 
-          console.log('[Draft Load] Loaded draft data:', draftData)
-          console.log('[Draft Load] Master data loaded - Categories:', categories.length, 'Clients:', clients.length)
+          clientLogger.log('[Draft Load] Loaded draft data:', draftData)
+          clientLogger.log('[Draft Load] Master data loaded - Categories:', categories.length, 'Clients:', clients.length)
 
           // The draft data structure is flat at the top level
           // Extract the form data fields directly
@@ -291,60 +292,60 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           // Set the loaded draft ID so it can be used for updates
           if (LoadedDraftID) {
             setLoadedDraftId(LoadedDraftID)
-            console.log('[Draft Load] Set loaded draft ID:', LoadedDraftID)
+            clientLogger.log('[Draft Load] Set loaded draft ID:', LoadedDraftID)
           }
 
           // Restore basic form fields (all fields except the special state ones)
           if (Object.keys(formFields).length > 0) {
             setFormData(prev => ({ ...prev, ...formFields }))
-            console.log('[Draft Load] Restored form fields:', formFields)
+            clientLogger.log('[Draft Load] Restored form fields:', formFields)
           }
 
           // Restore form type
           if (formType) {
             setFormType(formType)
-            console.log('[Draft Load] Restored form type:', formType)
+            clientLogger.log('[Draft Load] Restored form type:', formType)
           }
 
           // Restore selected category
           if (selectedCategoryId) {
             setSelectedCategoryId(selectedCategoryId)
-            console.log('[Draft Load] Restored category ID:', selectedCategoryId)
+            clientLogger.log('[Draft Load] Restored category ID:', selectedCategoryId)
           }
 
           // Restore selected content
           if (selectedContentIds && selectedContentIds.length > 0) {
             setSelectedContentIds(selectedContentIds)
-            console.log('[Draft Load] Restored content IDs:', selectedContentIds)
+            clientLogger.log('[Draft Load] Restored content IDs:', selectedContentIds)
           }
 
           if (selectedContent) {
             setSelectedContent(selectedContent)
-            console.log('[Draft Load] Restored selected content:', selectedContent)
+            clientLogger.log('[Draft Load] Restored selected content:', selectedContent)
           }
 
           // Restore content grid data
           if (contentGridData && contentGridData.length > 0) {
             setContentGridData(contentGridData)
-            console.log('[Draft Load] Restored content grid data')
+            clientLogger.log('[Draft Load] Restored content grid data')
           }
 
           // Restore plan details
           if (planDetails && Object.keys(planDetails).length > 0) {
             setPlanDetails(planDetails)
-            console.log('[Draft Load] Restored plan details:', planDetails)
+            clientLogger.log('[Draft Load] Restored plan details:', planDetails)
           }
 
           // Restore selected processes
           if (selectedProcesses && selectedProcesses.length > 0) {
             setSelectedProcesses(selectedProcesses)
-            console.log('[Draft Load] Restored processes:', selectedProcesses)
+            clientLogger.log('[Draft Load] Restored processes:', selectedProcesses)
           }
 
           // Restore size inputs
           if (sizeInputs && Object.keys(sizeInputs).length > 0) {
             setSizeInputs(sizeInputs)
-            console.log('[Draft Load] Restored size inputs:', sizeInputs)
+            clientLogger.log('[Draft Load] Restored size inputs:', sizeInputs)
           }
 
           // Prevent enquiry number from being fetched
@@ -358,7 +359,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             description: "Your draft has been loaded successfully. Continue where you left off.",
           })
         } catch (error) {
-          console.error('Failed to parse draft data:', error)
+          clientLogger.error('Failed to parse draft data:', error)
           toast({
             variant: "destructive",
             title: "Error",
@@ -372,13 +373,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Populate form with initial data when in edit mode
   useEffect(() => {
     if (editMode && initialData && categories.length > 0) {
-      console.log('[Edit Mode] Populating form with initial data:', initialData)
-      console.log('[Edit Mode] Available categories:', categories.length)
-      console.log('[Edit Mode] Available clients:', clients.length)
+      clientLogger.log('[Edit Mode] Populating form with initial data:', initialData)
+      clientLogger.log('[Edit Mode] Available categories:', categories.length)
+      clientLogger.log('[Edit Mode] Available clients:', clients.length)
 
       // Find the category to verify it exists
       const category = categories.find(c => c.CategoryId === initialData.categoryId)
-      console.log('[Edit Mode] Found category:', category)
+      clientLogger.log('[Edit Mode] Found category:', category)
 
       // Populate basic form data
       setFormData(prev => ({
@@ -398,7 +399,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         typeOfPrinting: initialData.jobType || '',
       }))
 
-      console.log('[Edit Mode] Form data populated with basic fields')
+      clientLogger.log('[Edit Mode] Form data populated with basic fields')
 
       // Set category ID to trigger content types loading
       if (initialData.categoryId) {
@@ -408,12 +409,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       // If detailed data is available, populate dimensions and other fields
       if (initialData.detailedData) {
         const detailedData = initialData.detailedData
-        console.log('[Edit Mode] Detailed data found:', detailedData)
+        clientLogger.log('[Edit Mode] Detailed data found:', detailedData)
 
         // Populate plan details (dimensions) if available
         if (detailedData.DetailsData && detailedData.DetailsData.length > 0) {
           const details = detailedData.DetailsData[0]
-          console.log('[Edit Mode] Details data:', details)
+          clientLogger.log('[Edit Mode] Details data:', details)
 
           // Parse ContentSizeValues to extract dimensions
           // Example: "SizeHeight=200AndOrSizeLength=100AndOrSizeWidth=100..."
@@ -427,14 +428,14 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               }
             })
 
-            console.log('[Edit Mode] Parsed size values:', sizeValues)
+            clientLogger.log('[Edit Mode] Parsed size values:', sizeValues)
             setPlanDetails(sizeValues)
           }
 
           // Store content type to be selected after content types are loaded
           if (details.PlanContentType || details.PlanContName) {
             const contentTypeToSelect = details.PlanContentType || details.PlanContName
-            console.log('[Edit Mode] Content type to select:', contentTypeToSelect)
+            clientLogger.log('[Edit Mode] Content type to select:', contentTypeToSelect)
             // Store in a temporary state to select after content types load
             setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
           }
@@ -443,11 +444,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         // Populate selected processes if available
         if (detailedData.ProcessData && detailedData.ProcessData.length > 0) {
           const processNames = detailedData.ProcessData.map((p: any) => p.ProcessName)
-          console.log('[Edit Mode] Process names to select:', processNames)
+          clientLogger.log('[Edit Mode] Process names to select:', processNames)
           setSelectedProcesses(processNames)
         }
       } else {
-        console.log('[Edit Mode] No detailed data available')
+        clientLogger.log('[Edit Mode] No detailed data available')
       }
 
       setIsFetchingEnquiryNo(false)
@@ -457,8 +458,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Select content type after content types are loaded (for edit mode)
   useEffect(() => {
     if (editMode && formData.contentType && contentTypes.length > 0 && selectedContentIds.length === 0) {
-      console.log('[Edit Mode] Attempting to select content type:', formData.contentType)
-      console.log('[Edit Mode] Available content types:', contentTypes.length)
+      clientLogger.log('[Edit Mode] Attempting to select content type:', formData.contentType)
+      clientLogger.log('[Edit Mode] Available content types:', contentTypes.length)
 
       // Normalize the search term (remove spaces, dashes, underscores and convert to lowercase)
       const normalizeString = (str: string) => str?.replace(/[\s\-_]+/g, '').toLowerCase() || ''
@@ -497,11 +498,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       }
 
       if (matchingContent) {
-        console.log('[Edit Mode] Found matching content:', matchingContent)
+        clientLogger.log('[Edit Mode] Found matching content:', matchingContent)
         setSelectedContentIds([matchingContent.ContentID])
         setSelectedContent(matchingContent)
       } else {
-        console.log('[Edit Mode] No matching content found for:', formData.contentType)
+        clientLogger.log('[Edit Mode] No matching content found for:', formData.contentType)
       }
     }
   }, [editMode, formData.contentType, contentTypes, selectedContentIds])
@@ -582,34 +583,34 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Fetch processes when content type is selected
   useEffect(() => {
     const fetchProcesses = async () => {
-      console.log('🔧 useEffect triggered - selectedContentIds:', selectedContentIds)
+      clientLogger.log('🔧 useEffect triggered - selectedContentIds:', selectedContentIds)
 
       if (selectedContentIds.length > 0) {
         const selectedContentItem = contentTypes.find((c) => c.ContentID === selectedContentIds[0])
-        console.log('🔧 Selected content item:', selectedContentItem)
+        clientLogger.log('🔧 Selected content item:', selectedContentItem)
 
         if (selectedContentItem?.ContentName) {
-          console.log('🔧 Fetching processes for:', selectedContentItem.ContentName)
+          clientLogger.log('🔧 Fetching processes for:', selectedContentItem.ContentName)
           setLoadingProcesses(true)
           try {
             const response = await EnquiryAPI.getProcesses(selectedContentItem.ContentName, null)
-            console.log('🔧 Process fetch response:', response)
+            clientLogger.log('🔧 Process fetch response:', response)
             if (response.success && response.data) {
-              console.log('🔧 Setting available processes:', response.data)
+              clientLogger.log('🔧 Setting available processes:', response.data)
               setAvailableProcesses(response.data)
             } else {
-              console.log('🔧 Response not successful or no data, clearing processes')
+              clientLogger.log('🔧 Response not successful or no data, clearing processes')
               setAvailableProcesses([])
             }
           } catch (error) {
-            console.error('🔧 Failed to fetch processes:', error)
+            clientLogger.error('🔧 Failed to fetch processes:', error)
             setAvailableProcesses([])
           } finally {
             setLoadingProcesses(false)
           }
         }
       } else {
-        console.log('🔧 No content IDs selected, clearing processes')
+        clientLogger.log('🔧 No content IDs selected, clearing processes')
         setAvailableProcesses([])
       }
     }
@@ -1140,14 +1141,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           }],
         }
 
-        console.log('🚀 === DETAILED ENQUIRY SUBMISSION ===')
-        console.log('📤 Sending data to API:', JSON.stringify(detailedEnquiryData, null, 2))
-        console.log('📋 Main Data:')
-        console.table([mainData])
-        console.log('📋 Details Data:', detailsData)
-        console.log('📋 Process Data:', processData)
-        console.log('🌐 Endpoint: POST /api/enquiry/SaveMultipleEnquiry')
-        console.log('====================================')
+        clientLogger.log('🚀 === DETAILED ENQUIRY SUBMISSION ===')
+        clientLogger.log('📤 Sending data to API:', JSON.stringify(detailedEnquiryData, null, 2))
+        clientLogger.log('📋 Main Data:', mainData)
+        clientLogger.log('📋 Details Data:', detailsData)
+        clientLogger.log('📋 Process Data:', processData)
+        clientLogger.log('🌐 Endpoint: POST /api/enquiry/SaveMultipleEnquiry')
+        clientLogger.log('====================================')
 
         // Use update API if in edit mode, otherwise create new
         let response

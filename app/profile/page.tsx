@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Camera, Save } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
+import { clientLogger } from "@/lib/logger"
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
@@ -41,17 +42,17 @@ export default function ProfilePage() {
         }
 
         setProfile(mergedProfile)
-        console.log("[v0] Loaded profile from auth and localStorage:", mergedProfile)
+        clientLogger.log("[v0] Loaded profile from auth and localStorage:", mergedProfile)
       } catch (error) {
-        console.error("[v0] Error loading profile:", error)
+        clientLogger.error("[v0] Error loading profile:", error)
       }
     } else if (savedProfile) {
       try {
         const parsedProfile = JSON.parse(savedProfile)
         setProfile(parsedProfile)
-        console.log("[v0] Loaded profile from localStorage:", parsedProfile)
+        clientLogger.log("[v0] Loaded profile from localStorage:", parsedProfile)
       } catch (error) {
-        console.error("[v0] Error loading profile:", error)
+        clientLogger.error("[v0] Error loading profile:", error)
       }
     }
   }, [])
@@ -68,13 +69,13 @@ export default function ProfilePage() {
         auth.name = profile.name
         auth.email = profile.email
         localStorage.setItem("userAuth", JSON.stringify(auth))
-        console.log("[v0] Updated userAuth with new profile data:", auth)
+        clientLogger.log("[v0] Updated userAuth with new profile data:", auth)
       } catch (error) {
-        console.error("[v0] Error updating auth data:", error)
+        clientLogger.error("[v0] Error updating auth data:", error)
       }
     }
 
-    console.log("[v0] Profile saved to localStorage:", profile)
+    clientLogger.log("[v0] Profile saved to localStorage:", profile)
 
     window.dispatchEvent(new Event("profileUpdated"))
   }

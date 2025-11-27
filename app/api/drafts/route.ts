@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from "@/lib/logger"
 
 const API_BASE_URL = 'https://api.indusanalytics.co.in'
 const API_USERNAME = 'parksonsnew'
@@ -24,9 +25,9 @@ export async function GET(request: NextRequest) {
       'Authorization': getBasicAuth(),
     }
 
-    console.log('=== DRAFTS API PROXY REQUEST ===')
-    console.log('Forwarding request to:', `${API_BASE_URL}/api/draftsystem/list`)
-    console.log('Headers:', headers)
+    logger.log('=== DRAFTS API PROXY REQUEST ===')
+    logger.log('Forwarding request to:', `${API_BASE_URL}/api/draftsystem/list`)
+    logger.log('Headers:', headers)
 
     const response = await fetch(`${API_BASE_URL}/api/draftsystem/list`, {
       method: 'GET',
@@ -35,12 +36,12 @@ export async function GET(request: NextRequest) {
       cache: 'no-store',
     })
 
-    console.log('Response Status:', response.status)
-    console.log('Response Headers:', Object.fromEntries(response.headers.entries()))
+    logger.log('Response Status:', response.status)
+    logger.log('Response Headers:', Object.fromEntries(response.headers.entries()))
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null)
-      console.error('API Error:', errorData)
+      logger.error('API Error:', errorData)
       return NextResponse.json(
         {
           success: false,
@@ -52,11 +53,11 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json()
-    console.log('Success, data length:', Array.isArray(data?.data) ? data.data.length : 0)
+    logger.log('Success, data length:', Array.isArray(data?.data) ? data.data.length : 0)
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Proxy Error:', error)
+    logger.error('Proxy Error:', error)
     return NextResponse.json(
       {
         success: false,

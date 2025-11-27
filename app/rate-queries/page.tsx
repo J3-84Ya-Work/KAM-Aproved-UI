@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { AlertCircle, MessageSquare, TrendingUp, Clock, CheckCircle, XCircle, RefreshCw, AlertTriangle } from "lucide-react"
 import { getAllRateRequests, provideRate, escalateRateRequest } from "@/lib/rate-queries-api"
 import { formatDistanceToNow, differenceInHours } from "date-fns"
+import { clientLogger } from "@/lib/logger"
 
 interface RateQuery {
   requestId: number
@@ -61,7 +62,7 @@ export default function RateQueriesPage() {
         // For now, using a default ID for purchase users
         setCurrentUserId(4) // You can modify this based on your user ID system
       } catch (err) {
-        console.error('Failed to parse user auth:', err)
+        clientLogger.error('Failed to parse user auth:', err)
       }
     }
   }, [])
@@ -72,17 +73,17 @@ export default function RateQueriesPage() {
     try {
       const result = await getAllRateRequests()
       if (result.success && result.data) {
-        console.table(result.data.map(q => ({
+        clientLogger.log('Rate queries data:', result.data.map(q => ({
           'Request ID': q.requestId,
           'Status': q.currentStatus,
           'Rate': q.providedRate || q.rate || 'No rate'
         })))
         setQueries(result.data)
       } else {
-        console.error('Failed to fetch rate queries:', result.error)
+        clientLogger.error('Failed to fetch rate queries:', result.error)
       }
     } catch (error) {
-      console.error('Error fetching rate queries:', error)
+      clientLogger.error('Error fetching rate queries:', error)
     } finally {
       setLoading(false)
     }

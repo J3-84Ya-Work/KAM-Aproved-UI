@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
 import { getApprovalLevel, getViewableKAMs, isHOD, isVerticalHead } from "@/lib/permissions"
 import { QuotationsAPI } from "@/lib/api/enquiry"
+import { clientLogger } from "@/lib/logger"
 
 // REMOVED: Hardcoded data - Now using only API data
 /* const pendingApprovals = [
@@ -335,23 +336,23 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
           ToDate: formatDate(toDate),
         }
 
-        console.log('\n' + '='.repeat(80))
-        console.log('FETCHING QUOTATIONS FOR APPROVAL')
-        console.log('='.repeat(80))
-        console.log('API Endpoint: POST https://api.indusanalytics.co.in/api/planwindow/getallbookings')
-        console.log('='.repeat(80))
-        console.log('Request Parameters:')
-        console.log(JSON.stringify(requestParams, null, 2))
-        console.log('='.repeat(80))
+        clientLogger.log('\n' + '='.repeat(80))
+        clientLogger.log('FETCHING QUOTATIONS FOR APPROVAL')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('API Endpoint: POST https://api.indusanalytics.co.in/api/planwindow/getallbookings')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('Request Parameters:')
+        clientLogger.log(JSON.stringify(requestParams, null, 2))
+        clientLogger.log('='.repeat(80))
 
         const response = await QuotationsAPI.getQuotations(requestParams, null)
 
-        console.log('API Response:')
-        console.log('Total Quotations Received:', response.data?.length || 0)
-        console.log('='.repeat(80) + '\n')
+        clientLogger.log('API Response:')
+        clientLogger.log('Total Quotations Received:', response.data?.length || 0)
+        clientLogger.log('='.repeat(80) + '\n')
 
         if (response.success && response.data) {
-          console.log('Sample quotation for debugging:', response.data[0])
+          clientLogger.log('Sample quotation for debugging:', response.data[0])
 
           // Log the approval status fields for debugging
           const approvalStatusBreakdown = response.data.map((item: any) => ({
@@ -362,7 +363,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
             IsInternalApproved: item.IsInternalApproved,
             JobApproved: item.JobApproved
           }))
-          console.log('Approval status breakdown:', approvalStatusBreakdown)
+          clientLogger.log('Approval status breakdown:', approvalStatusBreakdown)
 
           // Filter quotations that need approval
           // Show quotations with Status = "Sent to HOD" or "Sent to Vertical Head"
@@ -443,13 +444,13 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
               }
             })
 
-          console.log('Quotations pending approval:', pendingQuotations.length)
-          console.log('First pending quotation:', pendingQuotations[0])
+          clientLogger.log('Quotations pending approval:', pendingQuotations.length)
+          clientLogger.log('First pending quotation:', pendingQuotations[0])
 
           setQuotationsForApproval(pendingQuotations)
         }
       } catch (error) {
-        console.error('Error fetching quotations for approval:', error)
+        clientLogger.error('Error fetching quotations for approval:', error)
       } finally {
         setIsLoadingQuotations(false)
       }
@@ -458,7 +459,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   useEffect(() => {
     // Get user's approval level (HOD = L1, Vertical Head = L2)
     const level = getApprovalLevel()
-    console.log('Current user approval level:', level, '(L1 = HOD, L2 = Vertical Head)')
+    clientLogger.log('Current user approval level:', level, '(L1 = HOD, L2 = Vertical Head)')
     setUserLevel(level)
     fetchQuotationsForApproval()
   }, [])
@@ -486,24 +487,24 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
         Status: status
       }
 
-      console.log('\n' + '='.repeat(80))
-      console.log(`${status === 'Approved' ? 'APPROVING' : 'REJECTING'} QUOTATION`)
-      console.log('='.repeat(80))
-      console.log('API: POST https://api.indusanalytics.co.in/api/planwindow/updateqoutestatus')
-      console.log('Body:', JSON.stringify(requestBody, null, 2))
-      console.log('Remark:', remark || 'None')
-      console.log('User Level:', userLevel)
-      console.log('='.repeat(80))
+      clientLogger.log('\n' + '='.repeat(80))
+      clientLogger.log(`${status === 'Approved' ? 'APPROVING' : 'REJECTING'} QUOTATION`)
+      clientLogger.log('='.repeat(80))
+      clientLogger.log('API: POST https://api.indusanalytics.co.in/api/planwindow/updateqoutestatus')
+      clientLogger.log('Body:', JSON.stringify(requestBody, null, 2))
+      clientLogger.log('Remark:', remark || 'None')
+      clientLogger.log('User Level:', userLevel)
+      clientLogger.log('='.repeat(80))
 
       const response = await QuotationsAPI.updateQuotationStatus(requestBody, null)
 
-      console.log('\n' + '='.repeat(80))
-      console.log('API RESPONSE')
-      console.log('='.repeat(80))
-      console.log('Success:', response.success)
-      console.log('Data:', response.data)
-      console.log('Error:', response.error || 'None')
-      console.log('='.repeat(80) + '\n')
+      clientLogger.log('\n' + '='.repeat(80))
+      clientLogger.log('API RESPONSE')
+      clientLogger.log('='.repeat(80))
+      clientLogger.log('Success:', response.success)
+      clientLogger.log('Data:', response.data)
+      clientLogger.log('Error:', response.error || 'None')
+      clientLogger.log('='.repeat(80) + '\n')
 
       if (response.success) {
         alert(`Quotation ${status.toLowerCase()} successfully!${remark ? `\nRemark: ${remark}` : ''}`)
@@ -511,18 +512,18 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
         setSelectedApproval(null)
 
         // Add a longer delay to ensure backend has processed the update
-        console.log('Waiting 1000ms before refreshing data from API...')
+        clientLogger.log('Waiting 1000ms before refreshing data from API...')
         await new Promise(resolve => setTimeout(resolve, 1000))
 
         // Refresh the data from API
-        console.log('Refreshing approval list from API after status update...')
+        clientLogger.log('Refreshing approval list from API after status update...')
         await fetchQuotationsForApproval()
-        console.log('Approval list refreshed from API')
+        clientLogger.log('Approval list refreshed from API')
       } else {
         alert(`Failed to ${status.toLowerCase()} quotation: ${response.error || 'Unknown error'}`)
       }
     } catch (error: any) {
-      console.error(`Error ${status.toLowerCase()} quotation:`, error)
+      clientLogger.error(`Error ${status.toLowerCase()} quotation:`, error)
       alert(`Error: ${error.message}`)
     } finally {
       setIsUpdatingStatus(false)
@@ -532,7 +533,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   // Use only API quotations (no hardcoded data)
   const allPendingApprovals = quotationsForApproval
 
-  console.log('Pending approvals (API only):', {
+  clientLogger.log('Pending approvals (API only):', {
     quotationsFromAPI: quotationsForApproval.length,
     total: allPendingApprovals.length
   })
@@ -544,7 +545,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
     ? allPendingApprovals.filter(a => a.kamName && viewableKams.includes(a.kamName))
     : allPendingApprovals
 
-  console.log('User filtered pending approvals:', {
+  clientLogger.log('User filtered pending approvals:', {
     isRestrictedUser,
     isHODUser,
     isVerticalHeadUser,

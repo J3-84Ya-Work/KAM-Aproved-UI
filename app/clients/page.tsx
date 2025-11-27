@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { canCreate } from "@/lib/permissions"
+import { clientLogger } from "@/lib/logger"
 
 export default function ClientsPage() {
   const router = useRouter()
@@ -46,7 +47,7 @@ export default function ClientsPage() {
   }
 
   const handleSubmitClient = () => {
-    console.log("New Client:", formData)
+    clientLogger.log("New Client:", formData)
     alert("Customer created successfully! Pending approval.")
     setShowNewClientDialog(false)
     setFormData({

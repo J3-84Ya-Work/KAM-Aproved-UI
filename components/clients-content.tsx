@@ -20,6 +20,7 @@ import { TruncatedText } from "@/components/truncated-text"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { getViewableKAMs, isHOD } from "@/lib/permissions"
 import { EnquiryAPI } from "@/lib/api/enquiry"
+import { clientLogger } from "@/lib/logger"
 
 // REMOVED: Static hardcoded clients data - using API now
 /*
@@ -358,7 +359,7 @@ export function ClientsContent() {
           null
         )
 
-        console.log('📊 Customers API Response:', response)
+        clientLogger.log('📊 Customers API Response:', response)
 
         if (response.success && response.data && response.data.length > 0) {
           // Extract unique customers from inquiries
@@ -404,15 +405,15 @@ export function ClientsContent() {
           })
 
           const customersArray = Array.from(customersMap.values())
-          console.log('✅ Unique Customers:', customersArray.length, customersArray)
+          clientLogger.log('✅ Unique Customers:', customersArray.length, customersArray)
           setClients(customersArray)
         } else {
-          console.log('⚠️ No customers found')
+          clientLogger.log('⚠️ No customers found')
           setError(response.error || 'No customers found')
           setClients([])
         }
       } catch (err: any) {
-        console.error('❌ Error fetching customers:', err)
+        clientLogger.error('❌ Error fetching customers:', err)
         setError(err.message || 'An error occurred while loading customers')
         setClients([])
       } finally {

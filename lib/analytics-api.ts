@@ -4,6 +4,7 @@
  */
 
 import { EnquiryAPI, QuotationsAPI, type EnquiryItem } from "@/lib/api/enquiry"
+import { logger } from "@/lib/logger"
 
 // Helper function to get date range
 function getDateRange(period: 'month' | 'quarter' | 'year' = 'month') {
@@ -28,7 +29,7 @@ function getDateRange(period: 'month' | 'quarter' | 'year' = 'month') {
 // Get KPI data for dashboard
 export async function getAnalyticsKPIs(kamFilter?: string) {
   try {
-    console.log('🔍 Analytics API - Fetching KPIs, kamFilter:', kamFilter)
+    logger.log('🔍 Analytics API - Fetching KPIs, kamFilter:', kamFilter)
 
     // Get current financial year dates
     const currentYear = new Date().getFullYear()
@@ -48,33 +49,33 @@ export async function getAnalyticsKPIs(kamFilter?: string) {
       ToDate: `${nextYear}-12-31 23:59:59.999`,
     }, null)
 
-    console.log('📊 Inquiries Response:', inquiriesResponse)
-    console.log('📊 Quotations Response:', quotationsResponse)
+    logger.log('📊 Inquiries Response:', inquiriesResponse)
+    logger.log('📊 Quotations Response:', quotationsResponse)
 
     if (!inquiriesResponse.success || !inquiriesResponse.data) {
-      console.error('❌ Failed to fetch inquiries:', inquiriesResponse)
+      logger.error('❌ Failed to fetch inquiries:', inquiriesResponse)
       return { success: false, error: 'Failed to fetch inquiries' }
     }
 
     const allInquiries = inquiriesResponse.data as EnquiryItem[]
     const allQuotations = quotationsResponse.success ? (quotationsResponse.data || []) : []
 
-    console.log('📋 Total inquiries fetched:', allInquiries.length)
-    console.log('📋 Total quotations fetched:', allQuotations.length)
+    logger.log('📋 Total inquiries fetched:', allInquiries.length)
+    logger.log('📋 Total quotations fetched:', allQuotations.length)
 
     // Filter by KAM if specified
     const inquiries = kamFilter
       ? allInquiries.filter(inq => inq.SalesRepresentative === kamFilter)
       : allInquiries
 
-    console.log('📋 Filtered inquiries:', inquiries.length)
+    logger.log('📋 Filtered inquiries:', inquiries.length)
 
     // Calculate KPIs
     const totalInquiries = inquiries.length
 
     // Log unique status values to understand what's in the data
     const uniqueStatuses = new Set(inquiries.map(inq => inq.Status || inq.Status1).filter(Boolean))
-    console.log('📋 Unique Status values in data:', Array.from(uniqueStatuses))
+    logger.log('📋 Unique Status values in data:', Array.from(uniqueStatuses))
 
     // Completed = inquiries with quotations sent
     const completed = inquiries.filter(inq => {
@@ -128,7 +129,7 @@ export async function getAnalyticsKPIs(kamFilter?: string) {
       rawQuotations: allQuotations
     }
 
-    console.log('✅ KPI Data calculated:', {
+    logger.log('✅ KPI Data calculated:', {
       totalInquiries,
       completed,
       conversions,
@@ -142,7 +143,7 @@ export async function getAnalyticsKPIs(kamFilter?: string) {
       data: kpiData
     }
   } catch (error: any) {
-    console.error('Error fetching analytics KPIs:', error)
+    logger.error('Error fetching analytics KPIs:', error)
     return {
       success: false,
       error: error.message || 'Failed to fetch analytics data'
@@ -207,7 +208,7 @@ export async function getMonthlyTrends(kamFilter?: string) {
       data: monthlyData
     }
   } catch (error: any) {
-    console.error('Error fetching monthly trends:', error)
+    logger.error('Error fetching monthly trends:', error)
     return {
       success: false,
       error: error.message || 'Failed to fetch monthly trends'
@@ -260,7 +261,7 @@ export async function getConversionFunnel(kamFilter?: string) {
       data: funnelData
     }
   } catch (error: any) {
-    console.error('Error fetching conversion funnel:', error)
+    logger.error('Error fetching conversion funnel:', error)
     return {
       success: false,
       error: error.message || 'Failed to fetch conversion funnel'
@@ -349,7 +350,7 @@ export async function getStatusDistribution(kamFilter?: string) {
       data: statusData
     }
   } catch (error: any) {
-    console.error('Error fetching status distribution:', error)
+    logger.error('Error fetching status distribution:', error)
     return {
       success: false,
       error: error.message || 'Failed to fetch status distribution'
@@ -401,7 +402,7 @@ export async function getProjectsByType(kamFilter?: string) {
       data: typeData
     }
   } catch (error: any) {
-    console.error('Error fetching projects by type:', error)
+    logger.error('Error fetching projects by type:', error)
     return {
       success: false,
       error: error.message || 'Failed to fetch projects by type'
