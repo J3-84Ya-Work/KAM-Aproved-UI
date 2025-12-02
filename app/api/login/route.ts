@@ -2,23 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import https from 'https'
 import { logger } from "@/lib/logger"
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json()
-    logger.log('🔐 Login proxy - Request body:', body)
+    const { searchParams } = new URL(request.url)
+    const UserName = searchParams.get('username')
+    const Password = searchParams.get('password')
 
-    const requestBody = JSON.stringify(body)
+    if (!UserName || !Password) {
+      return NextResponse.json({ error: 'Username and password required' }, { status: 400 })
+    }
 
-    // Use native https module to allow GET with body
+    logger.log('🔐 Login attempt for user:', UserName)
+
+    // Use native https module with GET method and URL parameters
     const result = await new Promise<string>((resolve, reject) => {
       const options = {
         hostname: 'api.indusanalytics.co.in',
-        path: '/api/GetLoginDetails',
+        path: `/api/auth/GetLoginDetails/${encodeURIComponent(UserName)}/${encodeURIComponent(Password)}`,
         method: 'GET',
         headers: {
           'Authorization': 'Basic ' + Buffer.from('parksonsnew:parksonsnew').toString('base64'),
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(requestBody),
         },
       }
 
@@ -30,19 +34,17 @@ export async function POST(request: NextRequest) {
         })
 
         res.on('end', () => {
-          logger.log('📊 Login proxy - Response status:', res.statusCode)
-          logger.log('📊 Login proxy - Response:', data)
+          logger.log('📊 Login API response status:', res.statusCode)
+          logger.log('📊 Login API response:', data)
           resolve(data)
         })
       })
 
       req.on('error', (error) => {
-        logger.error('❌ Login proxy request error:', error)
+        logger.error('❌ Login API request error:', error)
         reject(error)
       })
 
-      // Send the body with GET request
-      req.write(requestBody)
       req.end()
     })
 

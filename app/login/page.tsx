@@ -45,23 +45,16 @@ export default function LoginPage() {
       clientLogger.log("📧 Username entered:", formData.username)
 
     try {
-      // Call the login API with JSON body
-      const requestBody = {
-        UserName: formData.username,
-        Password: formData.password,
-      }
-
       clientLogger.log('🔗 Using login proxy API')
-      clientLogger.log('📦 Request body:', requestBody)
+      clientLogger.log('📧 Username:', formData.username)
 
-      // Use our proxy API endpoint to handle GET with body on server side
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
+      // Use our proxy API endpoint with GET method and URL parameters
+      const response = await fetch(
+        `/api/login?username=${encodeURIComponent(formData.username)}&password=${encodeURIComponent(formData.password)}`,
+        {
+          method: 'GET',
+        }
+      )
 
       clientLogger.log('📊 Response status code:', response.status)
       clientLogger.log('📊 Login API response status:', response.ok)
@@ -107,20 +100,11 @@ export default function LoginPage() {
       }
 
       const user = data[0]
-      clientLogger.log("✅ User found:", user.UserName, user.Designation)
+      clientLogger.log("✅ User found:", user.UserName, user.RoleName)
 
-      // Determine role based on designation
-      let userRole = "KAM" // Default role
-      if (user.Designation && typeof user.Designation === 'string') {
-        const designation = user.Designation.toLowerCase()
-        if (designation.includes('head') || designation.includes('officer')) {
-          userRole = "Vertical Head"
-        } else if (designation.includes('manager') || designation.includes('hod')) {
-          userRole = "H.O.D"
-        } else if (designation.includes('purchase')) {
-          userRole = "Purchase"
-        }
-      }
+      // Use RoleName from API response
+      const userRole = user.RoleName || "KAM" // Default to KAM if RoleName not provided
+      clientLogger.log("📋 User role:", userRole)
 
       // Map user data to our auth structure
       const authData = {

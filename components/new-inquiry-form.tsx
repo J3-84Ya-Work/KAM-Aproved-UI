@@ -171,7 +171,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     quantity: "",
     annualQuantity: "",
     unit: "",
-    divisionName: "",
+    divisionName: "Packaging",
     typeOfPrinting: "",
     plant: "",
     supplyLocation: "",
@@ -1155,10 +1155,19 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           // Add EnquiryID and IsEdit flag for update
           const updateData = {
             ...detailedEnquiryData,
-            EnquiryID: initialData.enquiryId || 0, // Get from initial data
+            EnquiryID: initialData.enquiryId || initialData.EnquiryID || 0, // Get from initial data
             IsEdit: "True",
           }
+
+          clientLogger.log('📝 === UPDATE ENQUIRY MODE ===')
+          clientLogger.log('Enquiry ID:', updateData.EnquiryID)
+          clientLogger.log('Update Data:', JSON.stringify(updateData, null, 2))
+          clientLogger.log('🌐 Endpoint: POST /api/enquiry/updatmultipleenquiry')
+          clientLogger.log('====================================')
+
           response = await (EnquiryAPI as any).updateMultipleEnquiry(updateData, null)
+
+          clientLogger.log('📥 Update Response:', response)
         } else {
           response = await EnquiryAPI.saveDetailedEnquiry(detailedEnquiryData as any, null)
         }
@@ -1389,9 +1398,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               <Input
                 id="quantity"
                 type="number"
+                step="1"
                 min="1"
                 value={formData.quantity}
                 onChange={(e) => handleInputChange("quantity", e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
                 className={`h-10 ${validationErrors.quantity ? "border-red-500" : ""}`}
               />
             </div>
@@ -1403,9 +1414,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 <Input
                   id="annualQuantity"
                   type="number"
+                  step="1"
                   min="1"
                   value={formData.annualQuantity}
                   onChange={(e) => handleInputChange("annualQuantity", e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className={`h-10 ${validationErrors.annualQuantity ? "border-red-500" : ""}`}
                   required
                 />
@@ -1435,9 +1448,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Label htmlFor="divisionName">Division Name</Label>
                   <Input
                     id="divisionName"
-                    value={formData.divisionName}
-                    onChange={(e) => handleInputChange("divisionName", e.target.value)}
-                    className="h-10"
+                    value="Packaging"
+                    readOnly
+                    disabled
+                    className="h-10 bg-gray-100 cursor-not-allowed"
                   />
                 </div>
               </>
@@ -1693,9 +1707,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                               <Input
                                 id={`content-${field}`}
                                 type="number"
+                                step="1"
                                 min="0"
                                 value={planDetails[field] || ''}
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
+                                onWheel={(e) => e.currentTarget.blur()}
                                 className="text-sm h-10"
                                 required
                               />
@@ -1718,9 +1734,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                               <Input
                                 id={`content-${field}`}
                                 type="number"
+                                step="1"
                                 min="0"
                                 value={planDetails[field] || ''}
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
+                                onWheel={(e) => e.currentTarget.blur()}
                                 className="text-sm h-10"
                                 required
                               />
@@ -1745,9 +1763,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="planFColor"
                     type="number"
+                    step="1"
                     min="0"
                     value={planDetails.PlanFColor || ''}
                     onChange={(e) => handlePlanDetailChange('PlanFColor', e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="text-sm h-10"
                   />
                 </div>
@@ -1756,9 +1776,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="planBColor"
                     type="number"
+                    step="1"
                     min="0"
                     value={planDetails.PlanBColor || ''}
                     onChange={(e) => handlePlanDetailChange('PlanBColor', e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="text-sm h-10"
                   />
                 </div>
@@ -1767,9 +1789,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="planSpeFColor"
                     type="number"
+                    step="1"
                     min="0"
                     value={planDetails.PlanSpeFColor || ''}
                     onChange={(e) => handlePlanDetailChange('PlanSpeFColor', e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="text-sm h-10"
                   />
                 </div>
@@ -1778,9 +1802,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="planSpeBColor"
                     type="number"
+                    step="1"
                     min="0"
                     value={planDetails.PlanSpeBColor || ''}
                     onChange={(e) => handlePlanDetailChange('PlanSpeBColor', e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="text-sm h-10"
                   />
                 </div>
@@ -1809,13 +1835,19 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     required
                   >
                     <SelectTrigger id="itemPlanQuality" className="text-sm h-10">
-                      <SelectValue />
+                      <SelectValue className="truncate" />
                     </SelectTrigger>
                     <SelectContent>
                       {qualities.length > 0 ? (
                         qualities.map((quality, index) => (
-                          <SelectItem key={index} value={quality.Quality || quality}>
-                            {quality.Quality || quality}
+                          <SelectItem
+                            key={index}
+                            value={quality.Quality || quality}
+                            className="max-w-full"
+                          >
+                            <div className="truncate" title={quality.Quality || quality}>
+                              {quality.Quality || quality}
+                            </div>
                           </SelectItem>
                         ))
                       ) : (
@@ -1955,13 +1987,20 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 </div>
                 <div>
                   <Label htmlFor="planWastageType" className="text-sm">Wastage Type</Label>
-                  <Input
-                    id="planWastageType"
-                    type="text"
+                  <Select
                     value={planDetails.PlanWastageType || ''}
-                    onChange={(e) => handlePlanDetailChange('PlanWastageType', e.target.value)}
-                    className="text-sm"
-                  />
+                    onValueChange={(value) => handlePlanDetailChange('PlanWastageType', value)}
+                  >
+                    <SelectTrigger id="planWastageType" className="text-sm h-10">
+                      <SelectValue placeholder="Select wastage type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Machine Default">Machine Default</SelectItem>
+                      <SelectItem value="Category Process Wise Wastage">Category Process Wise Wastage</SelectItem>
+                      <SelectItem value="Percentage">Percentage</SelectItem>
+                      <SelectItem value="Sheets">Sheets</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

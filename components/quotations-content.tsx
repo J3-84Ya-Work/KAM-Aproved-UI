@@ -196,8 +196,8 @@ function getMarginBadge(margin: number) {
 export function QuotationsContent() {
   const viewableKams = getViewableKAMs()
   const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
-  const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
-  const isHODUser = isHOD() // HOD user check
+  const isKAMUser = isKAM() // Check if user is KAM role
+  const isHODUser = isHOD() // Check if user is HOD role
 
   // API state
   const [quotations, setQuotations] = useState<any[]>([])

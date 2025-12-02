@@ -281,6 +281,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [showOnlyDifferences, setShowOnlyDifferences] = useState(false)
   const [quantityCostingLoading, setQuantityCostingLoading] = useState(false)
   const [quantityCostResults, setQuantityCostResults] = useState<Map<number, any>>(new Map())
+  const [showEnquiryCreatedDialog, setShowEnquiryCreatedDialog] = useState(false)
+  const [createdEnquiryId, setCreatedEnquiryId] = useState<number | null>(null)
 
   const [categories, setCategories] = useState<any[]>([])
   const [contents, setContents] = useState<any[]>([])
@@ -299,6 +301,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const [categorySearch, setCategorySearch] = useState<string>("")
   const [contentSearch, setContentSearch] = useState<string>("")
   const [processSearch, setProcessSearch] = useState<string>("")
+  const [qualitySearch, setQualitySearch] = useState<string>("")
+  const [gsmSearch, setGsmSearch] = useState<string>("")
   const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [qualities, setQualities] = useState<Array<{ Quality?: string; QualityID?: number }>>([])
   const [gsms, setGsms] = useState<Array<{ GSM?: string; GSMID?: number }>>([])
@@ -1610,8 +1614,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </Label>
           <Input
             id="quantity"
+            type="number"
+            step="1"
+            min="0"
             value={jobData.quantity}
             onChange={(e) => setJobData({ ...jobData, quantity: e.target.value })}
+            onWheel={(e) => e.currentTarget.blur()}
             className="h-10 border border-slate-300 focus:border-[#005180] transition-colors"
           />
         </div>
@@ -1733,9 +1741,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                           } catch (e) {
                           }
 
-                          setTimeout(() => {
-                            nextStep()
-                          }, 300)
+                          // Don't auto-advance - let user click Next button
                         }}
                     >
                       <div className="space-y-2 sm:space-y-3 min-w-0">
@@ -1849,6 +1855,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                           {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
                         </Label>
                         <Input
+                          type="number"
+                          step="1"
+                          min="0"
                           value={String((jobData.dimensions as any)[key] ?? '')}
                           onChange={(e) =>
                             setJobData({
@@ -1856,6 +1865,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                               dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
                             })
                           }
+                          onWheel={(e) => e.currentTarget.blur()}
                           className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
                         />
                       </div>
@@ -1875,6 +1885,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                           {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
                         </Label>
                         <Input
+                          type="number"
+                          step="1"
+                          min="0"
                           value={String((jobData.dimensions as any)[key] ?? '')}
                           onChange={(e) =>
                             setJobData({
@@ -1882,6 +1895,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                               dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
                             })
                           }
+                          onWheel={(e) => e.currentTarget.blur()}
                           className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
                         />
                       </div>
@@ -1898,6 +1912,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     <div className="text-lg">{icon}</div>
                     <Label className="w-28 text-sm font-medium text-slate-700">{label} <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
                     <Input
+                      type="number"
+                      step="1"
+                      min="0"
                       value={String((jobData.dimensions as any)[key] ?? '')}
                       onChange={(e) =>
                         setJobData({
@@ -1905,6 +1922,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                           dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
                         })
                       }
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="flex-1 h-8 border-slate-300 focus:border-blue-400 transition-colors"
                       placeholder="0"
                     />
@@ -1929,6 +1947,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             <div key={key} className="space-y-1">
               <Label className="text-xs text-slate-600">{label}</Label>
               <Input
+                type="number"
+                step="1"
+                min="0"
                 value={jobData.dimensions.trimming[key as keyof typeof jobData.dimensions.trimming]}
                 onChange={(e) =>
                   setJobData({
@@ -1942,6 +1963,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     },
                   })
                 }
+                onWheel={(e) => e.currentTarget.blur()}
                 className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
                 placeholder="0"
               />
@@ -1981,24 +2003,40 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 <SelectValue placeholder="Select quality" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
+                <div className="p-2 sticky top-0 bg-white border-b">
+                  <Input
+                    placeholder="Search quality..."
+                    value={qualitySearch}
+                    onChange={(e) => setQualitySearch(e.target.value)}
+                    className="h-8"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
                 {qualities && qualities.length > 0 ? (
-                  qualities.map((q) => {
-                    const qualityValue = String(q.QualityID ?? q.Quality ?? '')
-                    // Skip if empty or invalid
-                    if (!qualityValue || qualityValue === '' || qualityValue === 'undefined' || qualityValue === 'null') {
-                      return null
-                    }
-                    return (
-                      <SelectItem
-                        key={String(q.QualityID ?? q.Quality ?? Math.random())}
-                        value={qualityValue}
-                        className="truncate max-w-[250px]"
-                        title={q.Quality ?? `Quality ${q.QualityID}`}
-                      >
-                        <span className="truncate block">{q.Quality ?? `Quality ${q.QualityID}`}</span>
-                      </SelectItem>
-                    )
-                  }).filter(Boolean)
+                  qualities
+                    .filter((q) => {
+                      if (!qualitySearch) return true
+                      const quality = q.Quality ?? `Quality ${q.QualityID}`
+                      return quality.toLowerCase().includes(qualitySearch.toLowerCase())
+                    })
+                    .map((q) => {
+                      const qualityValue = String(q.QualityID ?? q.Quality ?? '')
+                      // Skip if empty or invalid
+                      if (!qualityValue || qualityValue === '' || qualityValue === 'undefined' || qualityValue === 'null') {
+                        return null
+                      }
+                      return (
+                        <SelectItem
+                          key={String(q.QualityID ?? q.Quality ?? Math.random())}
+                          value={qualityValue}
+                          className="truncate max-w-[250px]"
+                          title={q.Quality ?? `Quality ${q.QualityID}`}
+                        >
+                          <span className="truncate block">{q.Quality ?? `Quality ${q.QualityID}`}</span>
+                        </SelectItem>
+                      )
+                    }).filter(Boolean)
                 ) : (
                   <>
                     <SelectItem value="Art Paper">Art Paper</SelectItem>
@@ -2021,21 +2059,37 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
+                  <div className="p-2 sticky top-0 bg-white border-b">
+                    <Input
+                      placeholder="Search GSM..."
+                      value={gsmSearch}
+                      onChange={(e) => setGsmSearch(e.target.value)}
+                      className="h-8"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </div>
                   {loadingGsm ? (
                     <SelectItem value="__loading" disabled>Loading...</SelectItem>
                   ) : gsms && gsms.length > 0 ? (
-                    gsms.map((g) => {
-                      const gsmValue = String(g.GSM ?? g.GSMID ?? '')
-                      // Skip if empty or invalid
-                      if (!gsmValue || gsmValue === '' || gsmValue === 'undefined' || gsmValue === 'null') {
-                        return null
-                      }
-                      return (
-                        <SelectItem key={String(g.GSMID ?? g.GSM ?? Math.random())} value={gsmValue} className="truncate" title={g.GSM ?? `GSM ${g.GSMID}`}>
-                          <span className="truncate block">{g.GSM ?? `GSM ${g.GSMID}`}</span>
-                        </SelectItem>
-                      )
-                    }).filter(Boolean)
+                    gsms
+                      .filter((g) => {
+                        if (!gsmSearch) return true
+                        const gsm = String(g.GSM ?? `GSM ${g.GSMID ?? ''}`)
+                        return gsm.toLowerCase().includes(gsmSearch.toLowerCase())
+                      })
+                      .map((g) => {
+                        const gsmValue = String(g.GSM ?? g.GSMID ?? '')
+                        // Skip if empty or invalid
+                        if (!gsmValue || gsmValue === '' || gsmValue === 'undefined' || gsmValue === 'null') {
+                          return null
+                        }
+                        return (
+                          <SelectItem key={String(g.GSMID ?? g.GSM ?? Math.random())} value={gsmValue} className="truncate" title={g.GSM ?? `GSM ${g.GSMID}`}>
+                            <span className="truncate block">{g.GSM ?? `GSM ${g.GSMID}`}</span>
+                          </SelectItem>
+                        )
+                      }).filter(Boolean)
                   ) : (
                     <>
                       <SelectItem value="130">130</SelectItem>
@@ -2204,12 +2258,16 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               <div key={key}>
                 <Label className="text-sm font-medium text-slate-700 mb-2 block">{label}</Label>
                 <Input
+                  type="number"
+                  step="1"
+                  min="0"
                   className="h-8 text-sm"
                   placeholder="0"
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
                   onChange={(e) =>
                     setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: e.target.value } })
                   }
+                  onWheel={(e) => e.currentTarget.blur()}
                 />
               </div>
             ))}
@@ -2223,12 +2281,16 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               <div key={key}>
                 <Label className="text-sm font-medium text-slate-700 mb-2 block">{label}</Label>
                 <Input
+                  type="number"
+                  step="1"
+                  min="0"
                   className="h-8 text-sm"
                   placeholder="0"
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
                   onChange={(e) =>
                     setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: e.target.value } })
                   }
+                  onWheel={(e) => e.currentTarget.blur()}
                 />
               </div>
             ))}
@@ -2429,11 +2491,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     const filteredResults = planningResults ? planningResults.filter((plan: any) => {
       const unitCost = plan.UnitPrice || plan.TotalPlanCost || 0
       const ups = plan.TotalUps || plan.Ups || 0
+      const machineName = (plan.MachineName || plan.MachineID || '').toString().toLowerCase()
 
       const matchesUnitCost = filterUnitCost === "" || unitCost <= parseFloat(filterUnitCost)
       const matchesUps = filterUps === "" || ups >= parseFloat(filterUps)
+      const matchesMachine = filterMachine === "" || machineName.includes(filterMachine.toLowerCase())
 
-      return matchesUnitCost && matchesUps
+      return matchesUnitCost && matchesUps && matchesMachine
     }) : null
 
     // Structured rendering to avoid nested ternaries and JSX parsing issues
@@ -2455,7 +2519,20 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       </div>
     )
 
-    const errorNode = planningError ? <div className="text-sm text-red-600">{planningError}</div> : null
+    const errorNode = planningError ? (
+      <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0">
+            <X className="h-5 w-5 text-red-500" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-800 whitespace-pre-line">
+              {planningError}
+            </p>
+          </div>
+        </div>
+      </div>
+    ) : null
 
     const spinner = (
       <div className="flex items-center justify-center py-6">
@@ -2591,6 +2668,50 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       </Card>
     )
 
+    // Filter controls
+    const filterControls = planningResults && planningResults.length > 0 ? (
+      <Card className="p-2 bg-slate-50 border-slate-200">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Label className="text-xs font-medium text-slate-700 whitespace-nowrap">Filters:</Label>
+          <Input
+            type="text"
+            placeholder="Machine..."
+            value={filterMachine}
+            onChange={(e) => setFilterMachine(e.target.value)}
+            className="h-7 text-xs flex-1 min-w-[100px]"
+          />
+          <Input
+            type="number"
+            placeholder="Max Cost"
+            value={filterUnitCost}
+            onChange={(e) => setFilterUnitCost(e.target.value)}
+            className="h-7 text-xs w-20"
+          />
+          <Input
+            type="number"
+            placeholder="Min UPS"
+            value={filterUps}
+            onChange={(e) => setFilterUps(e.target.value)}
+            className="h-7 text-xs w-20"
+          />
+          {(filterMachine || filterUnitCost || filterUps) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFilterMachine("")
+                setFilterUnitCost("")
+                setFilterUps("")
+              }}
+              className="h-7 px-2 text-xs"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+      </Card>
+    ) : null
+
     // Display actual plans with costings
     const plansDisplay = planningResults && planningResults.length > 0 ? (
       <div className="space-y-3">
@@ -2599,7 +2720,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           <span className="font-semibold">Select a plan to create quotation</span>
         </div>
 
-        {planningResults.map((plan: any, index: number) => {
+        {filteredResults && filteredResults.length > 0 ? filteredResults.map((plan: any, index: number) => {
           const unitPrice = plan.UnitPrice || plan.unitPrice || 0
           const totalAmount = plan.TotalAmount || plan.totalAmount || 0
           const finalQuantity = plan.FinalQuantity || plan.finalQuantity || Number(jobData.quantity) || 0
@@ -2675,13 +2796,18 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               </div>
             </Card>
           )
-        })}
+        }) : (
+          <div className="text-sm text-slate-500 text-center py-4">
+            No plans match the current filters. Try adjusting the filter values.
+          </div>
+        )}
       </div>
     ) : null
 
     return (
       <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
         {renderStepHeader("Best Plans", true)}
+        {filterControls}
         {plansDisplay}
         {errorNode}
         {planningLoading && spinner}
@@ -2710,6 +2836,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
   const [filterUnitCost, setFilterUnitCost] = useState<string>("")
   const [filterUps, setFilterUps] = useState<string>("")
+  const [filterMachine, setFilterMachine] = useState<string>("")
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null)
   // Explicitly chosen OperId by user (preferred over name-match resolution)
   const [selectedOperId, setSelectedOperId] = useState<string>('')
@@ -2937,86 +3064,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
 
   const runPlanning = async () => {
-    clientLogger.log('=== runPlanning started (SaveMultipleEnquiry) ===')
+    clientLogger.log('=== runPlanning started (Check Plans First) ===')
     setPlanningLoading(true)
     setPlanningError(null)
     setPlanningResults(null)
     try {
       const { saveMultipleEnquiry, postShirinJob } = await import('@/lib/api-config')
 
-      let currentEnquiryNumber = enquiryNumber
-
-      // Only call SaveMultipleEnquiry if we don't have an enquiry number yet
-      if (!currentEnquiryNumber) {
-        clientLogger.log('=== No existing enquiry number, calling SaveMultipleEnquiry ===')
-
-        // Build the enquiry data
-        const enquiryData = {
-          clientName: jobData.clientName,
-          clientId: 0, // Will use default value
-          jobName: jobData.jobName,
-          quantity: jobData.quantity,
-          cartonType: jobData.cartonType,
-          dimensions: jobData.dimensions,
-          paperDetails: jobData.paperDetails,
-          processes: jobData.processes,
-          productCode: '',
-          salesEmployeeId: 0,
-          categoryId: 0,
-          categoryName: '',
-          fileName: '',
-          remark: '',
-        }
-
-        clientLogger.log('\n' + '='.repeat(80))
-        clientLogger.log('GET PLAN BUTTON CLICKED - API CALL #1: SaveMultipleEnquiry')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('Endpoint: POST /api/parksons/SaveMultipleEnquiry')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('\n📤 REQUEST BODY:')
-        clientLogger.log(JSON.stringify(enquiryData, null, 2))
-        clientLogger.log('='.repeat(80) + '\n')
-
-        const res = await saveMultipleEnquiry(enquiryData)
-
-        clientLogger.log('\n' + '='.repeat(80))
-        clientLogger.log('📥 SaveMultipleEnquiry RESPONSE:')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('Response Type:', typeof res)
-        clientLogger.log('Response Data:')
-        clientLogger.log(JSON.stringify(res, null, 2))
-
-        // The API returns either:
-        // 1. A plain number: 10326
-        // 2. An object: { EnquiryID: 10326 } or { enquiryID: 10326 }
-        let extractedId = null
-        if (typeof res === 'number') {
-          extractedId = res
-        } else if (typeof res === 'object' && res !== null) {
-          extractedId = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
-        }
-
-        clientLogger.log('\n🔑 Extracted Enquiry ID:', extractedId || 'NOT FOUND')
-        clientLogger.log('='.repeat(80) + '\n')
-
-        // Store the enquiry ID (number) from response - this is what we send to DirectCosting
-        currentEnquiryNumber = extractedId
-        if (currentEnquiryNumber) {
-          setEnquiryNumber(currentEnquiryNumber)
-          clientLogger.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
-        }
-      } else {
-        clientLogger.log('\n' + '='.repeat(80))
-        clientLogger.log('✅ ENQUIRY ALREADY EXISTS - SKIPPING API CALL')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('Existing Enquiry ID:', currentEnquiryNumber)
-        clientLogger.log('Action: Skipping SaveMultipleEnquiry API call')
-        clientLogger.log('Reason: Enquiry already created for this session')
-        clientLogger.log('Next: Will proceed directly to ShirinJob API')
-        clientLogger.log('='.repeat(80) + '\n')
-      }
-
-      // Call Shirin Job API when Get Plan is clicked
+      // STEP 1: Call ShirinJob FIRST to check if plans can be generated
       const dims = jobData.dimensions || {}
       const paper = jobData.paperDetails || {}
 
@@ -3123,16 +3178,17 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       clientLogger.log('=== Resolved OperIDs for Shirin Job ===', resolveOperIdFromProcesses(jobData))
       clientLogger.log('=== Process Names ===', getProcessNames(jobData))
 
-      // Call Shirin Job API (non-blocking - don't fail planning if this fails)
+      // Call Shirin Job API FIRST to check if plans can be generated
       clientLogger.log('\n' + '='.repeat(80))
-      clientLogger.log('GET PLAN BUTTON CLICKED - API CALL #2: ShirinJob')
+      clientLogger.log('GET PLAN BUTTON CLICKED - API CALL #1: ShirinJob (Check Plans)')
       clientLogger.log('='.repeat(80))
       clientLogger.log('Endpoint: POST /api/planwindow/Shirin_Job')
       clientLogger.log('Request Body:', JSON.stringify(shrinkJobParams, null, 2))
       clientLogger.log('='.repeat(80) + '\n')
 
+      let shrinkJobRes: any
       try {
-        const shrinkJobRes = await postShirinJob(shrinkJobParams)
+        shrinkJobRes = await postShirinJob(shrinkJobParams)
 
         clientLogger.log('\n' + '='.repeat(80))
         clientLogger.log('ShirinJob Response:')
@@ -3140,42 +3196,131 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         clientLogger.log(JSON.stringify(shrinkJobRes, null, 2))
         clientLogger.log('='.repeat(80) + '\n')
 
-        // If we got plans from Shirin Job, use them
-        if (shrinkJobRes && Array.isArray(shrinkJobRes) && shrinkJobRes.length > 0) {
-          clientLogger.log('=== Setting planning results from ShirinJob ===')
-          setPlanningResults(shrinkJobRes)
-        } else {
-          // Set mock planning results to show success and allow progression
-          setPlanningResults([{
-            success: true,
-            message: 'Enquiry saved successfully',
-            MachineID: 1,
-            MachineName: 'Default Machine',
-            UnitPrice: 0,
-            TotalPlanCost: 0,
-            TotalUps: 1
-          }])
+        // Check if response contains an error message (API might return error as array with message)
+        if (Array.isArray(shrinkJobRes) && shrinkJobRes.length > 0 && shrinkJobRes[0] && typeof shrinkJobRes[0] === 'string') {
+          // API returned error message as string in array
+          const errorMessage = shrinkJobRes[0]
+          clientLogger.error('=== ShirinJob returned error message ===', errorMessage)
+          setPlanningError(errorMessage)
+          showToast(errorMessage, 'error')
+          return false
         }
+
+        // Validate that we got valid plans from Shirin Job
+        if (!shrinkJobRes || !Array.isArray(shrinkJobRes) || shrinkJobRes.length === 0) {
+          clientLogger.error('=== No plans returned from ShirinJob ===')
+          setPlanningError('No plans could be generated for the given specifications')
+          showToast('No plans available: Please check your specifications and try again', 'error')
+          return false
+        }
+
+        // Check if first item is an error object
+        if (shrinkJobRes[0] && (shrinkJobRes[0].error || shrinkJobRes[0].Error || shrinkJobRes[0].message)) {
+          const errorMessage = shrinkJobRes[0].error || shrinkJobRes[0].Error || shrinkJobRes[0].message
+          clientLogger.error('=== ShirinJob returned error object ===', errorMessage)
+          setPlanningError(errorMessage)
+          showToast(errorMessage, 'error')
+          return false
+        }
+
+        clientLogger.log('=== ✅ Plans found! Proceeding to save enquiry ===')
       } catch (shirinErr: any) {
-        clientLogger.error('=== ShirinJob API failed (non-blocking) ===', shirinErr)
+        clientLogger.error('=== ShirinJob API failed ===', shirinErr)
         const errorMsg = extractErrorMessage(shirinErr, 'ShirinJob API failed')
+        setPlanningError(errorMsg)
         showToast(`ShirinJob Error: ${errorMsg}`, 'error')
-        // Set mock results even if Shirin Job fails
-        setPlanningResults([{
-          success: true,
-          message: 'Enquiry saved successfully',
-          MachineID: 1,
-          MachineName: 'Default Machine',
-          UnitPrice: 0,
-          TotalPlanCost: 0,
-          TotalUps: 1
-        }])
+        return false
       }
+
+      // STEP 2: Only call SaveMultipleEnquiry if plans exist AND we don't have an enquiry number yet
+      let currentEnquiryNumber = enquiryNumber
+
+      if (!currentEnquiryNumber) {
+        clientLogger.log('=== No existing enquiry number, calling SaveMultipleEnquiry ===')
+
+        // Build the enquiry data
+        const enquiryData = {
+          clientName: jobData.clientName,
+          clientId: 0, // Will use default value
+          jobName: jobData.jobName,
+          quantity: jobData.quantity,
+          cartonType: jobData.cartonType,
+          dimensions: jobData.dimensions,
+          paperDetails: jobData.paperDetails,
+          processes: jobData.processes,
+          productCode: '',
+          salesEmployeeId: 0,
+          categoryId: 0,
+          categoryName: '',
+          fileName: '',
+          remark: '',
+        }
+
+        clientLogger.log('\n' + '='.repeat(80))
+        clientLogger.log('API CALL #2: SaveMultipleEnquiry (After Plans Confirmed)')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('Endpoint: POST /api/parksons/SaveMultipleEnquiry')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('\n📤 REQUEST BODY:')
+        clientLogger.log(JSON.stringify(enquiryData, null, 2))
+        clientLogger.log('='.repeat(80) + '\n')
+
+        try {
+          const res = await saveMultipleEnquiry(enquiryData)
+
+          clientLogger.log('\n' + '='.repeat(80))
+          clientLogger.log('📥 SaveMultipleEnquiry RESPONSE:')
+          clientLogger.log('='.repeat(80))
+          clientLogger.log('Response Type:', typeof res)
+          clientLogger.log('Response Data:')
+          clientLogger.log(JSON.stringify(res, null, 2))
+
+          // The API returns either:
+          // 1. A plain number: 10326
+          // 2. An object: { EnquiryID: 10326 } or { enquiryID: 10326 }
+          let extractedId = null
+          if (typeof res === 'number') {
+            extractedId = res
+          } else if (typeof res === 'object' && res !== null) {
+            extractedId = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
+          }
+
+          clientLogger.log('\n🔑 Extracted Enquiry ID:', extractedId || 'NOT FOUND')
+          clientLogger.log('='.repeat(80) + '\n')
+
+          // Store the enquiry ID (number) from response
+          currentEnquiryNumber = extractedId
+          if (currentEnquiryNumber) {
+            setEnquiryNumber(currentEnquiryNumber)
+            setCreatedEnquiryId(currentEnquiryNumber)
+            setShowEnquiryCreatedDialog(true)
+            clientLogger.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
+          }
+        } catch (saveErr: any) {
+          clientLogger.error('=== SaveMultipleEnquiry failed ===', saveErr)
+          const errorMsg = extractErrorMessage(saveErr, 'Failed to save enquiry')
+          setPlanningError(errorMsg)
+          showToast(`API Error: ${errorMsg}`, 'error')
+          return false
+        }
+      } else {
+        clientLogger.log('\n' + '='.repeat(80))
+        clientLogger.log('✅ ENQUIRY ALREADY EXISTS - SKIPPING API CALL')
+        clientLogger.log('='.repeat(80))
+        clientLogger.log('Existing Enquiry ID:', currentEnquiryNumber)
+        clientLogger.log('Action: Skipping SaveMultipleEnquiry API call')
+        clientLogger.log('Reason: Enquiry already created for this session')
+        clientLogger.log('='.repeat(80) + '\n')
+      }
+
+      // STEP 3: Set the planning results (we already validated they exist)
+      clientLogger.log('=== Setting planning results from ShirinJob ===')
+      setPlanningResults(shrinkJobRes)
 
       return true
     } catch (err: any) {
-      clientLogger.error('=== SaveMultipleEnquiry failed ===', err)
-      const errorMsg = extractErrorMessage(err, 'Failed to save enquiry')
+      clientLogger.error('=== Planning failed ===', err)
+      const errorMsg = extractErrorMessage(err, 'Planning failed')
       setPlanningError(errorMsg)
       showToast(`API Error: ${errorMsg}`, 'error')
       return false
@@ -4504,7 +4649,11 @@ Generated with KAM Printing Wizard
                 nextStep()
               }
             }}
-            disabled={(currentStep === steps.length - 1 && !quotationNumber) || planningLoading}
+            disabled={
+              (currentStep === steps.length - 1 && !quotationNumber) ||
+              planningLoading ||
+              (currentStep === steps.indexOf('Best Plans') && (planningError || !selectedPlan))
+            }
             className="bg-[#005180] hover:bg-[#004875] text-white text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 min-w-[80px] sm:min-w-[90px] flex items-center justify-center gap-1.5 sm:gap-2 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {currentStep === steps.length - 1 ? (
@@ -4567,6 +4716,37 @@ Generated with KAM Printing Wizard
             <div className="text-center">
               <div className="font-semibold text-slate-800">Calculating costs...</div>
               <div className="text-sm text-slate-600">Fetching pricing for the selected machine</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enquiry Created Dialog */}
+      {showEnquiryCreatedDialog && createdEnquiryId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all duration-300 scale-100 border-2 border-green-500">
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-green-500 flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-green-600 mb-2">
+                Enquiry Created Successfully!
+              </h3>
+              <div className="bg-green-50 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-600 mb-1">Enquiry ID</p>
+                <p className="text-3xl font-bold text-green-700">
+                  {createdEnquiryId}
+                </p>
+              </div>
+              <p className="text-slate-600 text-sm mb-6">
+                Your enquiry has been saved successfully. The system is now generating the best plans for your requirements.
+              </p>
+              <Button
+                onClick={() => setShowEnquiryCreatedDialog(false)}
+                className="w-full bg-green-500 hover:bg-green-600 text-white py-3"
+              >
+                Continue
+              </Button>
             </div>
           </div>
         </div>

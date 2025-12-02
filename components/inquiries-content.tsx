@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
-import { getViewableKAMs, isHOD } from "@/lib/permissions"
+import { getViewableKAMs, isHOD, isKAM } from "@/lib/permissions"
 import { EnquiryAPI, type EnquiryItem, formatDateForAPI, formatDateForDisplay } from "@/lib/api/enquiry"
 import { NewInquiryForm } from "@/components/new-inquiry-form"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -246,8 +246,8 @@ function getEmailPreview(emailBody: string): string {
 export function InquiriesContent() {
   const viewableKams = getViewableKAMs()
   const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
-  const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
-  const isHODUser = isHOD() // HOD user check
+  const isKAMUser = isKAM() // Check if user is KAM role
+  const isHODUser = isHOD() // Check if user is HOD role
 
   // API state
   const [inquiries, setInquiries] = useState<any[]>([])
@@ -998,17 +998,19 @@ export function InquiriesContent() {
                         </div>
                       </div>
 
-                      {/* Dialog Footer with Edit Button */}
-                      <DialogFooter className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex-shrink-0">
-                        <Button
-                          onClick={() => handleEditInquiry(inquiry)}
-                          disabled={loadingEnquiryDetails}
-                          className="bg-[#005180] hover:bg-[#004170] text-white"
-                        >
-                          <Pencil className="h-4 w-4 mr-2" />
-                          {loadingEnquiryDetails ? 'Loading...' : 'Edit Enquiry'}
-                        </Button>
-                      </DialogFooter>
+                      {/* Dialog Footer with Edit Button - Only show for unapproved inquiries */}
+                      {inquiry.status !== 'Approved' && inquiry.status !== 'approved' && (
+                        <DialogFooter className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex-shrink-0">
+                          <Button
+                            onClick={() => handleEditInquiry(inquiry)}
+                            disabled={loadingEnquiryDetails}
+                            className="bg-[#005180] hover:bg-[#004170] text-white"
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            {loadingEnquiryDetails ? 'Loading...' : 'Edit Enquiry'}
+                          </Button>
+                        </DialogFooter>
+                      )}
                     </DialogContent>
                   </Dialog>
                 ))
