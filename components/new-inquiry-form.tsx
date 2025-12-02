@@ -211,6 +211,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   const [millOptions, setMillOptions] = useState<any[]>([])
   const [finishOptions, setFinishOptions] = useState<any[]>([])
 
+  // Search filters for dropdowns
+  const [qualitySearch, setQualitySearch] = useState<string>("")
+  const [gsmSearch, setGsmSearch] = useState<string>("")
+
   // Prepare draft data for auto-save
   const draftFormData = {
     ...formData,
@@ -400,6 +404,18 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       }))
 
       clientLogger.log('[Edit Mode] Form data populated with basic fields')
+      clientLogger.log('[Edit Mode] ═══════════════════════════════════════')
+      clientLogger.log('[Edit Mode] POPULATED FIELDS SUMMARY:')
+      clientLogger.log('[Edit Mode] ─────────────────────────────────────')
+      clientLogger.log('[Edit Mode] Enquiry No:', initialData.id)
+      clientLogger.log('[Edit Mode] Client:', initialData.ledgerId)
+      clientLogger.log('[Edit Mode] Job Name:', initialData.job)
+      clientLogger.log('[Edit Mode] Quantity:', initialData.quantityRange)
+      clientLogger.log('[Edit Mode] Category ID:', initialData.categoryId)
+      clientLogger.log('[Edit Mode] Sales Person ID:', initialData.salesEmployeeId)
+      clientLogger.log('[Edit Mode] Production Unit ID:', initialData.productionUnitId)
+      clientLogger.log('[Edit Mode] Has Detailed Data:', !!initialData.detailedData)
+      clientLogger.log('[Edit Mode] ═══════════════════════════════════════')
 
       // Set category ID to trigger content types loading
       if (initialData.categoryId) {
@@ -428,8 +444,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               }
             })
 
+            clientLogger.log('[Edit Mode] Raw ContentSizeValues:', details.ContentSizeValues)
             clientLogger.log('[Edit Mode] Parsed size values:', sizeValues)
-            setPlanDetails(sizeValues)
+            clientLogger.log('[Edit Mode] Number of parsed fields:', Object.keys(sizeValues).length)
+            setPlanDetails(prev => ({ ...prev, ...sizeValues }))
           }
 
           // Store content type to be selected after content types are loaded
@@ -443,9 +461,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
         // Populate selected processes if available
         if (detailedData.ProcessData && detailedData.ProcessData.length > 0) {
-          const processNames = detailedData.ProcessData.map((p: any) => p.ProcessName)
-          clientLogger.log('[Edit Mode] Process names to select:', processNames)
-          setSelectedProcesses(processNames)
+          const processes = detailedData.ProcessData.map((p: any) => ({
+            ProcessID: p.ProcessID,
+            ProcessName: p.ProcessName
+          }))
+          clientLogger.log('[Edit Mode] Processes to select:', processes)
+          setSelectedProcesses(processes)
         }
       } else {
         clientLogger.log('[Edit Mode] No detailed data available')
@@ -1419,7 +1440,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   value={formData.annualQuantity}
                   onChange={(e) => handleInputChange("annualQuantity", e.target.value)}
                   onWheel={(e) => e.currentTarget.blur()}
-                  className={`h-10 ${validationErrors.annualQuantity ? "border-red-500" : ""}`}
+                  className={`h-10 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.annualQuantity ? "border-red-500" : ""}`}
                   required
                 />
               </div>
@@ -1547,7 +1568,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   min="0"
                   value={formData.expectCompletion}
                   onChange={(e) => handleInputChange("expectCompletion", e.target.value)}
-                  className="h-10"
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="h-10 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             )}
@@ -1838,18 +1860,33 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       <SelectValue className="truncate" />
                     </SelectTrigger>
                     <SelectContent>
+                      <div className="px-2 pb-2 sticky top-0 bg-white z-10">
+                        <Input
+                          placeholder="Search quality..."
+                          value={qualitySearch}
+                          onChange={(e) => setQualitySearch(e.target.value)}
+                          className="h-8 text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                      </div>
                       {qualities.length > 0 ? (
-                        qualities.map((quality, index) => (
-                          <SelectItem
-                            key={index}
-                            value={quality.Quality || quality}
-                            className="max-w-full"
-                          >
-                            <div className="truncate" title={quality.Quality || quality}>
-                              {quality.Quality || quality}
-                            </div>
-                          </SelectItem>
-                        ))
+                        qualities
+                          .filter((quality) => {
+                            const qualityValue = quality.Quality || quality
+                            return qualityValue.toString().toLowerCase().includes(qualitySearch.toLowerCase())
+                          })
+                          .map((quality, index) => (
+                            <SelectItem
+                              key={index}
+                              value={quality.Quality || quality}
+                              className="max-w-full"
+                            >
+                              <div className="truncate" title={quality.Quality || quality}>
+                                {quality.Quality || quality}
+                              </div>
+                            </SelectItem>
+                          ))
                       ) : (
                         <SelectItem value="loading" disabled>Loading qualities...</SelectItem>
                       )}
@@ -1875,23 +1912,36 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      {gsmOptions.length > 0 && (
+                        <div className="px-2 pb-2 sticky top-0 bg-white z-10">
+                          <Input
+                            placeholder="Search GSM..."
+                            value={gsmSearch}
+                            onChange={(e) => setGsmSearch(e.target.value)}
+                            className="h-8 text-sm"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
                       {gsmOptions.length > 0 ? (
-                        gsmOptions.map((gsm, index) => {
-                          // GSM can be a number directly or an object with gsm/GSM field
-                          const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
-                          const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
+                        gsmOptions
+                          .filter((gsm) => {
+                            const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
+                            const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
+                            return gsmDisplay && gsmDisplay !== '' && gsmDisplay !== 'undefined' && gsmDisplay !== 'null' && gsmDisplay.toLowerCase().includes(gsmSearch.toLowerCase())
+                          })
+                          .map((gsm, index) => {
+                            // GSM can be a number directly or an object with gsm/GSM field
+                            const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
+                            const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
 
-                          // Skip if empty or invalid
-                          if (!gsmDisplay || gsmDisplay === '' || gsmDisplay === 'undefined' || gsmDisplay === 'null') {
-                            return null
-                          }
-
-                          return (
-                            <SelectItem key={index} value={gsmDisplay}>
-                              {gsmDisplay}
-                            </SelectItem>
-                          )
-                        }).filter(Boolean)
+                            return (
+                              <SelectItem key={index} value={gsmDisplay}>
+                                {gsmDisplay}
+                              </SelectItem>
+                            )
+                          })
                       ) : (
                         <SelectItem value="loading" disabled>
                           {planDetails.ItemPlanQuality ? 'Loading GSM...' : 'Select quality first'}

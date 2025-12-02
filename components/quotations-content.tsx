@@ -209,6 +209,7 @@ export function QuotationsContent() {
   const [internalStatusFilter, setInternalStatusFilter] = useState("all")
   const [hodFilter, setHodFilter] = useState("all")
   const [kamFilter, setKamFilter] = useState("all")
+  const [sourceFilter, setSourceFilter] = useState("all")
   const [sortBy, setSortBy] = useState("date-desc")
   const [selectedQuotation, setSelectedQuotation] = useState<any | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -526,6 +527,7 @@ export function QuotationsContent() {
   // Get unique HOD and KAM names for filters
   const hodNames = Array.from(new Set(userFilteredQuotations.map(q => q.hodName).filter((name): name is string => Boolean(name))))
   const kamNames = Array.from(new Set(userFilteredQuotations.map(q => q.kamName).filter((name): name is string => Boolean(name))))
+  const sourceNames = Array.from(new Set(userFilteredQuotations.map(q => q.Source || 'KAM APP')))
 
   const filteredQuotations = userFilteredQuotations
     .filter((quotation) => {
@@ -541,8 +543,9 @@ export function QuotationsContent() {
       const matchesInternalStatus = internalStatusFilter === "all" || quotation.internalStatus === internalStatusFilter
       const matchesHod = hodFilter === "all" || quotation.hodName === hodFilter
       const matchesKam = kamFilter === "all" || quotation.kamName === kamFilter
+      const matchesSource = sourceFilter === "all" || quotation.Source === sourceFilter || (!quotation.Source && sourceFilter === "KAM APP")
 
-      return matchesSearch && matchesStatus && matchesInternalStatus && matchesHod && matchesKam
+      return matchesSearch && matchesStatus && matchesInternalStatus && matchesHod && matchesKam && matchesSource
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -689,6 +692,22 @@ export function QuotationsContent() {
                       </Select>
                     </div>
                   </TableHead>
+                  <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                    <div className="flex items-center justify-between">
+                      <span>Source</span>
+                      <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                          <Filter className="h-4 w-4 text-white" />
+                        </SelectTrigger>
+                        <SelectContent align="start" className="min-w-[150px]">
+                          <SelectItem value="all">All Sources</SelectItem>
+                          {sourceNames.map(source => (
+                            <SelectItem key={source} value={source}>{source}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -817,13 +836,29 @@ export function QuotationsContent() {
                                 </Button>
                               </div>
                             ) : (
-                              // Other statuses (Costing, Quoted, etc.): Show Send to HOD, Share, and Download based on margin
+                              // Other statuses (Costing, Quoted, etc.): Show approval buttons based on margin
                               <div className="flex justify-end gap-2">
-                                {quotation.margin < 10 && (
+                                {/* Margin < 5%: Send to Vertical Head */}
+                                {quotation.margin < 5 && (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      alert(`Sending ${quotation.id} to Vertical Head`)
+                                    }}
+                                  >
+                                    <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                    Send to VH
+                                  </Button>
+                                )}
+                                {/* Margin 5% to 10%: Send to HOD */}
+                                {quotation.margin >= 5 && quotation.margin < 10 && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs bg-[#B92221]/10 text-[#B92221] border-[#B92221]/30 hover:bg-[#B92221]/20"
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       alert(`Sending ${quotation.id} to HOD`)
@@ -833,31 +868,6 @@ export function QuotationsContent() {
                                     Send to HOD
                                   </Button>
                                 )}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    alert(`Sharing ${quotation.id} with customer`)
-                                  }}
-                                >
-                                  <Share2 className="h-3 w-3 mr-1" />
-                                  Share
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotation(quotation.bookingId)
-                                  }}
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  {isDownloadingPDF === quotation.bookingId ? 'Downloading...' : 'Download'}
-                                </Button>
                               </div>
                             )}
                           </TableCell>
@@ -916,6 +926,9 @@ export function QuotationsContent() {
                               {quotation.internalStatus}
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <span className="text-sm text-gray-700">{quotation.Source || 'KAM APP'}</span>
                         </TableCell>
                       </TableRow>
                     </DialogTrigger>

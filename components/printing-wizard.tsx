@@ -1620,7 +1620,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             value={jobData.quantity}
             onChange={(e) => setJobData({ ...jobData, quantity: e.target.value })}
             onWheel={(e) => e.currentTarget.blur()}
-            className="h-10 border border-slate-300 focus:border-[#005180] transition-colors"
+            className="h-10 border border-slate-300 focus:border-[#005180] transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
       </div>
@@ -1866,7 +1866,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                             })
                           }
                           onWheel={(e) => e.currentTarget.blur()}
-                          className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
+                          className="h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     )
@@ -1896,7 +1896,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                             })
                           }
                           onWheel={(e) => e.currentTarget.blur()}
-                          className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
+                          className="h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     )
@@ -1923,7 +1923,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         })
                       }
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="flex-1 h-8 border-slate-300 focus:border-blue-400 transition-colors"
+                      className="flex-1 h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="0"
                     />
                     <span className="text-xs text-slate-500 w-6">{jobData.dimensions.unit}</span>
@@ -1964,7 +1964,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   })
                 }
                 onWheel={(e) => e.currentTarget.blur()}
-                className="h-8 border-slate-300 focus:border-blue-400 transition-colors"
+                className="h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 placeholder="0"
               />
             </div>
@@ -2261,7 +2261,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   type="number"
                   step="1"
                   min="0"
-                  className="h-8 text-sm"
+                  className="h-8 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="0"
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
                   onChange={(e) =>
@@ -2284,7 +2284,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   type="number"
                   step="1"
                   min="0"
-                  className="h-8 text-sm"
+                  className="h-8 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="0"
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
                   onChange={(e) =>
@@ -2685,14 +2685,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             placeholder="Max Cost"
             value={filterUnitCost}
             onChange={(e) => setFilterUnitCost(e.target.value)}
-            className="h-7 text-xs w-20"
+            className="h-7 text-xs w-20 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <Input
             type="number"
             placeholder="Min UPS"
             value={filterUps}
             onChange={(e) => setFilterUps(e.target.value)}
-            className="h-7 text-xs w-20"
+            className="h-7 text-xs w-20 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           {(filterMachine || filterUnitCost || filterUps) && (
             <Button
@@ -4695,7 +4695,8 @@ Generated with KAM Printing Wizard
                 placeholder="Enter quantity"
                 value={newQuantity}
                 onChange={(e) => setNewQuantity(e.target.value)}
-                className="h-10"
+                onWheel={(e) => e.currentTarget.blur()}
+                className="h-10 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <Button className="w-full" onClick={handleAddQuantity}>
                 Add Quantity
