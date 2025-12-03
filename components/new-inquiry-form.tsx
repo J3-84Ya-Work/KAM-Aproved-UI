@@ -1841,7 +1841,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             <div className="border rounded-lg p-3 md:p-4 mb-4">
               <span className="text-sm font-medium block mb-3">Paper Details</span>
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="min-w-0">
                   <Label htmlFor="itemPlanQuality" className="text-sm">
                     Quality <span className="text-red-500">*</span>
                   </Label>
@@ -1856,8 +1856,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     }}
                     required
                   >
-                    <SelectTrigger id="itemPlanQuality" className="text-sm h-10">
-                      <SelectValue className="truncate" />
+                    <SelectTrigger id="itemPlanQuality" className="text-sm h-10 w-full">
+                      <SelectValue className="truncate block overflow-hidden text-ellipsis" />
                     </SelectTrigger>
                     <SelectContent>
                       <div className="px-2 pb-2 sticky top-0 bg-white z-10">
@@ -1893,7 +1893,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <Label htmlFor="itemPlanGsm" className="text-sm">
                     GSM <span className="text-red-500">*</span>
                   </Label>
@@ -1908,8 +1908,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     disabled={!planDetails.ItemPlanQuality}
                     required
                   >
-                    <SelectTrigger id="itemPlanGsm" className="text-sm h-10">
-                      <SelectValue />
+                    <SelectTrigger id="itemPlanGsm" className="text-sm h-10 w-full">
+                      <SelectValue className="truncate" />
                     </SelectTrigger>
                     <SelectContent>
                       {gsmOptions.length > 0 && (
@@ -2039,7 +2039,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Label htmlFor="planWastageType" className="text-sm">Wastage Type</Label>
                   <Select
                     value={planDetails.PlanWastageType || ''}
-                    onValueChange={(value) => handlePlanDetailChange('PlanWastageType', value)}
+                    onValueChange={(value) => {
+                      handlePlanDetailChange('PlanWastageType', value)
+                      // Reset wastage value when type changes
+                      handlePlanDetailChange('WastageValue', '')
+                    }}
                   >
                     <SelectTrigger id="planWastageType" className="text-sm h-10">
                       <SelectValue placeholder="Select wastage type" />
@@ -2053,6 +2057,46 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   </Select>
                 </div>
               </div>
+              {/* Conditional input for Percentage or Sheets - Outside grid for full width */}
+              {planDetails.PlanWastageType === 'Percentage' && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="wastagePercentage" className="text-sm">
+                      Value <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="wastagePercentage"
+                      type="number"
+                      placeholder="Enter percentage"
+                      value={planDetails.WastageValue || ''}
+                      onChange={(e) => handlePlanDetailChange('WastageValue', e.target.value)}
+                      className="h-10 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+              )}
+              {planDetails.PlanWastageType === 'Sheets' && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="wastageSheets" className="text-sm">
+                      Value <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="wastageSheets"
+                      type="number"
+                      placeholder="Enter number of sheets"
+                      value={planDetails.WastageValue || ''}
+                      onChange={(e) => handlePlanDetailChange('WastageValue', e.target.value)}
+                      className="h-10 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      min="0"
+                      step="1"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2087,18 +2131,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       ) : availableProcesses.length > 0 ? (
                         availableProcesses
                           .filter((p) => p.ProcessName?.toLowerCase().includes(processSearchTerm.toLowerCase()))
-                          .sort((a, b) => {
-                            // Check if processes are selected
-                            const aSelected = selectedProcesses.some(p => p.ProcessID === a.ProcessID)
-                            const bSelected = selectedProcesses.some(p => p.ProcessID === b.ProcessID)
-
-                            // Selected items come first
-                            if (aSelected && !bSelected) return -1
-                            if (!aSelected && bSelected) return 1
-
-                            // Within same selection status, sort alphabetically
-                            return (a.ProcessName || '').localeCompare(b.ProcessName || '')
-                          })
+                          .sort((a, b) => (a.ProcessName || '').localeCompare(b.ProcessName || ''))
                           .map((process) => (
                             <label
                               key={process.ProcessID}

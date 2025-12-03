@@ -6,10 +6,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, SlidersHorizontal, ArrowUpCircle, Share2, Calendar, Mic, CheckCircle2, XCircle, Download } from "lucide-react"
+import { Search, Filter, SlidersHorizontal, ArrowUpCircle, Share2, Calendar, Mic, CheckCircle2, XCircle, Download, FileText, FileSpreadsheet, ChevronDown } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { getQuotationDetail } from '@/lib/api-config'
+import * as XLSX from 'xlsx-js-style'
 import {
   Dialog,
   DialogContent,
@@ -220,6 +232,7 @@ export function QuotationsContent() {
   const [internalStatusNoteMap, setInternalStatusNoteMap] = useState<Record<string, string>>({})
   const [isSendingForApproval, setIsSendingForApproval] = useState(false)
   const [isDownloadingPDF, setIsDownloadingPDF] = useState<string | null>(null)
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const itemsPerPage = 20
 
   // Fetch quotations from API
@@ -351,8 +364,8 @@ export function QuotationsContent() {
     }
   }
 
-  // Handle downloading quotation PDF
-  const handleDownloadQuotation = async (bookingId: string | number | undefined) => {
+  // Handle downloading quotation PDF - VERTICAL FORMAT
+  const handleDownloadQuotationVertical = async (bookingId: string | number | undefined) => {
     if (!bookingId) {
       alert('Invalid quotation ID: BookingID is missing')
       return
@@ -373,145 +386,576 @@ export function QuotationsContent() {
       const detailsData = detailsDataArray[0] || {}
       const priceData = priceDataArray[0] || {}
 
-      // Generate PDF
+      // Generate PDF with VERTICAL format
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       })
 
-      let yPos = 15
+      const quotationNumber = mainData.BookingNo || bookingId
 
-      // Company Header
-      if (mainData.CompanyName) {
-        pdf.setFontSize(14)
-        pdf.setFont('helvetica', 'bold')
-        pdf.text(mainData.CompanyName, 105, yPos, { align: 'center' })
-        yPos += 5
+      let yPos = 10
 
-        if (mainData.CompanyAddress || mainData.ContactNO) {
-          pdf.setFontSize(8)
-          pdf.setFont('helvetica', 'normal')
-          const companyInfo = [
-            mainData.CompanyAddress || '',
-            mainData.ContactNO ? `Tel: ${mainData.ContactNO}` : '',
-            mainData.CompanyEmail ? `Email: ${mainData.CompanyEmail}` : ''
-          ].filter(Boolean).join(' | ')
-          pdf.text(companyInfo, 105, yPos, { align: 'center' })
-          yPos += 7
-        }
-      }
-
-      // Title with Quotation and Booking Numbers
-      pdf.setFontSize(16)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('QUOTATION', 105, yPos, { align: 'center' })
-      yPos += 10
-
-      pdf.setFontSize(10)
-      pdf.setFont('helvetica', 'normal')
-      const quotationNumber = mainData.QuotationNo || mainData.BookingNo || bookingId
-      pdf.text(`Quotation No: ${quotationNumber}`, 15, yPos)
-      if (mainData.BookingNo) {
-        pdf.text(`Booking No: ${mainData.BookingNo}`, 140, yPos)
-      }
-      yPos += 5
-      pdf.text(`Date: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`, 15, yPos)
-      yPos += 10
-
-      // Client Information
-      autoTable(pdf, {
-        startY: yPos,
-        head: [],
-        body: [
-          ['Client Name', ':', mainData.LedgerName || 'N/A'],
-          ['To,', ':', mainData.LedgerName || 'N/A'],
-          mainData.Address ? ['', '', mainData.Address] : null,
-          ['Subject', ':', `Quotation For : ${mainData.JobName || 'N/A'}`],
-          mainData.ConcernPerson ? ['Kind Attention', ':', mainData.ConcernPerson] : null,
-          mainData.EmailTo ? ['Email', ':', mainData.EmailTo] : null,
-          mainData.ContactNO ? ['Phone', ':', mainData.ContactNO] : null,
-        ].filter(row => row !== null && row[2] !== ''),
-        theme: 'plain',
-        styles: { fontSize: 9, cellPadding: 1 },
-        columnStyles: {
-          0: { cellWidth: 35, fontStyle: 'bold' },
-          1: { cellWidth: 5 },
-          2: { cellWidth: 150 }
-        }
-      })
-
-      yPos = (pdf as any).lastAutoTable.finalY + 10
-
-      // Product Details with Pricing
-      const taxAmount = priceData.GrandTotalCost - priceData.Amount || 0
+      // Product Details - Vertical layout
       autoTable(pdf, {
         startY: yPos,
         body: [
-          ['Product Name', ':', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()],
-          ['Product Code', ':', mainData.ProductCode || priceData.ProductCode || 'N/A', 'Unit Cost', `${priceData.CurrencySymbol || 'INR'} ${(priceData.UnitCost || 0).toFixed(2)}`],
-          ['Category', ':', detailsData.CategoryName || priceData.CategoryName || 'N/A', 'Sub Total', `${priceData.CurrencySymbol || 'INR'} ${(priceData.Amount || 0).toLocaleString()}`],
-          ['Carton Type', ':', detailsData.Content_Name || 'N/A', 'Tax Amount', `${priceData.CurrencySymbol || 'INR'} ${taxAmount.toFixed(2)}`],
-          ['Date', ':', mainData.Job_Date || priceData.Job_Date || 'N/A', 'Grand Total', `${priceData.CurrencySymbol || 'INR'} ${(priceData.GrandTotalCost || 0).toLocaleString()}`]
+          ['S.N.', '1'],
+          ['Job name', mainData.JobName || detailsData.Content_Name || ''],
+          ['Size (MM)', detailsData.Job_Size || detailsData.Job_Size_In_Inches || ''],
+          ['Board Specs', detailsData.Paper || ''],
+          ['Printing & Value Addition', detailsData.Printing || ''],
+          ['MOQ', ''],
+          ['Annual Quantity', priceData.PlanContQty || ''],
         ],
         theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 2 },
+        bodyStyles: {
+          fontSize: 9,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
         columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 30 },
-          1: { cellWidth: 5 },
-          2: { cellWidth: 60 },
-          3: { fontStyle: 'bold', cellWidth: 30 },
-          4: { cellWidth: 65, halign: 'right' }
+          0: { cellWidth: 70, fontStyle: 'bold', fillColor: [240, 240, 240] },
+          1: { cellWidth: 120 }
+        }
+      })
+
+      yPos = (pdf as any).lastAutoTable.finalY + 5
+
+      // Quote Section - Vertical
+      autoTable(pdf, {
+        startY: yPos,
+        head: [['Quote (INR / 1000)', '']],
+        body: [
+          ['1L', ''],
+          ['2L', ''],
+          ['5L', ''],
+          ['10L', ''],
+        ],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        bodyStyles: {
+          fontSize: 9,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        columnStyles: {
+          0: { cellWidth: 70, fontStyle: 'bold', fillColor: [240, 240, 240] },
+          1: { cellWidth: 120 }
         }
       })
 
       yPos = (pdf as any).lastAutoTable.finalY + 10
 
-      // Technical Specifications
+      // Packing Spec Section
       autoTable(pdf, {
         startY: yPos,
+        head: [['Packing Spec', 'Tentative Packing Spec']],
         body: [
-          ['Content Name', ':', detailsData.Content_Name || 'N/A', 'Job Size', detailsData.Job_Size || 'N/A'],
-          ['Color/Printing', ':', detailsData.Printing || 'N/A', 'Job Size (Inch)', detailsData.Job_Size_In_Inches || 'N/A'],
-          ['Paper Details', ':', detailsData.Paper || 'N/A', 'Job Size (Details)', detailsData.JobSizeDetails || 'N/A'],
-          ['Paper Supplied By', ':', detailsData.Paperby || 'N/A', 'Category', detailsData.CategoryName || 'N/A'],
-          detailsData.Operatios ? ['Operations', ':', detailsData.Operatios, '', ''] : null,
-        ].filter(row => row !== null),
+          ['Shipper box size in MM', ''],
+          ['Quantity per shipper box: Packs', ''],
+          ['Shipper box Weight: Gross in KG', ''],
+          ['Pallet size in MM', ''],
+          ['Number of Shipper per pallets: Shippers', ''],
+          ['Quantity per pallet: Packs', ''],
+          ['Pallet Weight: Gross in Kg', ''],
+          ['Pallets per 20 FT FCL', ''],
+          ['Quantity per 20 FT FCL: Packs', ''],
+          ['Pallets per 40 FT FCL', ''],
+          ['Quantity per 40 FT FCL: Packs', ''],
+        ],
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        bodyStyles: {
+          fontSize: 8,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
         columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 30 },
-          1: { cellWidth: 5 },
-          2: { cellWidth: 55 },
-          3: { fontStyle: 'bold', cellWidth: 30 },
-          4: { cellWidth: 40 }
+          0: { cellWidth: 90 },
+          1: { cellWidth: 100 }
         }
       })
 
-      yPos = (pdf as any).lastAutoTable.finalY + 15
+      yPos = (pdf as any).lastAutoTable.finalY + 8
 
-      // Signature Section
-      pdf.setFontSize(9)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('For ' + (mainData.CompanyName || 'Company Name'), 15, yPos)
-      pdf.text('Customer Acceptance', 140, yPos)
-      yPos += 15
-
-      pdf.setFont('helvetica', 'normal')
-      pdf.text('_____________________', 15, yPos)
-      pdf.text('_____________________', 140, yPos)
-      yPos += 5
-      pdf.text('Authorized Signatory', 15, yPos)
-      pdf.text('Customer Signature', 140, yPos)
-
-      // Footer
-      yPos = 280
-      pdf.setFontSize(8)
-      pdf.setFont('helvetica', 'italic')
-      pdf.text('This is a computer-generated quotation and does not require a signature.', 105, yPos, { align: 'center' })
+      // Terms & Conditions Section
+      autoTable(pdf, {
+        startY: yPos,
+        head: [['Terms & Conditions', '']],
+        body: [
+          ['Delivery Terms', '45Days'],
+          ['Payment Terms', '30Days'],
+          ['Taxes', ''],
+          ['Currency', priceData.CurrencySymbol || 'INR'],
+          ['Lead Time', '30 days'],
+          ['Quote Validity', ''],
+        ],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        bodyStyles: {
+          fontSize: 8,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        columnStyles: {
+          0: { cellWidth: 70, fontStyle: 'bold' },
+          1: { cellWidth: 120 }
+        }
+      })
 
       // Save PDF
-      pdf.save(`Quotation-${quotationNumber}.pdf`)
+      pdf.save(`Quotation-${quotationNumber}-Vertical.pdf`)
+
+    } catch (error: any) {
+      alert(`❌ Failed to download quotation: ${error.message}`)
+    } finally {
+      setIsDownloadingPDF(null)
+    }
+  }
+
+  // Handle downloading quotation PDF - HORIZONTAL FORMAT
+  const handleDownloadQuotationHorizontal = async (bookingId: string | number | undefined) => {
+    if (!bookingId) {
+      alert('Invalid quotation ID: BookingID is missing')
+      return
+    }
+
+    const bookingIdStr = String(bookingId)
+    setIsDownloadingPDF(bookingIdStr)
+    try {
+      const data = await getQuotationDetail(bookingId)
+
+      // Extract data from response - API returns arrays with different property names
+      const mainDataArray = data.Main || data.mainData || data.MainData || []
+      const detailsDataArray = data.Datails || data.Details || data.detailsData || data.DetailsData || []
+      const priceDataArray = data.Price || data.priceData || data.PriceData || []
+
+      // Get first item from arrays
+      const mainData = mainDataArray[0] || {}
+      const detailsData = detailsDataArray[0] || {}
+      const priceData = priceDataArray[0] || {}
+
+      // Generate PDF with HORIZONTAL format
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a3',
+      })
+
+      const quotationNumber = mainData.BookingNo || bookingId
+
+      let yPos = 10
+
+      // Product Table - Main section (Horizontal)
+      autoTable(pdf, {
+        startY: yPos,
+        head: [[
+          'S.N.',
+          'Job name',
+          'Size (MM)',
+          'Board Specs',
+          'Printing & Value Addition',
+          'MOQ',
+          'Annual Quantity',
+          'Quote (INR / 1000)',
+          '',
+          ''
+        ]],
+        body: [[
+          '1',
+          mainData.JobName || detailsData.Content_Name || '',
+          detailsData.Job_Size || detailsData.Job_Size_In_Inches || '',
+          detailsData.Paper || '',
+          detailsData.Printing || '',
+          '',
+          priceData.PlanContQty || '',
+          '1L',
+          '2L',
+          '5L'
+        ]],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontSize: 8,
+          fontStyle: 'bold',
+          halign: 'center',
+          valign: 'middle',
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        bodyStyles: {
+          fontSize: 7,
+          valign: 'middle',
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 60 },
+          4: { cellWidth: 60 },
+          5: { cellWidth: 20 },
+          6: { cellWidth: 30 },
+          7: { cellWidth: 25 },
+          8: { cellWidth: 25 },
+          9: { cellWidth: 25 }
+        }
+      })
+
+      yPos = (pdf as any).lastAutoTable.finalY + 10
+
+      // Packing Spec Section
+      autoTable(pdf, {
+        startY: yPos,
+        head: [['Packing Spec', 'Tentative Packing Spec']],
+        body: [
+          ['', 'Shipper box size in MM'],
+          ['', 'Quantity per shipper box: Packs'],
+          ['', 'Shipper box Weight: Gross in KG'],
+          ['', 'Pallet size in MM'],
+          ['', 'Number of Shipper per pallets: Shippers'],
+          ['', 'Quantity per pallet: Packs'],
+          ['', 'Pallet Weight: Gross in Kg'],
+          ['', 'Pallets per 20 FT FCL'],
+          ['', 'Quantity per 20 FT FCL: Packs'],
+          ['', 'Pallets per 40 FT FCL'],
+          ['', 'Quantity per 40 FT FCL: Packs'],
+        ],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+          valign: 'middle',
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        bodyStyles: {
+          fontSize: 8,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        columnStyles: {
+          0: { cellWidth: 50 },
+          1: { cellWidth: 120 }
+        }
+      })
+
+      yPos = (pdf as any).lastAutoTable.finalY + 8
+
+      // Terms & Conditions Section
+      autoTable(pdf, {
+        startY: yPos,
+        head: [['Terms & Conditions', '']],
+        body: [
+          ['Delivery Terms', '45Days'],
+          ['Payment Terms', '30Days'],
+          ['Taxes', ''],
+          ['Currency', priceData.CurrencySymbol || 'INR'],
+          ['Lead Time', '30 days'],
+          ['Quote Validity', ''],
+        ],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        bodyStyles: {
+          fontSize: 8,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
+        },
+        columnStyles: {
+          0: { cellWidth: 50, fontStyle: 'bold' },
+          1: { cellWidth: 120 }
+        }
+      })
+
+      // Save PDF
+      pdf.save(`Quotation-${quotationNumber}-Horizontal.pdf`)
+
+    } catch (error: any) {
+      alert(`❌ Failed to download quotation: ${error.message}`)
+    } finally {
+      setIsDownloadingPDF(null)
+    }
+  }
+
+  // Handle downloading quotation as Excel
+  const handleDownloadQuotationExcel = async (bookingId: string | number | undefined) => {
+    if (!bookingId) {
+      alert('Invalid quotation ID: BookingID is missing')
+      return
+    }
+
+    const bookingIdStr = String(bookingId)
+    setIsDownloadingPDF(bookingIdStr)
+    try {
+      const data = await getQuotationDetail(bookingId)
+
+      // Extract data from response
+      const mainDataArray = data.Main || data.mainData || data.MainData || []
+      const detailsDataArray = data.Datails || data.Details || data.detailsData || data.DetailsData || []
+      const priceDataArray = data.Price || data.priceData || data.PriceData || []
+
+      // Get first item from arrays
+      const mainData = mainDataArray[0] || {}
+      const detailsData = detailsDataArray[0] || {}
+      const priceData = priceDataArray[0] || {}
+
+      const quotationNumber = mainData.BookingNo || bookingId
+
+      // Extract specific fields for better display
+      const jobName = mainData.JobName || detailsData.Content_Name || ''
+      const boxDimensions = detailsData.Job_Size || detailsData.Job_Size_In_Inches || ''
+      const paperQualityGSM = detailsData.Paper || ''
+      const colorDetails = detailsData.Printing || ''
+      const annualQuantity = priceData.PlanContQty || ''
+
+      // Prepare Excel data with HORIZONTAL format (matching screenshot)
+      const excelData = [
+        // Header Row
+        ['S.N.', 'Job name', 'Size (MM)', 'Board Specs', 'Printing & Value Addition', 'MOQ', 'Annual Quantity', '', '', 'Quote (INR / 1000)', '', ''],
+        // Subheader for Quote columns
+        ['', '', '', '', '', '', '', '1L', '2L', '5L', '6L', ''],
+        // Data Row 1 - with proper field labels
+        ['1', jobName, boxDimensions, paperQualityGSM, colorDetails, '', annualQuantity, '', '', '', '', ''],
+        // Data Row 2 (if more products needed, can be added here)
+        ['2', '', '', '', '', '', '', '', '', '', '', ''],
+        // Data Row 3
+        ['3', '', '', '', '', '', '', '', '', '', '', ''],
+        // Data Row 4
+        ['4', '', '', '', '', '', '', '', '', '', '', ''],
+        // Empty rows for spacing
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        // Tentative Packing Spec Header (separate section)
+        ['', '', 'Tentative Packing Spec', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        // Packing Spec Section with label in column A
+        ['Packing Spec', '', 'Shipper box size in MM', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Quantity per shipper box: Packs', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Shipper box Weight: Gross in KG', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Pallet size in MM', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Number of Shipper per pallets: Shippers', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Quantity per pallet: Packs', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Pallet Weight: Gross in Kg', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Pallets per 20 FT FCL', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Quantity per 20 FT FCL: Packs', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Pallets per 40 FT FCL', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Quantity per 40 FT FCL: Packs', '', '', '', '', '', '', '', '', ''],
+        // Empty rows for spacing
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        // Terms & Conditions Section
+        ['', '', 'Delivery Terms', '45Days', '', '', '', '', '', '', '', ''],
+        ['', '', 'Payment Terms', '30Days', '', '', '', '', '', '', '', ''],
+        ['Terms &Conditions', '', 'Taxes', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Currency', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Lead Time', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Quote Validity', '', '', '', '', '', '', '', '', ''],
+      ]
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.aoa_to_sheet(excelData)
+
+      // Set column widths for horizontal format
+      ws['!cols'] = [
+        { wch: 6 },   // A - S.N.
+        { wch: 25 },  // B - Job name
+        { wch: 15 },  // C - Size (MM)
+        { wch: 45 },  // D - Board Specs
+        { wch: 45 },  // E - Printing & Value Addition
+        { wch: 10 },  // F - MOQ
+        { wch: 15 },  // G - Annual Quantity
+        { wch: 12 },  // H - 1L
+        { wch: 12 },  // I - 2L
+        { wch: 12 },  // J - 5L
+        { wch: 12 },  // K - 6L
+        { wch: 10 },  // L - Extra
+      ]
+
+      // Set row heights - default 20, spacing rows 15
+      ws['!rows'] = []
+      for (let i = 0; i < excelData.length; i++) {
+        // Spacing rows (7, 8, 9 and 22, 23)
+        if ([7, 8, 9, 22, 23].includes(i)) {
+          ws['!rows'][i] = { hpt: 8, hpx: 8 }  // Smaller height for spacing
+        } else {
+          ws['!rows'][i] = { hpt: 25, hpx: 25 }  // Standard height
+        }
+      }
+
+      // Define cell merges
+      ws['!merges'] = [
+        // Header row - merge "Quote (INR / 1000)" across H1:K1
+        { s: { r: 0, c: 7 }, e: { r: 0, c: 10 } },
+
+        // Product section - merge cells vertically for rows 1-5
+        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // S.N.
+        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // Job name
+        { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } }, // Size (MM)
+        { s: { r: 0, c: 3 }, e: { r: 1, c: 3 } }, // Board Specs
+        { s: { r: 0, c: 4 }, e: { r: 1, c: 4 } }, // Printing & Value Addition
+        { s: { r: 0, c: 5 }, e: { r: 1, c: 5 } }, // MOQ
+        { s: { r: 0, c: 6 }, e: { r: 1, c: 6 } }, // Annual Quantity
+
+        // Tentative Packing Spec header - merge across C11:F11
+        { s: { r: 10, c: 2 }, e: { r: 10, c: 5 } },
+
+        // Packing Spec label - merge vertically A13:A23
+        { s: { r: 12, c: 0 }, e: { r: 22, c: 0 } },
+
+        // Terms & Conditions label - merge vertically A26:A31
+        { s: { r: 25, c: 0 }, e: { r: 30, c: 0 } },
+      ]
+
+      // Apply borders and styling to all cells
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+
+      // Border style definitions
+      const thinBorder = {
+        top: { style: 'thin', color: { rgb: '000000' } },
+        bottom: { style: 'thin', color: { rgb: '000000' } },
+        left: { style: 'thin', color: { rgb: '000000' } },
+        right: { style: 'thin', color: { rgb: '000000' } }
+      }
+
+      const thickBorder = {
+        top: { style: 'medium', color: { rgb: '000000' } },
+        bottom: { style: 'medium', color: { rgb: '000000' } },
+        left: { style: 'medium', color: { rgb: '000000' } },
+        right: { style: 'medium', color: { rgb: '000000' } }
+      }
+
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = { c: C, r: R }
+          const cellRef = XLSX.utils.encode_cell(cellAddress)
+
+          if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' }
+
+          // Determine if this cell is in a block boundary
+          // Product table block: rows 0-6
+          // Spacing rows: 7-9
+          // Tentative Packing Spec header: row 10
+          // Empty row: 11
+          // Packing Spec block: rows 12-22
+          // Spacing rows: 23-24
+          // Terms & Conditions block: rows 25-30
+          const isProductBlock = R >= 0 && R <= 6
+          const isPackingBlock = R >= 12 && R <= 22
+          const isTermsBlock = R >= 25 && R <= 30
+          const isSpacingRow = [7, 8, 9, 11, 23, 24].includes(R)
+
+          // Base style for all cells
+          ws[cellRef].s = {
+            border: isSpacingRow ? {} : thinBorder,  // No borders on spacing rows
+            alignment: {
+              vertical: 'center',
+              horizontal: 'left',
+              wrapText: false,  // Disable wrap text by default
+              shrinkToFit: false
+            }
+          }
+
+          // Apply thick borders around blocks
+          if (isProductBlock) {
+            // Product block outer borders
+            if (R === 0) ws[cellRef].s.border.top = { style: 'medium', color: { rgb: '000000' } }
+            if (R === 6) ws[cellRef].s.border.bottom = { style: 'medium', color: { rgb: '000000' } }
+            if (C === 0) ws[cellRef].s.border.left = { style: 'medium', color: { rgb: '000000' } }
+            if (C === 11) ws[cellRef].s.border.right = { style: 'medium', color: { rgb: '000000' } }
+          }
+
+          if (isPackingBlock) {
+            // Packing Spec block outer borders
+            if (R === 12) ws[cellRef].s.border.top = { style: 'medium', color: { rgb: '000000' } }
+            if (R === 22) ws[cellRef].s.border.bottom = { style: 'medium', color: { rgb: '000000' } }
+            if (C === 0) ws[cellRef].s.border.left = { style: 'medium', color: { rgb: '000000' } }
+            if (C === 6) ws[cellRef].s.border.right = { style: 'medium', color: { rgb: '000000' } }
+          }
+
+          if (isTermsBlock) {
+            // Terms & Conditions block outer borders
+            if (R === 25) ws[cellRef].s.border.top = { style: 'medium', color: { rgb: '000000' } }
+            if (R === 30) ws[cellRef].s.border.bottom = { style: 'medium', color: { rgb: '000000' } }
+            if (C === 0) ws[cellRef].s.border.left = { style: 'medium', color: { rgb: '000000' } }
+            if (C === 6) ws[cellRef].s.border.right = { style: 'medium', color: { rgb: '000000' } }
+          }
+
+          // Bold and center headers (rows 0 and 1)
+          if (R <= 1) {
+            ws[cellRef].s.font = { bold: true, sz: 11 }
+            ws[cellRef].s.alignment = {
+              ...ws[cellRef].s.alignment,
+              horizontal: 'center'
+            }
+          }
+
+          // Bold section headers (Packing Spec at row 12, Terms & Conditions at row 25)
+          if ((R === 12 && C === 0) || (R === 25 && C === 0)) {
+            ws[cellRef].s.font = { bold: true, sz: 11 }
+            ws[cellRef].s.alignment = {
+              vertical: 'center',
+              horizontal: 'center',
+              wrapText: false
+            }
+          }
+
+          // Bold "Tentative Packing Spec" header at row 10, column 2 (C)
+          if (R === 10 && C === 2) {
+            ws[cellRef].s.font = { bold: true, sz: 11 }
+            ws[cellRef].s.alignment = {
+              ...ws[cellRef].s.alignment,
+              horizontal: 'center'
+            }
+          }
+        }
+      }
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Quotation')
+
+      // Generate Excel file and trigger download
+      XLSX.writeFile(wb, `Quotation-${quotationNumber}.xlsx`)
 
     } catch (error: any) {
       alert(`❌ Failed to download quotation: ${error.message}`)
@@ -788,15 +1232,44 @@ export function QuotationsContent() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="text-xs bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleDownloadQuotation(quotation.bookingId)
+                                    handleDownloadQuotationVertical(quotation.bookingId)
                                   }}
-                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  title="Download PDF - Vertical Format"
                                 >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  {isDownloadingPDF === quotation.bookingId ? 'Downloading...' : 'Download'}
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  PDF (V)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadQuotationHorizontal(quotation.bookingId)
+                                  }}
+                                  title="Download PDF - Horizontal Format"
+                                >
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  PDF (H)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadQuotationExcel(quotation.bookingId)
+                                  }}
+                                  title="Download Excel"
+                                >
+                                  <FileSpreadsheet className="h-3 w-3 mr-1" />
+                                  Excel
                                 </Button>
                               </div>
                             ) : quotation.status === 'Sent to HOD' || quotation.status === 'Sent to Vertical Head' ? (
@@ -806,15 +1279,44 @@ export function QuotationsContent() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="text-xs bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleDownloadQuotation(quotation.bookingId)
+                                    handleDownloadQuotationVertical(quotation.bookingId)
                                   }}
-                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  title="Download PDF - Vertical Format"
                                 >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  {isDownloadingPDF === quotation.bookingId ? 'Downloading...' : 'Download'}
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  PDF (V)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadQuotationHorizontal(quotation.bookingId)
+                                  }}
+                                  title="Download PDF - Horizontal Format"
+                                >
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  PDF (H)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadQuotationExcel(quotation.bookingId)
+                                  }}
+                                  title="Download Excel"
+                                >
+                                  <FileSpreadsheet className="h-3 w-3 mr-1" />
+                                  Excel
                                 </Button>
                               </div>
                             ) : quotation.status === 'Disapproved' ? (
@@ -824,15 +1326,44 @@ export function QuotationsContent() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="text-xs bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleDownloadQuotation(quotation.bookingId)
+                                    handleDownloadQuotationVertical(quotation.bookingId)
                                   }}
-                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  title="Download PDF - Vertical Format"
                                 >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  {isDownloadingPDF === quotation.bookingId ? 'Downloading...' : 'Download'}
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  PDF (V)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadQuotationHorizontal(quotation.bookingId)
+                                  }}
+                                  title="Download PDF - Horizontal Format"
+                                >
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  PDF (H)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
+                                  disabled={isDownloadingPDF === quotation.bookingId}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadQuotationExcel(quotation.bookingId)
+                                  }}
+                                  title="Download Excel"
+                                >
+                                  <FileSpreadsheet className="h-3 w-3 mr-1" />
+                                  Excel
                                 </Button>
                               </div>
                             ) : (
@@ -932,21 +1463,21 @@ export function QuotationsContent() {
                         </TableCell>
                       </TableRow>
                     </DialogTrigger>
-                    <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
-                      <DialogHeader className="border-b-0 bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-5 flex-shrink-0">
-                        <div className="flex items-start justify-between gap-4 pr-8">
+                    <DialogContent className="surface-elevated max-w-lg max-h-[85vh] p-0 flex flex-col overflow-hidden">
+                      <DialogHeader className="border-b bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-4 flex-shrink-0">
+                        <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 text-left">
-                            <DialogTitle className="text-xl font-bold text-gray-900">{selectedQuotation?.job}</DialogTitle>
-                            <DialogDescription className="text-sm font-semibold text-gray-600 mt-1">
+                            <DialogTitle className="text-lg font-bold text-gray-900 break-words pr-8">{selectedQuotation?.job}</DialogTitle>
+                            <DialogDescription className="text-xs font-semibold text-gray-600 mt-1">
                               {selectedQuotation?.id}
                             </DialogDescription>
                           </div>
-                          <div className="flex flex-col items-end gap-2 mr-2">
-                            <div className="text-sm font-semibold text-gray-600">
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="text-xs font-semibold text-gray-600">
                               {selectedQuotation?.createdDate}
                             </div>
                             {selectedQuotation && (
-                              <Badge className={`${getStatusBadge(selectedQuotation.status)} border text-xs px-3 py-1`}>
+                              <Badge className={`${getStatusBadge(selectedQuotation.status)} border text-xs px-2 py-0.5`}>
                                 {selectedQuotation.status}
                               </Badge>
                             )}
@@ -954,29 +1485,29 @@ export function QuotationsContent() {
                         </div>
                       </DialogHeader>
                       {selectedQuotation && (
-                        <div className="space-y-0 overflow-y-auto overflow-x-hidden flex-1">
+                        <div className="space-y-0 overflow-y-auto overflow-x-hidden flex-1 pb-4">
                           {/* Customer Section */}
-                          <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Customer</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.customer}</p>
+                          <div className="bg-blue-50/50 px-6 py-3 border-b border-gray-200">
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1 block">Customer</Label>
+                            <p className="text-sm font-semibold text-gray-900 break-words">{selectedQuotation.customer}</p>
                           </div>
 
                           {/* KAM Name Section */}
-                          <div className="bg-white px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">KAM Name</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.kamName || "N/A"}</p>
+                          <div className="bg-white px-6 py-3 border-b border-gray-200">
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1 block">KAM Name</Label>
+                            <p className="text-sm font-semibold text-gray-900">{selectedQuotation.kamName || "N/A"}</p>
                           </div>
 
                           {/* Quoted Cost Section */}
-                          <div className="bg-white px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Quoted Cost</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.quotedCostDisplay}</p>
+                          <div className="bg-blue-50/50 px-6 py-3 border-b border-gray-200">
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1 block">Quoted Cost</Label>
+                            <p className="text-sm font-semibold text-gray-900">{selectedQuotation.quotedCostDisplay}</p>
                           </div>
 
                           {/* Final Cost Section */}
-                          <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Final Cost</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.finalCost.toFixed(2)} INR</p>
+                          <div className="bg-white px-6 py-3 border-b border-gray-200">
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1 block">Final Cost</Label>
+                            <p className="text-sm font-semibold text-gray-900">{selectedQuotation.finalCost.toFixed(2)} INR</p>
                           </div>
 
                           {/* Margin Percentage Section */}
@@ -1033,52 +1564,52 @@ export function QuotationsContent() {
                           ) : null}
                         </div>
                       )}
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-t border-border/60 bg-muted/30 px-6 py-4">
+                      <div className="flex-shrink-0 border-t border-border/60 bg-white">
                         {selectedQuotation && (
                           <>
-                            {/* Left side - Status/Workflow buttons (only for KAM users) */}
-                            <div className="flex flex-wrap gap-2">
-                              {userIsKAM && (
-                                <>
+                            {/* Status/Workflow buttons (only for KAM users) */}
+                            {userIsKAM && (
+                              <div className="px-6 py-3 border-b border-border/20">
+                                <div className="flex flex-wrap gap-2 justify-center">
                                   {selectedQuotation.status === 'Approved' ? (
                                     <>
                                       <Button
                                         size="sm"
-                                        className="rounded-lg bg-[#78BE20] text-white hover:bg-[#78BE20]/90"
+                                        className="rounded-md bg-[#78BE20] text-white hover:bg-[#78BE20]/90 text-xs"
                                         onClick={() => {
                                           alert(`Sending ${selectedQuotation.id} to customer`)
                                         }}
                                       >
-                                        <ArrowUpCircle className="mr-2 h-4 w-4" />
+                                        <ArrowUpCircle className="mr-1 h-3 w-3" />
                                         Send to Customer
                                       </Button>
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        className="rounded-lg border-border/60"
+                                        className="rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
                                         onClick={() => {
                                           alert(`Sharing ${selectedQuotation.id}`)
                                         }}
                                       >
-                                        <Share2 className="mr-2 h-4 w-4" />
+                                        <Share2 className="mr-1 h-3 w-3" />
                                         Share
                                       </Button>
                                     </>
                                   ) : selectedQuotation.status === 'Sent to HOD' || selectedQuotation.status === 'Sent to Vertical Head' ? (
-                                    <span className="text-sm text-muted-foreground italic">Awaiting approval...</span>
+                                    <span className="text-xs text-muted-foreground italic">Awaiting approval...</span>
                                   ) : selectedQuotation.status === 'Disapproved' ? (
-                                    <span className="text-sm text-rose-600 font-medium">This quotation was disapproved</span>
+                                    <span className="text-xs text-rose-600 font-medium">This quotation was disapproved</span>
                                   ) : (
                                     <>
                                       {/* Margin < 8%: Send to HOD */}
                                       {selectedQuotation.margin < 8 && selectedQuotation.margin >= 5 && (
                                         <Button
                                           size="sm"
-                                          className="rounded-lg bg-[#B92221] text-white hover:bg-[#B92221]/90"
+                                          className="rounded-md bg-[#B92221] text-white hover:bg-[#B92221]/90 text-xs"
                                           onClick={() => handleSendForApproval(selectedQuotation.bookingId, 'HOD')}
                                           disabled={isSendingForApproval}
                                         >
-                                          <ArrowUpCircle className="mr-2 h-4 w-4" />
+                                          <ArrowUpCircle className="mr-1 h-3 w-3" />
                                           {isSendingForApproval ? 'Sending...' : 'Send to HOD'}
                                         </Button>
                                       )}
@@ -1087,12 +1618,12 @@ export function QuotationsContent() {
                                       {selectedQuotation.margin < 5 && (
                                         <Button
                                           size="sm"
-                                          className="rounded-lg bg-[#005180] text-white hover:bg-[#005180]/90"
+                                          className="rounded-md bg-[#005180] text-white hover:bg-[#005180]/90 text-xs"
                                           onClick={() => handleSendForApproval(selectedQuotation.bookingId, 'VerticalHead')}
                                           disabled={isSendingForApproval}
                                         >
-                                          <ArrowUpCircle className="mr-2 h-4 w-4" />
-                                          {isSendingForApproval ? 'Sending...' : 'Send to Vertical Head'}
+                                          <ArrowUpCircle className="mr-1 h-3 w-3" />
+                                          {isSendingForApproval ? 'Sending...' : 'Send to VH'}
                                         </Button>
                                       )}
 
@@ -1101,32 +1632,57 @@ export function QuotationsContent() {
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          className="rounded-lg border-[#B92221] text-[#B92221] hover:bg-[#B92221]/10"
+                                          className="rounded-md border-[#B92221] text-[#B92221] hover:bg-[#B92221]/10 text-xs"
                                           onClick={() => handleSendForApproval(selectedQuotation.bookingId, 'HOD')}
                                           disabled={isSendingForApproval}
                                         >
-                                          <ArrowUpCircle className="mr-2 h-4 w-4" />
+                                          <ArrowUpCircle className="mr-1 h-3 w-3" />
                                           {isSendingForApproval ? 'Sending...' : 'Send to HOD'}
                                         </Button>
                                       )}
                                     </>
                                   )}
-                                </>
-                              )}
-                            </div>
+                                </div>
+                              </div>
+                            )}
 
-                            {/* Right side - Download button (always visible for everyone) */}
-                            <div className="flex justify-end sm:justify-start">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100"
-                                onClick={() => handleDownloadQuotation(selectedQuotation.bookingId)}
-                                disabled={isDownloadingPDF === selectedQuotation.bookingId}
-                              >
-                                <Download className="mr-2 h-4 w-4" />
-                                {isDownloadingPDF === selectedQuotation.bookingId ? 'Downloading...' : 'Download PDF'}
-                              </Button>
+                            {/* Download buttons (always visible for everyone) */}
+                            <div className="px-6 py-3 bg-gray-50">
+                              <div className="flex justify-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
+                                  disabled={isDownloadingPDF === selectedQuotation.bookingId}
+                                  onClick={() => handleDownloadQuotationVertical(selectedQuotation.bookingId)}
+                                  title="Download PDF - Vertical Format"
+                                >
+                                  <FileText className="mr-1 h-3 w-3" />
+                                  PDF (V)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
+                                  disabled={isDownloadingPDF === selectedQuotation.bookingId}
+                                  onClick={() => handleDownloadQuotationHorizontal(selectedQuotation.bookingId)}
+                                  title="Download PDF - Horizontal Format"
+                                >
+                                  <FileText className="mr-1 h-3 w-3" />
+                                  PDF (H)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 rounded-md border-[#78BE20] text-[#78BE20] hover:bg-[#78BE20]/10 text-xs"
+                                  disabled={isDownloadingPDF === selectedQuotation.bookingId}
+                                  onClick={() => handleDownloadQuotationExcel(selectedQuotation.bookingId)}
+                                  title="Download Excel"
+                                >
+                                  <FileSpreadsheet className="mr-1 h-3 w-3" />
+                                  Excel
+                                </Button>
+                              </div>
                             </div>
                           </>
                         )}
