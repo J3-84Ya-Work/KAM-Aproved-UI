@@ -421,6 +421,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
 
               return {
                 id: item.BookingNo,
+                bookingId: item.BookingID || item.BookingId, // Store actual numeric BookingID
                 type: 'Quotation',
                 inquiryId: item.EnquiryNo || '-',
                 customer: item.ClientName,
@@ -446,6 +447,20 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
 
           clientLogger.log('Quotations pending approval:', pendingQuotations.length)
           clientLogger.log('First pending quotation:', pendingQuotations[0])
+
+          // Debug: Check if quotation 276 still exists and what its status is
+          const quote276 = response.data.find((item: any) => item.BookingNo === '276')
+          if (quote276) {
+            clientLogger.log('DEBUG: Quotation 276 found in response with Status:', quote276.Status)
+            clientLogger.log('DEBUG: BookingNo vs BookingID:', {
+              BookingNo: quote276.BookingNo,
+              BookingID: quote276.BookingID,
+              BookingId: quote276.BookingId
+            })
+            clientLogger.log('DEBUG: Full data for 276:', quote276)
+          } else {
+            clientLogger.log('DEBUG: Quotation 276 NOT found in response (correctly removed)')
+          }
 
           setQuotationsForApproval(pendingQuotations)
         }
@@ -482,9 +497,11 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
 
     setIsUpdatingStatus(true)
     try {
+      // Try adding IsInternalApproved field as well
       const requestBody = {
         BookingID: bookingId,
-        Status: status
+        Status: status,
+        IsInternalApproved: status === 'Approved' ? true : false
       }
 
       clientLogger.log('\n' + '='.repeat(80))
@@ -757,7 +774,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   if (approval.type === 'Quotation') {
-                                    handleApprovalAction(approval.id, 'Disapproved')
+                                    handleApprovalAction(approval.bookingId || approval.id, 'Disapproved')
                                   } else {
                                     alert(`Disapproving ${approval.id}`)
                                   }
@@ -773,7 +790,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   if (approval.type === 'Quotation') {
-                                    handleApprovalAction(approval.id, 'Approved')
+                                    handleApprovalAction(approval.bookingId || approval.id, 'Approved')
                                   } else {
                                     alert(`Approving ${approval.id}`)
                                   }
@@ -931,7 +948,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                                     className="bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700"
                                     onClick={() => {
                                       if (selectedApproval.type === 'Quotation') {
-                                        handleApprovalAction(selectedApproval.id, 'Disapproved')
+                                        handleApprovalAction(selectedApproval.bookingId || selectedApproval.id, 'Disapproved')
                                       } else {
                                         alert(`Disapproving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
                                         setRemark("")
@@ -946,7 +963,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                                     className="bg-emerald-600 text-white hover:bg-emerald-700"
                                     onClick={() => {
                                       if (selectedApproval.type === 'Quotation') {
-                                        handleApprovalAction(selectedApproval.id, 'Approved')
+                                        handleApprovalAction(selectedApproval.bookingId || selectedApproval.id, 'Approved')
                                       } else {
                                         alert(`Approving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
                                         setRemark("")
