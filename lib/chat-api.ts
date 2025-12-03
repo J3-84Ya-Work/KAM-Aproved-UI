@@ -8,12 +8,31 @@ export interface ChatMessage {
   conversationId?: number
   phone?: string
   newChat?: boolean
+  userId?: string | number
+  companyId?: string | number
 }
 
 export interface ApiResponse {
   success: boolean
   data?: any
   error?: string
+}
+
+/**
+ * Get user authentication data from localStorage
+ */
+function getUserAuthData() {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const authData = localStorage.getItem('userAuth')
+    if (authData) {
+      return JSON.parse(authData)
+    }
+  } catch (error) {
+    console.error('Error reading user auth data:', error)
+  }
+  return null
 }
 
 /**
@@ -29,11 +48,17 @@ export async function sendMessage(
   phone: string = '9999999999'
 ): Promise<ApiResponse> {
   try {
+    // Get user credentials from localStorage
+    const authData = getUserAuthData()
+
     const payload = {
       message,
       newChat: false,
       conversationId,
       phone,
+      // Include dynamic userId and companyId from logged-in user
+      userId: authData?.userId,
+      companyId: authData?.companyId,
     }
 
     const response = await fetch(API_BASE_URL, {

@@ -18,7 +18,7 @@ const getBasicAuth = () => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { message, conversationId, phone } = body
+    const { message, conversationId, phone, userId, companyId } = body
 
     const COSTING_BOT_ENDPOINT = `${API_BASE_URL}/api/parksons/costingbot`
 
@@ -29,13 +29,17 @@ export async function POST(request: NextRequest) {
       phone: phone || '9999999999'
     }
 
+    // Use dynamic userId and companyId from request, fallback to env defaults
+    const finalUserId = userId || USER_ID
+    const finalCompanyId = companyId || COMPANY_ID
+
     const response = await fetch(COSTING_BOT_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': getBasicAuth(),
-        'CompanyID': COMPANY_ID,
-        'UserID': USER_ID,
+        'CompanyID': String(finalCompanyId),
+        'UserID': String(finalUserId),
       },
       body: JSON.stringify(payload),
     })
