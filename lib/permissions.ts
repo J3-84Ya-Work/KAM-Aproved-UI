@@ -2,7 +2,7 @@
  * Role-based permission utilities
  */
 
-export type UserRole = "KAM" | "H.O.D" | "Vertical Head" | "Purchase"
+export type UserRole = "KAM" | "H.O.D" | "Vertical Head" | "VerticalHead" | "VH" | "Purchase"
 
 export interface UserAuth {
   name: string
@@ -53,7 +53,8 @@ export function isHOD(): boolean {
  * Check if user is Vertical Head (can approve items sent by HOD)
  */
 export function isVerticalHead(): boolean {
-  return hasRole("Vertical Head")
+  const user = getCurrentUser()
+  return user?.role === "Vertical Head" || user?.role === "VerticalHead" || user?.role === "VH"
 }
 
 /**
@@ -164,7 +165,7 @@ export function getCurrentUserKAMName(): string | null {
 export function canViewAllData(): boolean {
   const user = getCurrentUser()
   if (!user) return false
-  return user.role === "Vertical Head"
+  return user.role === "Vertical Head" || user.role === "VerticalHead" || user.role === "VH"
 }
 
 /**
@@ -195,7 +196,7 @@ export function getViewableKAMs(): string[] {
   if (!user) return []
 
   // Vertical Head can see all KAMs
-  if (user.role === "Vertical Head") {
+  if (user.role === "Vertical Head" || user.role === "VerticalHead" || user.role === "VH") {
     return getAllKAMs()
   }
 

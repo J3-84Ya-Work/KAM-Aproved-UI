@@ -18,6 +18,7 @@ import { getCurrentUser } from "@/lib/permissions"
 import { formatDistanceToNow, differenceInHours } from "date-fns"
 import { RequestTimeline } from "@/components/request-timeline"
 import { clientLogger } from "@/lib/logger"
+import { getItemsListAPI, getItemMasterListAPI } from "@/lib/api-config"
 
 interface RateQuery {
   requestId: number
@@ -54,6 +55,12 @@ export default function AskRatePage() {
   const [selectedRequestForTimeline, setSelectedRequestForTimeline] = useState<RateQuery | null>(null)
   const [requestFilter, setRequestFilter] = useState<"all" | "answered" | "unanswered">("all")
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest")
+  const [items, setItems] = useState<any[]>([])
+  const [selectedItem, setSelectedItem] = useState<string>("")
+  const [loadingItems, setLoadingItems] = useState(false)
+  const [groups, setGroups] = useState<any[]>([])
+  const [selectedGroup, setSelectedGroup] = useState<string>("")
+  const [loadingGroups, setLoadingGroups] = useState(false)
 
   // Auto-set department when person is selected
   const handlePersonChange = (personId: string) => {
@@ -62,6 +69,31 @@ export default function AskRatePage() {
     if (person) {
       setDepartment(person.department as "Purchase" | "Operations" | "Sales")
     }
+  }
+
+  // Clear item selection when group changes
+  const handleGroupChange = (groupId: string) => {
+    setSelectedGroup(groupId)
+    setSelectedItem("") // Clear item when group changes
+  }
+
+  // Get selected group name for display
+  const getSelectedGroupName = () => {
+    if (!selectedGroup) return ""
+    const group = groups.find(g => String(g.ItemGroupID || g.GroupID || g.id) === selectedGroup)
+    if (!group) return ""
+    const groupName = group.ItemGroupName || group.GroupName || group.Name || group.name || ""
+    return groupName.replace(/^[-,\s]+/, '').trim()
+  }
+
+  // Get selected item name for display
+  const getSelectedItemName = () => {
+    if (!selectedItem) return ""
+    const item = items.find(i => String(i.ItemID || i.id) === selectedItem)
+    if (!item) return ""
+    // Use ItemName field from the API response
+    const itemName = item.ItemName || item.Name || item.name || ""
+    return itemName.replace(/^[-,\s]+/, '').trim()
   }
 
   const handleMenuToggle = useCallback((toggle: () => void) => {
@@ -78,6 +110,47 @@ export default function AskRatePage() {
   useEffect(() => {
     const user = getCurrentUser()
     setCurrentUser(user)
+  }, [])
+
+  // Fetch items list when group is selected
+  useEffect(() => {
+    if (!selectedGroup) {
+      setItems([])
+      return
+    }
+
+    const fetchItems = async () => {
+      setLoadingItems(true)
+      try {
+        const itemsList = await getItemsListAPI(selectedGroup)
+        setItems(itemsList)
+        clientLogger.log('Items list fetched for group:', selectedGroup, itemsList)
+      } catch (error) {
+        clientLogger.error('Error fetching items:', error)
+      } finally {
+        setLoadingItems(false)
+      }
+    }
+
+    fetchItems()
+  }, [selectedGroup])
+
+  // Fetch groups list for dropdown
+  useEffect(() => {
+    const fetchGroups = async () => {
+      setLoadingGroups(true)
+      try {
+        const groupsList = await getItemMasterListAPI()
+        setGroups(groupsList)
+        clientLogger.log('Groups list fetched:', groupsList)
+      } catch (error) {
+        clientLogger.error('Error fetching groups:', error)
+      } finally {
+        setLoadingGroups(false)
+      }
+    }
+
+    fetchGroups()
   }, [])
 
   // Fetch user's rate requests
@@ -118,18 +191,37 @@ export default function AskRatePage() {
       return
     }
 
+    if (!selectedItem) {
+      alert('Please select an item')
+      return
+    }
+
+    if (!selectedGroup) {
+      alert('Please select a group')
+      return
+    }
+
     setIsSubmitting(true)
     try {
+      // Get selected item details
+      const selectedItemData = items.find(i => String(i.ItemID || i.id) === selectedItem)
+
       const result = await createRateRequest({
         requestorId: 2, // You can map this to actual user ID
         department: department,
-        requestMessage: message.trim()
+        requestMessage: message.trim(),
+        ItemCode: selectedItemData?.ItemCode || selectedItemData?.Code || "",
+        ItemID: selectedItem,
+        ItemName: selectedItemData?.ItemName || selectedItemData?.Name || selectedItemData?.name || "",
+        PlantID: "2" // Default plant ID, can be made dynamic if needed
       })
 
       if (result.success) {
         alert('✅ Rate request sent successfully!')
         setMessage("")
         setSelectedPerson("")
+        setSelectedItem("")
+        setSelectedGroup("")
         setDepartment("Purchase")
         await fetchMyRequests()
       } else {
@@ -234,36 +326,142 @@ export default function AskRatePage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="person">Select Person *</Label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <Select value={selectedPerson} onValueChange={handlePersonChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose team member" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TEAM_MEMBERS.map((person) => (
-                            <SelectItem key={person.id} value={person.id}>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{person.name}</span>
-                                <span className="text-xs text-gray-500">({person.email})</span>
-                              </div>
+                  <Select value={selectedPerson} onValueChange={handlePersonChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose team member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEAM_MEMBERS.map((person) => (
+                        <SelectItem key={person.id} value={person.id}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{person.name}</span>
+                            <span className="text-xs text-gray-500">({person.email})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedPerson && (
+                    <Badge
+                      variant="outline"
+                      className={`mt-2 ${
+                        department === "Purchase"
+                          ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
+                          : "bg-purple-50 text-purple-700 border-purple-200 font-medium"
+                      }`}
+                    >
+                      {department}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Group and Item in one row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="group">Select Group *</Label>
+                    <Select value={selectedGroup} onValueChange={handleGroupChange} disabled={loadingGroups}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingGroups ? "Loading groups..." : "Choose a group"}>
+                        {selectedGroup ? getSelectedGroupName() : null}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-w-md">
+                      <div className="p-2 border-b sticky top-0 bg-white z-10">
+                        <input
+                          type="text"
+                          placeholder="Search groups..."
+                          className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onChange={(e) => {
+                            const searchValue = e.target.value.toLowerCase()
+                            const selectContent = e.target.closest('[role="listbox"]')
+                            if (selectContent) {
+                              const items = selectContent.querySelectorAll('[role="option"]')
+                              items.forEach((item) => {
+                                const text = item.textContent?.toLowerCase() || ''
+                                if (text.includes(searchValue)) {
+                                  (item as HTMLElement).style.display = ''
+                                } else {
+                                  (item as HTMLElement).style.display = 'none'
+                                }
+                              })
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      <div className="overflow-x-auto">
+                        {groups.map((group, index) => {
+                          const groupName = group.ItemGroupName || group.GroupName || group.Name || group.name || `Group ${index + 1}`
+                          // Remove leading "-, " or "-" and trim whitespace
+                          const cleanedName = groupName.replace(/^[-,\s]+/, '').trim()
+
+                          return (
+                            <SelectItem
+                              key={group.ItemGroupID || group.GroupID || group.id || index}
+                              value={String(group.ItemGroupID || group.GroupID || group.id || index)}
+                              className="whitespace-nowrap"
+                            >
+                              {cleanedName}
                             </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {selectedPerson && (
-                      <Badge
-                        variant="outline"
-                        className={
-                          department === "Purchase"
-                            ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
-                            : "bg-purple-50 text-purple-700 border-purple-200 font-medium"
-                        }
-                      >
-                        {department}
-                      </Badge>
-                    )}
+                          )
+                        })}
+                      </div>
+                    </SelectContent>
+                  </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="item">Select Item *</Label>
+                    <Select value={selectedItem} onValueChange={setSelectedItem} disabled={!selectedGroup || loadingItems}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={!selectedGroup ? "Select group first" : loadingItems ? "Loading items..." : "Choose an item"}>
+                          {selectedItem ? getSelectedItemName() : null}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="max-w-md">
+                        <div className="p-2 border-b sticky top-0 bg-white z-10">
+                          <input
+                            type="text"
+                            placeholder="Search items..."
+                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => {
+                              const searchValue = e.target.value.toLowerCase()
+                              const selectContent = e.target.closest('[role="listbox"]')
+                              if (selectContent) {
+                                const items = selectContent.querySelectorAll('[role="option"]')
+                                items.forEach((item) => {
+                                  const text = item.textContent?.toLowerCase() || ''
+                                  if (text.includes(searchValue)) {
+                                    (item as HTMLElement).style.display = ''
+                                  } else {
+                                    (item as HTMLElement).style.display = 'none'
+                                  }
+                                })
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="overflow-x-auto">
+                          {items.map((item, index) => {
+                            // Use ItemName field from the API response
+                            const itemName = item.ItemName || item.Name || item.name || `Item ${index + 1}`
+                            // Remove leading "-, " or "-" and trim whitespace
+                            const cleanedName = itemName.replace(/^[-,\s]+/, '').trim()
+
+                            return (
+                              <SelectItem
+                                key={item.ItemID || item.id || index}
+                                value={String(item.ItemID || item.id || index)}
+                                className="whitespace-nowrap"
+                              >
+                                {cleanedName}
+                              </SelectItem>
+                            )
+                          })}
+                        </div>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 

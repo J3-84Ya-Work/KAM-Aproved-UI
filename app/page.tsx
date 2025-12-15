@@ -33,6 +33,20 @@ export default function Page() {
       const auth = JSON.parse(authData)
       clientLogger.log("[v0] User authenticated:", auth)
 
+      // Redirect HOD and Vertical Head to Approvals page
+      if (auth.role === "H.O.D" || auth.role === "Vertical Head") {
+        clientLogger.log("[v0] HOD/VH user detected, redirecting to approvals")
+        router.push("/approvals")
+        return
+      }
+
+      // Redirect Purchase to Rate Queries page
+      if (auth.role === "Purchase") {
+        clientLogger.log("[v0] Purchase user detected, redirecting to rate queries")
+        router.push("/rate-queries")
+        return
+      }
+
       // Extract first name
       if (auth.name) {
         const firstName = auth.name.split(" ")[0]

@@ -776,6 +776,75 @@ export async function postDirectCosting(costingParams: any, enquiryData: any) {
 }
 
 // ============================================================================
+// ASK RATE APIs
+// ============================================================================
+
+// Helper: Fetch items list for Ask Rate (Your Question section)
+// groupId is optional - if provided, fetches items for that group
+export async function fetchItemsList(groupId?: string | number) {
+  const endpoint = groupId
+    ? `api/planwindow/getitemslist/${groupId}`
+    : 'api/planwindow/getitemslist'
+  return apiClient.get(endpoint)
+}
+
+// Stable wrapper: getItemsListAPI
+// Returns normalized array of items
+// groupId is optional - if provided, fetches items for that group
+export async function getItemsListAPI(groupId?: string | number) {
+  const res = await fetchItemsList(groupId)
+
+  let items: any[] = []
+  if (!res) return items
+  if (Array.isArray(res)) items = res
+  else if (res?.data && Array.isArray(res.data)) items = res.data
+  else if (res?.Data && Array.isArray(res.Data)) items = res.Data
+  else if (res?.d && Array.isArray(res.d)) items = res.d
+  else if (typeof res === 'object') {
+    const firstArray = Object.values(res).find((v) => Array.isArray(v))
+    if (Array.isArray(firstArray)) items = firstArray as any[]
+  }
+
+  return items
+}
+
+// Helper: Fetch item master list for Ask Rate (Select Group section)
+export async function fetchItemMasterList() {
+  const endpoint = 'api/itemmaster/itemmasterlist'
+  return apiClient.get(endpoint)
+}
+
+// Stable wrapper: getItemMasterListAPI
+// Returns normalized array of groups
+export async function getItemMasterListAPI() {
+  const res = await fetchItemMasterList()
+
+  let groups: any[] = []
+  if (!res) return groups
+  if (Array.isArray(res)) groups = res
+  else if (res?.data && Array.isArray(res.data)) groups = res.data
+  else if (res?.Data && Array.isArray(res.Data)) groups = res.Data
+  else if (res?.d && Array.isArray(res.d)) groups = res.d
+  else if (typeof res === 'object') {
+    const firstArray = Object.values(res).find((v) => Array.isArray(v))
+    if (Array.isArray(firstArray)) groups = firstArray as any[]
+  }
+
+  return groups
+}
+
+// Helper: Update item rate
+export async function updateItemRate(payload: {
+  ItemCode: string
+  ItemID: string
+  PlantID: string
+  Rate: string
+}) {
+  const endpoint = 'api/othermaster/update-itemrate'
+  return apiClient.post(endpoint, payload)
+}
+
+// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 

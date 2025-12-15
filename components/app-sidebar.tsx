@@ -121,7 +121,44 @@ const roleBasedNavItems = {
       icon: Settings,
     },
   ],
-  "Vertical Head": [
+  "VerticalHead": [
+    {
+      title: "Approvals",
+      url: "/approvals",
+      icon: FileCheck,
+    },
+    {
+      title: "Customer",
+      url: "/clients",
+      icon: Users,
+    },
+    {
+      title: "Inquiries",
+      url: "/inquiries",
+      icon: FileText,
+    },
+    {
+      title: "Quotations",
+      url: "/quotations",
+      icon: FileCheck,
+    },
+    {
+      title: "Projects",
+      url: "/projects",
+      icon: FolderKanban,
+    },
+    {
+      title: "Analytics",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: Settings,
+    },
+  ],
+  "VH": [
     {
       title: "Approvals",
       url: "/approvals",
@@ -323,6 +360,8 @@ export function AppSidebar() {
       case "H.O.D":
         return "bg-amber-100 text-amber-700 border-amber-300"
       case "Vertical Head":
+      case "VerticalHead":
+      case "VH":
         return "bg-purple-100 text-purple-700 border-purple-300"
       default:
         return "bg-gray-100 text-gray-700 border-gray-300"
@@ -350,11 +389,11 @@ export function AppSidebar() {
         </Button>
       </div>
 
-      {/* User Role Indicator */}
-      {userRole && (
+      {/* User Info */}
+      {userName && (
         <div className="border-b border-gray-200 p-3">
           {isCollapsed ? (
-            <div className="flex justify-center" title={`${userRole} - ${userName}`}>
+            <div className="flex justify-center" title={`${userName}${userRole ? ` - ${userRole}` : ''}`}>
               <UserCircle className="h-6 w-6 text-[#005180]" />
             </div>
           ) : (
@@ -362,9 +401,11 @@ export function AppSidebar() {
               <UserCircle className="h-6 w-6 text-[#005180] flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
-                <Badge className={`${getRoleBadgeColor(userRole)} border text-xs font-semibold mt-1`}>
-                  {userRole}
-                </Badge>
+                {userRole && (
+                  <Badge className={`${getRoleBadgeColor(userRole)} border text-xs font-semibold mt-1`}>
+                    {userRole}
+                  </Badge>
+                )}
               </div>
             </div>
           )}

@@ -1,13 +1,13 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircle2, Clock, AlertCircle, Package, FileText, Truck, Eye, FileCheck, Package2, Search, Filter, RefreshCw, Mic } from "lucide-react"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { CheckCircle2, Clock, AlertCircle, Search, Filter, RefreshCw, Mic } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -18,187 +18,8 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
-
-const sdoProjects = [
-  {
-    id: "SDO-2024-001",
-    customer: "Acme Corp",
-    job: "Custom Packaging Box",
-    quoteId: "QUO-2024-048",
-    executionLocation: "Mumbai",
-    productionPlant: "Plant A",
-    status: "Sample Approved",
-    progress: 100,
-    createdDate: "2024-01-10",
-    approvedDate: "2024-01-14",
-    kamName: "Rajesh Kumar",
-    hodName: "Suresh Menon",
-    notes: "Customer approved sample with minor color adjustment",
-    history: [
-      { stage: "Inquiry Received", date: "2024-01-06" },
-      { stage: "Sample Initiated", date: "2024-01-08" },
-      { stage: "Sample Approved", date: "2024-01-14" },
-    ],
-  },
-  {
-    id: "SDO-2024-002",
-    customer: "TechStart Inc",
-    job: "Printed Labels",
-    quoteId: "QUO-2024-047",
-    executionLocation: "Pune",
-    productionPlant: "Plant B",
-    status: "Sales Approval",
-    progress: 75,
-    createdDate: "2024-01-12",
-    approvedDate: null,
-    kamName: "Amit Patel",
-    hodName: "Suresh Menon",
-    notes: "Sent for sales approval on 2024-01-15",
-    history: [
-      { stage: "Inquiry Received", date: "2024-01-09" },
-      { stage: "Sample Prepared", date: "2024-01-12" },
-      { stage: "Sales Approval", date: "2024-01-15" },
-    ],
-  },
-  {
-    id: "SDO-2024-003",
-    customer: "Metro Supplies",
-    job: "Folding Cartons",
-    quoteId: "QUO-2024-045",
-    executionLocation: "Navi Mumbai",
-    productionPlant: "Plant C",
-    status: "Clarification",
-    progress: 50,
-    createdDate: "2024-01-14",
-    approvedDate: null,
-    kamName: "Rajesh Kumar",
-    hodName: "Suresh Menon",
-    notes: "Awaiting clarification on material finish",
-    history: [
-      { stage: "Inquiry Received", date: "2024-01-11" },
-      { stage: "Clarification Requested", date: "2024-01-14" },
-    ],
-  },
-  {
-    id: "SDO-2024-004",
-    customer: "Prime Packaging",
-    job: "Rigid Box",
-    quoteId: "QUO-2024-050",
-    executionLocation: "Delhi",
-    productionPlant: "Plant D",
-    status: "In PDD",
-    progress: 40,
-    createdDate: "2024-01-16",
-    approvedDate: null,
-    kamName: "Priya Sharma",
-    hodName: "Kavita Reddy",
-    notes: "Prototype build in progress",
-    history: [
-      { stage: "Inquiry Received", date: "2024-01-12" },
-      { stage: "Sample Fabrication", date: "2024-01-16" },
-    ],
-  },
-]
-
-const jdoProjects = [
-  {
-    id: "JDO-2024-001",
-    customer: "Acme Corp",
-    job: "Custom Packaging Box",
-    sdoId: "SDO-2024-001",
-    prePressPlant: "Prepress Hub 1",
-    productionPlant: "Plant A",
-    artworkStatus: "Approved",
-    bomStatus: "Complete",
-    routingStatus: "Complete",
-    progress: 100,
-    createdDate: "2024-01-15",
-    kamName: "Rajesh Kumar",
-    hodName: "Suresh Menon",
-    notes: "Ready for commercial PO",
-    mfReleased: true,
-  },
-  {
-    id: "JDO-2024-002",
-    customer: "Swift Logistics",
-    job: "Corrugated Sheets",
-    sdoId: "SDO-2024-004",
-    prePressPlant: "Prepress Hub 2",
-    productionPlant: "Plant C",
-    artworkStatus: "In Review",
-    bomStatus: "Complete",
-    routingStatus: "Pending",
-    progress: 60,
-    createdDate: "2024-01-13",
-    kamName: "Amit Patel",
-    hodName: "Suresh Menon",
-    notes: "Awaiting artwork approval from customer",
-    mfReleased: false,
-  },
-]
-
-const commercialOrders = [
-  {
-    id: "COM-2024-001",
-    customer: "Prime Packaging",
-    job: "Die-Cut Boxes",
-    jdoId: "JDO-2024-003",
-    prePressPlant: "Prepress Hub 1",
-    productionPlant: "Plant B",
-    prePressStatus: "Complete",
-    productionStatus: "In PDD",
-    dispatchStatus: "Pending",
-    amount: 425000,
-    quantity: "8000 units",
-    status: "In PDD",
-    orderDate: "2024-01-08",
-    expectedDelivery: "2024-01-25",
-    progress: 70,
-    kamName: "Priya Sharma",
-    hodName: "Kavita Reddy",
-    notes: "Commercial production ongoing",
-  },
-  {
-    id: "COM-2024-002",
-    customer: "Global Traders",
-    job: "Printed Labels",
-    jdoId: "JDO-2024-004",
-    prePressPlant: "Prepress Hub 3",
-    productionPlant: "Plant A",
-    prePressStatus: "Approved",
-    productionStatus: "Approved",
-    dispatchStatus: "Scheduled",
-    amount: 185000,
-    quantity: "10000 units",
-    status: "Approved",
-    orderDate: "2024-01-12",
-    expectedDelivery: "2024-01-28",
-    progress: 100,
-    kamName: "Sneha Gupta",
-    hodName: "Kavita Reddy",
-    notes: "Commercial order approved, ready for production",
-  },
-  {
-    id: "COM-2024-003",
-    customer: "Acme Corp",
-    job: "Custom Packaging",
-    jdoId: "JDO-2024-001",
-    prePressPlant: "Prepress Hub 2",
-    productionPlant: "Plant D",
-    prePressStatus: "In Progress",
-    productionStatus: "Pending",
-    dispatchStatus: "Pending",
-    amount: 320000,
-    quantity: "5000 units",
-    status: "In Review",
-    orderDate: "2024-01-15",
-    expectedDelivery: "2024-02-02",
-    progress: 45,
-    kamName: "Rajesh Kumar",
-    hodName: "Suresh Menon",
-    notes: "Under commercial review",
-  },
-]
+import { getForms } from "@/lib/api/projects"
+import { clientLogger } from "@/lib/logger"
 
 const pnOrders = [
   {
@@ -427,6 +248,13 @@ interface ProjectsContentProps {
 }
 
 export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsContentProps) {
+  // API Data states
+  const [sdoProjects, setSdoProjects] = useState<any[]>([])
+  const [jdoProjects, setJdoProjects] = useState<any[]>([])
+  const [commercialOrders, setCommercialOrders] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [sdoSearch, setSdoSearch] = useState("")
   const [sdoStatusFilter, setSdoStatusFilter] = useState("all")
   const [sdoKamFilter, setSdoKamFilter] = useState("all")
@@ -551,6 +379,143 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
   const pnEndIndex = pnStartIndex + itemsPerPage
   const paginatedPN = filteredPN.slice(pnStartIndex, pnEndIndex)
 
+  // Fetch SDO data
+  useEffect(() => {
+    const fetchSDOData = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const result = await getForms({ FormType: "SDO" })
+        if (result.success && result.data) {
+          // Parse FormDataJSON and map to component structure
+          const parsedData = result.data.map((item: any) => {
+            try {
+              const formData = JSON.parse(item.FormDataJSON || '{}')
+              return {
+                id: item.FormNo || `SDO-${item.ID}`,
+                customer: formData.customerName || "N/A",
+                job: "SDO Project",
+                quoteId: formData.quoteId || "N/A",
+                executionLocation: formData.executionLocation || "N/A",
+                productionPlant: formData.productionPlant || "N/A",
+                status: formData.status || "In PDD",
+                progress: formData.progress || 0,
+                createdDate: formData.date || new Date(item.CreatedDate).toISOString().split('T')[0],
+                approvedDate: formData.approvedDate || null,
+                kamName: formData.kamName || "N/A",
+                hodName: formData.hodName || "N/A",
+                notes: formData.specialInstructions || "",
+                history: formData.history || [],
+                // Include all form fields
+                ...formData
+              }
+            } catch (e) {
+              clientLogger.log("Error parsing SDO form data:", e)
+              return null
+            }
+          }).filter(Boolean)
+          setSdoProjects(parsedData)
+        } else {
+          setError(result.error || "Failed to fetch SDO data")
+        }
+      } catch (err) {
+        clientLogger.log("Error fetching SDO data:", err)
+        setError("Failed to load SDO projects")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchSDOData()
+  }, [])
+
+  // Fetch JDO data
+  useEffect(() => {
+    const fetchJDOData = async () => {
+      try {
+        const result = await getForms({ FormType: "JDO" })
+        if (result.success && result.data) {
+          const parsedData = result.data.map((item: any) => {
+            try {
+              const formData = JSON.parse(item.FormDataJSON || '{}')
+              return {
+                id: item.FormNo || `JDO-${item.ID}`,
+                customer: formData.customerName || "N/A",
+                job: formData.jobName || "JDO Project",
+                sdoId: formData.sdoId || "N/A",
+                prePressPlant: formData.prepressPlant || "N/A",
+                productionPlant: formData.productionPlant || "N/A",
+                artworkStatus: formData.artworkStatus || "Pending",
+                bomStatus: formData.bomStatus || "Pending",
+                routingStatus: formData.routingStatus || "Pending",
+                progress: formData.progress || 0,
+                createdDate: formData.date || new Date(item.CreatedDate).toISOString().split('T')[0],
+                kamName: formData.kamName || "N/A",
+                hodName: formData.hodName || "N/A",
+                notes: formData.specialInstructions || "",
+                mfReleased: formData.mfReleased || false,
+                ...formData
+              }
+            } catch (e) {
+              clientLogger.log("Error parsing JDO form data:", e)
+              return null
+            }
+          }).filter(Boolean)
+          setJdoProjects(parsedData)
+        }
+      } catch (err) {
+        clientLogger.log("Error fetching JDO data:", err)
+      }
+    }
+
+    fetchJDOData()
+  }, [])
+
+  // Fetch Commercial data
+  useEffect(() => {
+    const fetchCommercialData = async () => {
+      try {
+        const result = await getForms({ FormType: "Commercial" })
+        if (result.success && result.data) {
+          const parsedData = result.data.map((item: any) => {
+            try {
+              const formData = JSON.parse(item.FormDataJSON || '{}')
+              return {
+                id: item.FormNo || `COM-${item.ID}`,
+                customer: formData.customerName || "N/A",
+                job: formData.jobName || "Commercial Order",
+                jdoId: formData.jdoId || "N/A",
+                prePressPlant: formData.prepressPlant || "N/A",
+                productionPlant: formData.productionPlant || "N/A",
+                prePressStatus: formData.prePressStatus || "Pending",
+                productionStatus: formData.productionStatus || "Pending",
+                dispatchStatus: formData.dispatchStatus || "Pending",
+                amount: formData.amount || 0,
+                quantity: formData.quantity || "N/A",
+                status: formData.status || "In Review",
+                orderDate: formData.date || new Date(item.CreatedDate).toISOString().split('T')[0],
+                expectedDelivery: formData.expectedDelivery || "N/A",
+                progress: formData.progress || 0,
+                kamName: formData.kamName || "N/A",
+                hodName: formData.hodName || "N/A",
+                notes: formData.specialInstructions || "",
+                ...formData
+              }
+            } catch (e) {
+              clientLogger.log("Error parsing Commercial form data:", e)
+              return null
+            }
+          }).filter(Boolean)
+          setCommercialOrders(parsedData)
+        }
+      } catch (err) {
+        clientLogger.log("Error fetching Commercial data:", err)
+      }
+    }
+
+    fetchCommercialData()
+  }, [])
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setSdoPage(1)
@@ -570,6 +535,27 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
 
   return (
     <div className="space-y-4">
+      {/* Error Message */}
+      {error && (
+        <Card className="border-red-500 bg-red-50">
+          <CardContent className="p-4">
+            <p className="text-red-700 text-sm">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading Indicator */}
+      {isLoading && (
+        <Card>
+          <CardContent className="p-6 flex items-center justify-center">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading projects...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
         {/* SDO Tab */}
         <TabsContent value="sdo">
@@ -751,7 +737,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                                 <div>
                                   <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Journey</Label>
                                   <div className="mt-2 space-y-3 border-l border-border/60 pl-4">
-                                    {project.history.map((step, stepIndex) => (
+                                    {project.history.map((step: any, stepIndex: number) => (
                                       <div key={`${project.id}-history-${step.stage}-${stepIndex}`} className="flex items-start gap-3">
                                         <span className={`mt-1 inline-flex h-2.5 w-2.5 rounded-full ${getStatusAccent(project.status)}`} />
                                         <div>

@@ -1203,7 +1203,7 @@ export function QuotationsContent() {
                           <TableCell className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
                             {/* Show different actions based on status */}
                             {quotation.status === 'Approved' ? (
-                              // Approved quotations: Show Send to Customer, Share, and Download
+                              // Approved quotations: Show Send to Customer and Share only
                               <div className="flex justify-end gap-2">
                                 <Button
                                   size="sm"
@@ -1229,142 +1229,16 @@ export function QuotationsContent() {
                                   <Share2 className="h-3 w-3 mr-1" />
                                   Share
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationVertical(quotation.bookingId)
-                                  }}
-                                  title="Download PDF - Vertical Format"
-                                >
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  PDF (V)
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationHorizontal(quotation.bookingId)
-                                  }}
-                                  title="Download PDF - Horizontal Format"
-                                >
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  PDF (H)
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationExcel(quotation.bookingId)
-                                  }}
-                                  title="Download Excel"
-                                >
-                                  <FileSpreadsheet className="h-3 w-3 mr-1" />
-                                  Excel
-                                </Button>
                               </div>
                             ) : quotation.status === 'Sent to HOD' || quotation.status === 'Sent to Vertical Head' ? (
-                              // Pending approval: Show status text and Download
+                              // Pending approval: Show status text only
                               <div className="flex justify-end gap-2 items-center">
                                 <span className="text-xs text-muted-foreground italic">Pending Approval</span>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationVertical(quotation.bookingId)
-                                  }}
-                                  title="Download PDF - Vertical Format"
-                                >
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  PDF (V)
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationHorizontal(quotation.bookingId)
-                                  }}
-                                  title="Download PDF - Horizontal Format"
-                                >
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  PDF (H)
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationExcel(quotation.bookingId)
-                                  }}
-                                  title="Download Excel"
-                                >
-                                  <FileSpreadsheet className="h-3 w-3 mr-1" />
-                                  Excel
-                                </Button>
                               </div>
                             ) : quotation.status === 'Disapproved' ? (
-                              // Disapproved: Show status text and Download
+                              // Disapproved: Show status text only
                               <div className="flex justify-end gap-2 items-center">
                                 <span className="text-xs text-rose-600 font-medium italic">Disapproved</span>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationVertical(quotation.bookingId)
-                                  }}
-                                  title="Download PDF - Vertical Format"
-                                >
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  PDF (V)
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationHorizontal(quotation.bookingId)
-                                  }}
-                                  title="Download PDF - Horizontal Format"
-                                >
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  PDF (H)
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
-                                  disabled={isDownloadingPDF === quotation.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDownloadQuotationExcel(quotation.bookingId)
-                                  }}
-                                  title="Download Excel"
-                                >
-                                  <FileSpreadsheet className="h-3 w-3 mr-1" />
-                                  Excel
-                                </Button>
                               </div>
                             ) : (
                               // Other statuses (Costing, Quoted, etc.): Show approval buttons based on margin
@@ -1465,19 +1339,19 @@ export function QuotationsContent() {
                     </DialogTrigger>
                     <DialogContent className="surface-elevated max-w-lg max-h-[85vh] p-0 flex flex-col overflow-hidden">
                       <DialogHeader className="border-b bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-4 flex-shrink-0">
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start justify-between gap-4 pr-8">
                           <div className="flex-1 text-left">
-                            <DialogTitle className="text-lg font-bold text-gray-900 break-words pr-8">{selectedQuotation?.job}</DialogTitle>
+                            <DialogTitle className="text-lg font-bold text-gray-900 break-words pr-4">{selectedQuotation?.job}</DialogTitle>
                             <DialogDescription className="text-xs font-semibold text-gray-600 mt-1">
                               {selectedQuotation?.id}
                             </DialogDescription>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <div className="text-xs font-semibold text-gray-600">
+                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            <div className="text-xs font-semibold text-gray-600 whitespace-nowrap">
                               {selectedQuotation?.createdDate}
                             </div>
                             {selectedQuotation && (
-                              <Badge className={`${getStatusBadge(selectedQuotation.status)} border text-xs px-2 py-0.5`}>
+                              <Badge className={`${getStatusBadge(selectedQuotation.status)} border text-xs px-2 py-0.5 whitespace-nowrap`}>
                                 {selectedQuotation.status}
                               </Badge>
                             )}

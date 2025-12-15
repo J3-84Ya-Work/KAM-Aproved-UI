@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AlertCircle, MessageSquare, TrendingUp, Clock, CheckCircle, XCircle, RefreshCw, AlertTriangle } from "lucide-react"
 import { getAllRateRequests, provideRate, escalateRateRequest } from "@/lib/rate-queries-api"
+import { updateItemRate } from "@/lib/api-config"
 import { formatDistanceToNow, differenceInHours } from "date-fns"
 import { clientLogger } from "@/lib/logger"
 
@@ -30,6 +31,11 @@ interface RateQuery {
   createdAt: string
   respondedAt?: string
   userId?: number
+  itemName?: string
+  itemCode?: string
+  itemID?: string
+  plantID?: string
+  requestNumber?: string
 }
 
 export default function RateQueriesPage() {
@@ -40,6 +46,7 @@ export default function RateQueriesPage() {
   const [rateValue, setRateValue] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<number | null>(null)
   const [overdueThreshold] = useState(24) // hours - can be configured in settings page
 
@@ -107,15 +114,41 @@ export default function RateQueriesPage() {
       return
     }
 
-    setIsSubmitting(true)
-    try {
-      const result = await provideRate({
-        requestId: selectedQuery.requestId,
-        userId: currentUserId,
-        rate: rateValue.trim()
-      })
+    // Validate that only numbers are entered
+    if (!/^\d+(\.\d+)?$/.test(rateValue.trim())) {
+      alert('Please enter a valid number for the rate')
+      return
+    }
 
-      if (result.success) {
+    // Show confirmation
+    setShowConfirmation(true)
+  }
+
+  const handleConfirmSubmit = async () => {
+    if (!selectedQuery || !currentUserId) return
+
+    setIsSubmitting(true)
+    setShowConfirmation(false)
+
+    try {
+      // Call both APIs
+      const [rateResult, itemRateResult] = await Promise.all([
+        provideRate({
+          requestId: selectedQuery.requestId,
+          userId: currentUserId,
+          rate: rateValue.trim()
+        }),
+        selectedQuery.itemCode && selectedQuery.itemID && selectedQuery.plantID
+          ? updateItemRate({
+              ItemCode: selectedQuery.itemCode,
+              ItemID: selectedQuery.itemID,
+              PlantID: selectedQuery.plantID,
+              Rate: rateValue.trim()
+            })
+          : Promise.resolve({ success: true })
+      ])
+
+      if (rateResult.success) {
         alert('✅ Rate provided successfully!')
         setShowDialog(false)
         setSelectedQuery(null)
@@ -125,7 +158,7 @@ export default function RateQueriesPage() {
         await new Promise(resolve => setTimeout(resolve, 500))
         await fetchRateQueries()
       } else {
-        alert(`❌ Failed to provide rate: ${result.error}`)
+        alert(`❌ Failed to provide rate: ${rateResult.error}`)
       }
     } catch (error: any) {
       alert(`❌ Error: ${error.message}`)
@@ -268,6 +301,12 @@ export default function RateQueriesPage() {
                             <p className="text-sm text-gray-600 mb-2">
                               <span className="font-medium">From:</span> {query.requestorName || `User #${query.requestorId}`}
                             </p>
+                            {query.itemName && (
+                              <div className="mb-2 bg-blue-50 border border-blue-200 rounded p-2">
+                                <p className="text-xs font-medium text-blue-900 mb-1">Item</p>
+                                <p className="text-sm text-blue-800">{query.itemName}</p>
+                              </div>
+                            )}
                             <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded border border-gray-200">
                               {query.requestMessage}
                             </p>
@@ -368,6 +407,13 @@ export default function RateQueriesPage() {
           <div className="space-y-4 py-2">
             {/* Request Details */}
             <div className="space-y-3">
+              {selectedQuery?.itemName && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-xs font-medium text-green-900 mb-1">Item</p>
+                  <p className="text-sm text-green-800 font-medium">{selectedQuery.itemName}</p>
+                </div>
+              )}
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <MessageSquare className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -402,9 +448,15 @@ export default function RateQueriesPage() {
                 <Input
                   id="rate"
                   type="text"
-                  placeholder="e.g., 520 per piece or 23.50"
+                  placeholder="e.g., 520 or 23.50"
                   value={rateValue}
-                  onChange={(e) => setRateValue(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // Only allow numbers and decimal point
+                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                      setRateValue(value)
+                    }
+                  }}
                   className="text-lg h-12 pr-4"
                   autoFocus
                 />
@@ -412,36 +464,79 @@ export default function RateQueriesPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowDialog(false)
-                setRateValue("")
-              }}
-              disabled={isSubmitting}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitRate}
-              disabled={isSubmitting || !rateValue.trim()}
-              className="bg-[#005180] hover:bg-[#004060] w-full sm:w-auto"
-            >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Submit Rate
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+          {showConfirmation ? (
+            <>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-yellow-900 mb-1">Confirm Rate Submission</p>
+                    <p className="text-sm text-yellow-800">
+                      Are you sure you want to submit the rate <span className="font-semibold">{rateValue}</span> for this request?
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowConfirmation(false)}
+                  disabled={isSubmitting}
+                  className="w-full sm:w-auto"
+                >
+                  Go Back
+                </Button>
+                <Button
+                  onClick={handleConfirmSubmit}
+                  disabled={isSubmitting}
+                  className="bg-[#005180] hover:bg-[#004060] w-full sm:w-auto"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Confirm & Submit
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDialog(false)
+                  setRateValue("")
+                }}
+                disabled={isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitRate}
+                disabled={isSubmitting || !rateValue.trim()}
+                className="bg-[#005180] hover:bg-[#004060] w-full sm:w-auto"
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Submit Rate
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </SidebarProvider>

@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger"
 // Rate Queries API Configuration
-const RATE_API_BASE_URL = 'http://localhost:5003'
+const RATE_API_BASE_URL = 'http://10.5.24.209:5004'
 
 interface RateRequest {
   requestId?: number
@@ -19,6 +19,10 @@ interface CreateRateRequestPayload {
   requestorId: number
   department: 'Purchase' | 'Operations' | 'Sales'
   requestMessage: string
+  ItemCode?: string
+  ItemID?: string
+  ItemName?: string
+  PlantID?: string
 }
 
 interface ProvideRatePayload {
