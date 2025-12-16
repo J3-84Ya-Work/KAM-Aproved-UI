@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Proxy API route for Ask Rate requests to bypass CORS
-const RATE_API_BASE_URL = 'http://10.5.24.209:5004'
+// Use environment variable for production, fallback to local IP for development
+const RATE_API_BASE_URL = process.env.RATE_API_BASE_URL || 'http://10.5.24.209:5004'
 
 export async function GET(request: NextRequest) {
   try {
