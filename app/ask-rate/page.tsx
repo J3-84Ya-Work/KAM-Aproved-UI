@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -43,7 +42,6 @@ const TEAM_MEMBERS = [
 ] as const
 
 export default function AskRatePage() {
-  const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
   const [selectedPerson, setSelectedPerson] = useState<string>("")
   const [department, setDepartment] = useState<"Purchase" | "Operations" | "Sales">("Purchase")
   const [message, setMessage] = useState("")
@@ -94,16 +92,6 @@ export default function AskRatePage() {
     // Use ItemName field from the API response
     const itemName = item.ItemName || item.Name || item.name || ""
     return itemName.replace(/^[-,\s]+/, '').trim()
-  }
-
-  const handleMenuToggle = useCallback((toggle: () => void) => {
-    setToggleMenu(() => toggle)
-  }, [])
-
-  const handleMenuClick = () => {
-    if (toggleMenu) {
-      toggleMenu()
-    }
   }
 
   // Get current user
@@ -264,7 +252,7 @@ export default function AskRatePage() {
         <AppSidebar />
       </div>
       <SidebarInset>
-        <AppHeader pageName="Ask Rate" onMenuClick={handleMenuClick} showBackButton={false} />
+        <AppHeader pageName="Ask Rate" showBackButton={false} />
         <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 max-w-full overflow-x-hidden">
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -622,7 +610,6 @@ export default function AskRatePage() {
             </CardContent>
           </Card>
         </div>
-        <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
 
       {/* Request Timeline Dialog */}

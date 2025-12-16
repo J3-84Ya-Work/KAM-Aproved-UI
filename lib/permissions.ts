@@ -9,6 +9,10 @@ export interface UserAuth {
   email: string
   role: UserRole
   loggedInAt: string
+  userId?: string | number
+  companyId?: string | number
+  fyear?: string
+  productionUnitId?: string | number
 }
 
 /**

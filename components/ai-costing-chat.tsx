@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import type React from "react"
 import { useRouter } from "next/navigation"
-import { Send, Loader2, Mic, ArrowLeft, Save, CheckCircle2, AlertCircle } from "lucide-react"
+import { Send, Loader2, Mic, ArrowLeft, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -68,6 +68,12 @@ export function AICostingChat({
   // Track loaded draft ID for updates
   const [loadedDraftId, setLoadedDraftId] = useState<number | null>(null)
 
+  // Track if this is a new chat (first message should send newChat: true)
+  const [isNewChat, setIsNewChat] = useState(true)
+
+  // Track if initial message has been sent to prevent duplicate sends
+  const initialMessageSentRef = useRef(false)
+
   // Prepare form data for auto-save
   const formData = {
     conversationType: 'DynamicFill',
@@ -94,7 +100,7 @@ export function AICostingChat({
   }, [messages, inputValue, chatId])
 
   // Auto-save hook
-  const { saveStatus, lastSaved, currentDraftId } = useAutoSaveDraft({
+  useAutoSaveDraft({
     formData,
     formType: 'DynamicFill',
     draftName: `AI_Chat_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}`,
@@ -167,7 +173,14 @@ export function AICostingChat({
         // If this is the first message, send "I want costing" to API
         // Otherwise send the actual user message
         const messageToAPI = isFirstMessage ? "I want costing" : content
-        const response = await sendMessage(messageToAPI)
+
+        // Send newChat: true for the first message from home
+        const response = await sendMessage(messageToAPI, 2, '9999999999', isNewChat)
+
+        // After first message is sent, set isNewChat to false
+        if (isNewChat) {
+          setIsNewChat(false)
+        }
 
         if (response.success && response.data) {
           const aiResponseText =
@@ -209,7 +222,7 @@ export function AICostingChat({
         setIsTyping(false)
       }
     },
-    []
+    [isNewChat]
   )
 
   useEffect(() => {
@@ -243,6 +256,11 @@ export function AICostingChat({
               }))
               setMessages(restoredMessages)
               clientLogger.log('[AI Chat] Restored messages:', restoredMessages.length)
+
+              // If we have restored messages, this is not a new chat
+              if (restoredMessages.length > 0) {
+                setIsNewChat(false)
+              }
             }
 
             // Restore current input
@@ -272,9 +290,10 @@ export function AICostingChat({
             clientLogger.error('[AI Chat] Failed to parse draft data:', error)
           }
         }
-      } else if (initialMessage) {
+      } else if (initialMessage && !initialMessageSentRef.current) {
         // Mark this as the first message so it sends "I want costing" to API
         // but displays the user's original message in the chat
+        initialMessageSentRef.current = true
         sendChatMessage(initialMessage, { isFirstMessage: true })
       }
     }, 800)
@@ -451,34 +470,6 @@ export function AICostingChat({
 
       {/* Fixed Input Area */}
       <div className="border-t border-border/50 bg-background px-4 py-3 shadow-sm shrink-0 z-10">
-        {/* Auto-save status indicator */}
-        {messages.length > 0 && (
-          <div className="flex items-center justify-end gap-2 mb-2 text-xs text-muted-foreground">
-            {saveStatus === 'saving' && (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Saving draft...</span>
-              </>
-            )}
-            {saveStatus === 'saved' && (
-              <>
-                <CheckCircle2 className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">Draft saved</span>
-                {lastSaved && (
-                  <span className="text-muted-foreground">
-                    {lastSaved.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                )}
-              </>
-            )}
-            {saveStatus === 'error' && (
-              <>
-                <AlertCircle className="h-3 w-3 text-red-600" />
-                <span className="text-red-600">Failed to save draft</span>
-              </>
-            )}
-          </div>
-        )}
         <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-3 input-focus-glow focus-within:border-primary">
           <Button
             variant="ghost"

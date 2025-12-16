@@ -63,6 +63,11 @@ const roleBasedNavItems = {
       badge: 8,
     },
     {
+      title: "Chats",
+      url: "/chats",
+      icon: MessageSquare,
+    },
+    {
       title: "Ask Rate",
       url: "/ask-rate",
       icon: DollarSign,
