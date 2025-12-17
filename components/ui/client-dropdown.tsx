@@ -67,7 +67,7 @@ export function ClientDropdown({
     return (
       <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
         <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
-        <span className="text-sm text-gray-500">Loading clients...</span>
+        <span className="text-sm text-gray-500">Loading customers...</span>
       </div>
     )
   }

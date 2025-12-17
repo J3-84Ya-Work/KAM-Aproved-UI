@@ -1412,11 +1412,34 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   }
 
   // Reusable header without back button
-  const renderStepHeader = (title?: string, showAddQty: boolean = false) => (
+  const renderStepHeader = (title?: string, showAddQty: boolean = false, showAutoSaveStatus: boolean = false) => (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
         {title && <h2 className="text-lg font-semibold text-[#005180]">{title}</h2>}
       </div>
+      {/* Auto-save status indicator for Best Plans */}
+      {showAutoSaveStatus && (jobData.jobName !== '' || jobData.clientName !== '') && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {saveStatus === 'saving' && (
+            <>
+              <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+              <span>Saving draft...</span>
+            </>
+          )}
+          {saveStatus === 'saved' && lastSaved && (
+            <>
+              <div className="h-2 w-2 rounded-full bg-green-600" />
+              <span className="text-green-600">Draft saved</span>
+            </>
+          )}
+          {saveStatus === 'error' && (
+            <>
+              <div className="h-2 w-2 rounded-full bg-red-600" />
+              <span className="text-red-600">Failed to save</span>
+            </>
+          )}
+        </div>
+      )}
       {/* Add Quantity button removed as per user request */}
       {/* {showAddQty && selectedPlan && (
         <Button
@@ -2003,7 +2026,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 <SelectValue placeholder="Select quality" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
-                <div className="p-2 sticky top-0 bg-white border-b">
+                <div className="p-2 sticky top-0 bg-white border-b z-10">
                   <Input
                     placeholder="Search quality..."
                     value={qualitySearch}
@@ -2059,7 +2082,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  <div className="p-2 sticky top-0 bg-white border-b">
+                  <div className="p-2 sticky top-0 bg-white border-b z-10">
                     <Input
                       placeholder="Search GSM..."
                       value={gsmSearch}
@@ -2488,17 +2511,45 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
   const renderBestPlans = () => {
     // Apply filters to planning results
-    const filteredResults = planningResults ? planningResults.filter((plan: any) => {
+    clientLogger.log('=== renderBestPlans - Raw planningResults ===', planningResults)
+    clientLogger.log('=== renderBestPlans - Total plans received ===', planningResults?.length || 0)
+
+    // Extract unique values for dropdowns
+    const uniqueMachines = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.MachineName || p.MachineType).filter(Boolean))) : []
+    const uniqueUps = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.NoOfSets || p.TotalUps || p.Ups).filter(Boolean))).sort((a, b) => a - b) : []
+    const uniqueCosts = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.UnitPrice || p.TotalPlanCost).filter(Boolean))).sort((a, b) => a - b) : []
+
+    const filteredResults = planningResults ? planningResults.filter((plan: any, index: number) => {
       const unitCost = plan.UnitPrice || plan.TotalPlanCost || 0
-      const ups = plan.TotalUps || plan.Ups || 0
+      const ups = plan.NoOfSets || plan.TotalUps || plan.Ups || 0
       const machineName = (plan.MachineName || plan.MachineID || '').toString().toLowerCase()
 
-      const matchesUnitCost = filterUnitCost === "" || unitCost <= parseFloat(filterUnitCost)
-      const matchesUps = filterUps === "" || ups >= parseFloat(filterUps)
-      const matchesMachine = filterMachine === "" || machineName.includes(filterMachine.toLowerCase())
+      clientLogger.log(`=== Plan ${index + 1} - Filtering ===`, {
+        plan: plan,
+        unitCost,
+        ups,
+        machineName,
+        filterUnitCost,
+        filterUps,
+        filterMachine
+      })
+
+      const matchesUnitCost = !filterUnitCost || filterUnitCost === "all" || unitCost <= parseFloat(filterUnitCost)
+      const matchesUps = !filterUps || filterUps === "all" || ups === parseFloat(filterUps)
+      const matchesMachine = !filterMachine || filterMachine === "all" || machineName.includes(filterMachine.toLowerCase())
+
+      clientLogger.log(`=== Plan ${index + 1} - Filter results ===`, {
+        matchesUnitCost,
+        matchesUps,
+        matchesMachine,
+        willShow: matchesUnitCost && matchesUps && matchesMachine
+      })
 
       return matchesUnitCost && matchesUps && matchesMachine
     }) : null
+
+    clientLogger.log('=== renderBestPlans - Filtered results count ===', filteredResults?.length || 0)
+    clientLogger.log('=== renderBestPlans - Filtered results ===', filteredResults)
 
     // Structured rendering to avoid nested ternaries and JSX parsing issues
     const header = (
@@ -2671,39 +2722,61 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     // Filter controls
     const filterControls = planningResults && planningResults.length > 0 ? (
       <Card className="p-2 bg-slate-50 border-slate-200">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           <Label className="text-xs font-medium text-slate-700 whitespace-nowrap">Filters:</Label>
-          <Input
-            type="text"
-            placeholder="Machine..."
-            value={filterMachine}
-            onChange={(e) => setFilterMachine(e.target.value)}
-            className="h-7 text-xs flex-1 min-w-[100px]"
-          />
-          <Input
-            type="number"
-            placeholder="Max Cost"
-            value={filterUnitCost}
-            onChange={(e) => setFilterUnitCost(e.target.value)}
-            className="h-7 text-xs w-20 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-          <Input
-            type="number"
-            placeholder="Min UPS"
-            value={filterUps}
-            onChange={(e) => setFilterUps(e.target.value)}
-            className="h-7 text-xs w-20 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-          {(filterMachine || filterUnitCost || filterUps) && (
+
+          <Select value={filterMachine} onValueChange={setFilterMachine}>
+            <SelectTrigger className="h-8 text-xs flex-1 min-w-[100px]">
+              <SelectValue placeholder="Machine..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Machines</SelectItem>
+              {uniqueMachines.map((machine: string) => (
+                <SelectItem key={machine} value={machine.toLowerCase()}>
+                  {machine}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterUps} onValueChange={setFilterUps}>
+            <SelectTrigger className="h-8 text-xs w-[90px]">
+              <SelectValue placeholder="UPS..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All UPS</SelectItem>
+              {uniqueUps.map((ups: number) => (
+                <SelectItem key={ups} value={String(ups)}>
+                  {ups} UPS
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterUnitCost} onValueChange={setFilterUnitCost}>
+            <SelectTrigger className="h-8 text-xs w-[100px]">
+              <SelectValue placeholder="Cost..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Costs</SelectItem>
+              {uniqueCosts.map((cost: number) => (
+                <SelectItem key={cost} value={String(cost)}>
+                  ≤ ₹{cost.toFixed(2)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(filterMachine && filterMachine !== "all" || filterUnitCost && filterUnitCost !== "all" || filterUps && filterUps !== "all") && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
-                setFilterMachine("")
-                setFilterUnitCost("")
-                setFilterUps("")
+                setFilterMachine("all")
+                setFilterUnitCost("all")
+                setFilterUps("all")
               }}
-              className="h-7 px-2 text-xs"
+              className="h-8 px-3 text-xs"
             >
               Clear
             </Button>
@@ -2733,7 +2806,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           return (
             <Card
-              key={index}
+              key={plan.PlanID || index}
               className={`p-4 transition-all cursor-pointer border-2 ${
                 isSelected
                   ? 'border-[#005180] bg-[#005180]/5 shadow-lg'
@@ -2806,7 +2879,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     return (
       <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-        {renderStepHeader("Best Plans", true)}
+        {renderStepHeader("Best Plans", true, true)}
         {filterControls}
         {plansDisplay}
         {errorNode}
@@ -2834,9 +2907,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     reactToPrintFn()
   }, [reactToPrintFn, showToast])
 
-  const [filterUnitCost, setFilterUnitCost] = useState<string>("")
-  const [filterUps, setFilterUps] = useState<string>("")
-  const [filterMachine, setFilterMachine] = useState<string>("")
+  const [filterUnitCost, setFilterUnitCost] = useState<string>("all")
+  const [filterUps, setFilterUps] = useState<string>("all")
+  const [filterMachine, setFilterMachine] = useState<string>("all")
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null)
   // Explicitly chosen OperId by user (preferred over name-match resolution)
   const [selectedOperId, setSelectedOperId] = useState<string>('')
@@ -3194,6 +3267,17 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         clientLogger.log('ShirinJob Response:')
         clientLogger.log('='.repeat(80))
         clientLogger.log(JSON.stringify(shrinkJobRes, null, 2))
+        clientLogger.log('🔍 Number of plans in response:', Array.isArray(shrinkJobRes) ? shrinkJobRes.length : 0)
+        if (Array.isArray(shrinkJobRes)) {
+          shrinkJobRes.forEach((plan: any, idx: number) => {
+            clientLogger.log(`🔍 Plan ${idx + 1} UPS values:`, {
+              TotalUps: plan.TotalUps,
+              Ups: plan.Ups,
+              NoOfSets: plan.NoOfSets,
+              allKeys: Object.keys(plan)
+            })
+          })
+        }
         clientLogger.log('='.repeat(80) + '\n')
 
         // Check if response contains an error message (API might return error as array with message)
@@ -3292,7 +3376,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           currentEnquiryNumber = extractedId
           if (currentEnquiryNumber) {
             setEnquiryNumber(currentEnquiryNumber)
-            setCreatedEnquiryId(currentEnquiryNumber)
+            setCreatedEnquiryId(typeof currentEnquiryNumber === 'string' ? parseInt(currentEnquiryNumber, 10) : currentEnquiryNumber)
             setShowEnquiryCreatedDialog(true)
             clientLogger.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
           }
@@ -4482,7 +4566,7 @@ Generated with KAM Printing Wizard
                 <ClientDropdown
                   value={jobData.clientName}
                   onValueChange={(value) => setJobData({ ...jobData, clientName: value })}
-                  placeholder="Select existing client"
+                  placeholder="Select existing customer"
                 />
               </div>
 
@@ -4596,8 +4680,8 @@ Generated with KAM Printing Wizard
 
   return (
     <div className="flex flex-col h-full">
-      {/* Auto-save Status Indicator */}
-      {(jobData.jobName !== '' || jobData.clientName !== '') && (
+      {/* Auto-save Status Indicator - Hide on Best Plans step since it's shown in the header */}
+      {currentStep !== steps.indexOf('Best Plans') && (jobData.jobName !== '' || jobData.clientName !== '') && (
         <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground px-4 pt-2">
           {saveStatus === 'saving' && (
             <>
@@ -4652,7 +4736,7 @@ Generated with KAM Printing Wizard
             disabled={
               (currentStep === steps.length - 1 && !quotationNumber) ||
               planningLoading ||
-              (currentStep === steps.indexOf('Best Plans') && (planningError || !selectedPlan))
+              (currentStep === steps.indexOf('Best Plans') && (!!planningError || !selectedPlan))
             }
             className="bg-[#005180] hover:bg-[#004875] text-white text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 min-w-[80px] sm:min-w-[90px] flex items-center justify-center gap-1.5 sm:gap-2 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >

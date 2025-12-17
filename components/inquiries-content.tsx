@@ -369,12 +369,12 @@ export function InquiriesContent() {
 
           setInquiries(transformedData)
         } else {
-          clientLogger.log('⚠️ No inquiries found or API failed')
-          setError(response.error || 'No inquiries found')
+          clientLogger.log('⚠️ No enquiries found or API failed')
+          setError(response.error || 'No enquiries found')
           setInquiries([])
         }
       } catch (err: any) {
-        setError(err.message || 'An error occurred while loading inquiries')
+        setError(err.message || 'An error occurred while loading enquiries')
         setInquiries([])
       } finally {
         setIsLoading(false)
@@ -590,7 +590,7 @@ export function InquiriesContent() {
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Find your inquiries by customer, job, or SKU..."
+            placeholder="Find your enquiries by customer, job, or SKU..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
@@ -811,7 +811,7 @@ export function InquiriesContent() {
                     <TableCell colSpan={14} className="h-32 text-center">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#005180] border-t-transparent"></div>
-                        <p className="text-sm text-muted-foreground">Loading inquiries...</p>
+                        <p className="text-sm text-muted-foreground">Loading enquiries...</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -835,7 +835,7 @@ export function InquiriesContent() {
                 ) : paginatedInquiries.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={14} className="h-32 text-center">
-                      <p className="text-sm text-muted-foreground">No inquiries found</p>
+                      <p className="text-sm text-muted-foreground">No enquiries found</p>
                     </TableCell>
                   </TableRow>
                 ) : (

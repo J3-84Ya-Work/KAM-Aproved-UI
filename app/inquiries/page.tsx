@@ -85,7 +85,7 @@ export default function InquiriesPage() {
   const actions = isHODUser
     ? [{ label: "Export", onClick: handleExport }]
     : [
-        { label: "New Inquiry", onClick: handleNewInquiry },
+        { label: "New Enquiry", onClick: handleNewInquiry },
         { label: "Draft", onClick: () => router.push("/chats") },
         { label: "Export", onClick: handleExport },
       ]
@@ -109,9 +109,9 @@ export default function InquiriesPage() {
       <Dialog open={showInquiryTypeDialog} onOpenChange={setShowInquiryTypeDialog}>
         <DialogContent className="max-w-sm p-6 bg-white">
           <DialogHeader className="space-y-1">
-            <DialogTitle className="text-xl font-semibold text-center text-[#005180]">Create New Inquiry</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-center text-[#005180]">Create New Enquiry</DialogTitle>
             <DialogDescription className="text-center text-sm text-gray-600">
-              Choose how you would like to create the inquiry
+              Choose how you would like to create the enquiry
             </DialogDescription>
           </DialogHeader>
 
@@ -161,12 +161,12 @@ export default function InquiriesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* New Inquiry Dialog */}
+      {/* New Enquiry Dialog */}
       <Dialog open={showNewInquiryDialog} onOpenChange={setShowNewInquiryDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Inquiry</DialogTitle>
-            <DialogDescription>Fill in the details to create a new customer inquiry</DialogDescription>
+            <DialogTitle>Create New Enquiry</DialogTitle>
+            <DialogDescription>Fill in the details to create a new customer enquiry</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">

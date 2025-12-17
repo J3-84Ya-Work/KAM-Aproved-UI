@@ -53,7 +53,7 @@ export function FloatingNewInquiryButton() {
             ? "bg-red-500 hover:bg-red-600 rotate-45"
             : "bg-[#78BE20] hover:bg-[#6BA81B]"
         }`}
-        title="New Inquiry"
+        title="New Enquiry"
       >
         <Plus className="h-8 w-8 text-white" />
       </Button>

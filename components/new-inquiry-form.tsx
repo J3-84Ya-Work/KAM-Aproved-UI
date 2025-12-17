@@ -1339,7 +1339,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                         </SelectItem>
                       ))
                   ) : (
-                    <SelectItem value="loading" disabled>Loading clients...</SelectItem>
+                    <SelectItem value="loading" disabled>Loading customers...</SelectItem>
                   )}
                 </SelectContent>
               </Select>
