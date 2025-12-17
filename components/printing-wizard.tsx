@@ -830,12 +830,36 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       }
     } else if (currentStepName === 'Size') {
       const dims = jobData.dimensions
-      const missing = []
-      if (!dims.length) missing.push('Length')
-      if (!dims.width) missing.push('Width')
-      if (!dims.height) missing.push('Height')
-      if (!dims.openFlap) missing.push('Open Flap')
-      if (!dims.pastingFlap) missing.push('Pasting Flap')
+      const missing: string[] = []
+
+      // Get the selected content to check which fields are actually required
+      const selected = contents.find((c: any) =>
+        String(c.ContentID) === String(jobData.cartonType) ||
+        String(c.ContentName) === String(jobData.cartonType)
+      )
+      const content = selected ?? contents[0]
+      const sizesCsv = content?.ContentSizes ?? content?.ContentSize ?? ''
+      const fields = sizesCsv ? sizesCsv.split(',').map((s: string) => s.trim()) : []
+
+      // Map field names to dimension keys
+      const mapFieldKey = (f: string): { key: string, label: string } | null => {
+        const fname = f.toLowerCase()
+        if (fname.includes('height')) return { key: 'height', label: 'Height' }
+        if (fname.includes('length')) return { key: 'length', label: 'Length' }
+        if (fname.includes('width')) return { key: 'width', label: 'Width' }
+        if (fname.includes('open')) return { key: 'openFlap', label: 'Open Flap' }
+        if (fname.includes('pasting')) return { key: 'pastingFlap', label: 'Pasting Flap' }
+        if (fname.includes('bottomflap')) return { key: 'bottomFlap', label: 'Bottom Flap' }
+        return null
+      }
+
+      // Only validate the fields that are defined for this carton type
+      fields.forEach((field: string) => {
+        const mapped = mapFieldKey(field)
+        if (mapped && !(dims as any)[mapped.key]) {
+          missing.push(mapped.label)
+        }
+      })
 
       if (missing.length > 0) {
         showToast(`Please fill: ${missing.join(', ')}`, 'error')
@@ -1912,6 +1936,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           const mapField = (f: string) => {
             const fname = f.toLowerCase()
+            // JobFold fields - check these first before height/length to avoid false matches
+            if (fname.includes('jobfoldinh') || fname.includes('jobfold_inh') || fname.includes('jobfoldinheight')) return { key: 'JobFoldInH', label: 'JobFold In H', icon: '📐' }
+            if (fname.includes('jobfoldinl') || fname.includes('jobfold_inl') || fname.includes('jobfoldinlength')) return { key: 'JobFoldInL', label: 'JobFold In L', icon: '📐' }
+            if (fname.includes('jobfoldedh') || fname.includes('jobfolded_h') || fname.includes('jobfoldedheight')) return { key: 'JobFoldedH', label: 'Job Folded H', icon: '📐' }
+            if (fname.includes('jobfoldedl') || fname.includes('jobfolded_l') || fname.includes('jobfoldedlength')) return { key: 'JobFoldedL', label: 'Job Folded L', icon: '📐' }
             if (fname.includes('height')) return { key: 'height', label: 'Height', icon: '📏' }
             if (fname.includes('length')) return { key: 'length', label: 'Length', icon: '📐' }
             if (fname.includes('width')) return { key: 'width', label: 'Width', icon: '📏' }
@@ -1927,9 +1956,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             return { key: f, label: f, icon: '📏' }
           }
 
-          // Group fields: LWH in one row, OP/PF in another row, rest individually
+          // Group fields: LWH in one row, OP/PF in another row, JobFold fields in pairs, rest individually
           const lwh = ['length', 'width', 'height']
           const flaps = ['openFlap', 'pastingFlap']
+          const jobFoldIn = ['JobFoldInH', 'JobFoldInL']
+          const jobFolded = ['JobFoldedH', 'JobFoldedL']
 
           const lwhFields = fields.filter((f: string) => {
             const { key } = mapField(f)
@@ -1941,15 +1972,28 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             return flaps.includes(key)
           })
 
+          const jobFoldInFields = fields.filter((f: string) => {
+            const { key } = mapField(f)
+            return jobFoldIn.includes(key)
+          })
+
+          const jobFoldedFields = fields.filter((f: string) => {
+            const { key } = mapField(f)
+            return jobFolded.includes(key)
+          })
+
           const otherFields = fields.filter((f: string) => {
             const { key } = mapField(f)
-            return !lwh.includes(key) && !flaps.includes(key)
+            return !lwh.includes(key) && !flaps.includes(key) && !jobFoldIn.includes(key) && !jobFolded.includes(key)
           })
+
+          // Check if this is a brochure type (has JobFold fields)
+          const hasBrochureFields = jobFoldInFields.length > 0 || jobFoldedFields.length > 0
 
           return (
             <>
-              {/* Length, Width, Height in one row */}
-              {lwhFields.length > 0 && (
+              {/* Length, Width, Height in one row - but skip Height/Length if brochure (auto-calculated) */}
+              {lwhFields.length > 0 && !hasBrochureFields && (
                 <div className="grid grid-cols-3 gap-2 bg-white rounded-lg p-3 border border-slate-200">
                   {lwhFields.map((f: string) => {
                     const { key, label } = mapField(f)
@@ -1999,6 +2043,39 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 </div>
               )}
 
+              {/* For brochure types, only show Width field if present */}
+              {hasBrochureFields && lwhFields.some((f: string) => mapField(f).key === 'width') && (
+                <div className="grid grid-cols-1 gap-2 bg-white rounded-lg p-3 border border-slate-200">
+                  {lwhFields.filter((f: string) => mapField(f).key === 'width').map((f: string) => {
+                    const { key, label } = mapField(f)
+                    const isRequired = fields.includes(f)
+                    return (
+                      <div key={f} className="flex flex-col gap-1">
+                        <Label className="text-sm font-medium text-slate-700">
+                          {label} {isRequired && <span className="text-red-500 font-bold text-lg ml-1">*</span>}
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          disabled={isReadOnly}
+                          value={String((jobData.dimensions as any)[key] ?? '')}
+                          onChange={(e) => {
+                            if (isReadOnly) return
+                            setJobData({
+                              ...jobData,
+                              dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
+                            })
+                          }}
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               {/* Open Flap and Pasting Flap in one row */}
               {flapFields.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 bg-white rounded-lg p-3 border border-slate-200">
@@ -2031,6 +2108,169 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     )
                   })}
                 </div>
+              )}
+
+              {/* Brochure: JobFold In fields (JobFoldInH and JobFoldInL) in one row */}
+              {hasBrochureFields && (
+                <>
+                  {/* JobFold In H and JobFold In L - 2 fields per row */}
+                  <div className="grid grid-cols-2 gap-2 bg-white rounded-lg p-3 border border-slate-200">
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium text-slate-700">
+                        JobFold In H <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        step="1"
+                        min="1"
+                        disabled={isReadOnly}
+                        value={String((jobData.dimensions as any).JobFoldInH ?? '1')}
+                        onChange={(e) => {
+                          if (isReadOnly) return
+                          const newJobFoldInH = parseFloat(e.target.value) || 1
+                          const jobFoldedH = parseFloat((jobData.dimensions as any).JobFoldedH) || 0
+                          const calculatedHeight = jobFoldedH * newJobFoldInH
+                          setJobData({
+                            ...jobData,
+                            dimensions: {
+                              ...(jobData.dimensions as any),
+                              JobFoldInH: e.target.value,
+                              height: calculatedHeight > 0 ? String(calculatedHeight) : ''
+                            },
+                          })
+                        }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                        placeholder="1"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium text-slate-700">
+                        JobFold In L <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        step="1"
+                        min="1"
+                        disabled={isReadOnly}
+                        value={String((jobData.dimensions as any).JobFoldInL ?? '2')}
+                        onChange={(e) => {
+                          if (isReadOnly) return
+                          const newJobFoldInL = parseFloat(e.target.value) || 2
+                          const jobFoldedL = parseFloat((jobData.dimensions as any).JobFoldedL) || 0
+                          const calculatedLength = jobFoldedL * newJobFoldInL
+                          setJobData({
+                            ...jobData,
+                            dimensions: {
+                              ...(jobData.dimensions as any),
+                              JobFoldInL: e.target.value,
+                              length: calculatedLength > 0 ? String(calculatedLength) : ''
+                            },
+                          })
+                        }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                        placeholder="2"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Job Folded H and Job Folded L - 2 fields per row */}
+                  <div className="grid grid-cols-2 gap-2 bg-white rounded-lg p-3 border border-slate-200">
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Job Folded H <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        disabled={isReadOnly}
+                        value={String((jobData.dimensions as any).JobFoldedH ?? '')}
+                        onChange={(e) => {
+                          if (isReadOnly) return
+                          const newJobFoldedH = parseFloat(e.target.value) || 0
+                          const jobFoldInH = parseFloat((jobData.dimensions as any).JobFoldInH) || 1
+                          const calculatedHeight = newJobFoldedH * jobFoldInH
+                          setJobData({
+                            ...jobData,
+                            dimensions: {
+                              ...(jobData.dimensions as any),
+                              JobFoldedH: e.target.value,
+                              height: calculatedHeight > 0 ? String(calculatedHeight) : ''
+                            },
+                          })
+                        }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                        placeholder="Enter value"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Job Folded L <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        disabled={isReadOnly}
+                        value={String((jobData.dimensions as any).JobFoldedL ?? '')}
+                        onChange={(e) => {
+                          if (isReadOnly) return
+                          const newJobFoldedL = parseFloat(e.target.value) || 0
+                          const jobFoldInL = parseFloat((jobData.dimensions as any).JobFoldInL) || 2
+                          const calculatedLength = newJobFoldedL * jobFoldInL
+                          setJobData({
+                            ...jobData,
+                            dimensions: {
+                              ...(jobData.dimensions as any),
+                              JobFoldedL: e.target.value,
+                              length: calculatedLength > 0 ? String(calculatedLength) : ''
+                            },
+                          })
+                        }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                        placeholder="Enter value"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Height and Length - Auto calculated, read-only */}
+                  <div className="grid grid-cols-2 gap-2 bg-white rounded-lg p-3 border border-slate-200">
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Height <span className="text-xs text-blue-600 ml-1">(Auto)</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        readOnly
+                        value={String((jobData.dimensions as any).height ?? '')}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className="h-8 border-slate-300 bg-blue-50 text-blue-900 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        placeholder="Job Folded H × JobFold In H"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Length <span className="text-xs text-blue-600 ml-1">(Auto)</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        readOnly
+                        value={String((jobData.dimensions as any).length ?? '')}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className="h-8 border-slate-300 bg-blue-50 text-blue-900 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        placeholder="Job Folded L × JobFold In L"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               {/* Crash Lock: Show Bottom Flap % and Bottom Flap fields */}
@@ -2785,7 +3025,29 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     const controlRow = (
       <div className="flex items-center justify-between">
-        <div />
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (confirm('Start a new enquiry? This will clear all current data.')) {
+                setJobData(DEFAULT_JOB_DATA)
+                setCurrentStep(0)
+                setEnquiryNumber(null)
+                setPlanningResults(null)
+                setQuotationNumber(null)
+                setLoadedDraftId(null)
+                setCreatedEnquiryId(null)
+                setSelectedPlan(null)
+                showToast('Ready for new enquiry', 'success')
+              }
+            }}
+            className="border-green-500 text-green-600 hover:bg-green-50"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            New Enquiry
+          </Button>
+        </div>
         <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => runPlanning()} disabled={planningLoading}>
               {planningLoading ? 'Running...' : 'Run Planning'}

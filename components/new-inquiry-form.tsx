@@ -1242,7 +1242,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       SizeOpenflap: { label: "Opening Flap", placeholder: "0", key: "openingFlap" },
       SizePastingflap: { label: "Pasting Flap", placeholder: "0", key: "pastingFlap" },
       SizeBottomflap: { label: "Bottom Flap", placeholder: "0", key: "bottomFlap" },
-      SizeBottomflapPer: { label: "Bottom Flap %", placeholder: "0", key: "bottomFlapPer" },
+      SizeBottomflapPer: { label: "Bottom Flap %", placeholder: "70", key: "bottomFlapPer" },
+      // Brochure JobFold fields
+      SizeJobFoldInH: { label: "JobFold In H", placeholder: "1", key: "JobFoldInH" },
+      SizeJobFoldInL: { label: "JobFold In L", placeholder: "2", key: "JobFoldInL" },
+      SizeJobFoldedH: { label: "Job Folded H", placeholder: "0", key: "JobFoldedH" },
+      SizeJobFoldedL: { label: "Job Folded L", placeholder: "0", key: "JobFoldedL" },
     }
 
     return sizeFields.map((field: string) => fieldConfig[field]).filter(Boolean)
@@ -1719,28 +1724,219 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 if (!firstSelectedContent?.ContentSizes) return null
 
                 const sizeFields = firstSelectedContent.ContentSizes.split(',').map((s: string) => s.trim())
+                const contentName = firstSelectedContent?.ContentName?.toLowerCase() || ''
 
-                // Separate LWH from other fields
+                // Check if Crash Lock type
+                const isCrashLock = contentName.includes('crash lock') || contentName.includes('crashlock')
+
+                // Check if Brochure type (has JobFold fields)
+                const jobFoldFields = ['SizeJobFoldInH', 'SizeJobFoldInL', 'SizeJobFoldedH', 'SizeJobFoldedL']
+                const hasBrochureFields = sizeFields.some((f: string) => jobFoldFields.includes(f))
+
+                // Separate fields into groups
                 const lwh = ['SizeLength', 'SizeWidth', 'SizeHeight']
-                const lwhFields = sizeFields.filter((f: string) => lwh.includes(f))
-                const otherFields = sizeFields.filter((f: string) => !lwh.includes(f))
+                const flaps = ['SizeOpenflap', 'SizePastingflap']
+                const bottomFlapFields = ['SizeBottomflap', 'SizeBottomflapPer']
+                const jobFoldIn = ['SizeJobFoldInH', 'SizeJobFoldInL']
+                const jobFolded = ['SizeJobFoldedH', 'SizeJobFoldedL']
 
-                // Map field names to labels without (MM)
+                const lwhFields = sizeFields.filter((f: string) => lwh.includes(f))
+                const flapFields = sizeFields.filter((f: string) => flaps.includes(f))
+                const jobFoldInFields = sizeFields.filter((f: string) => jobFoldIn.includes(f))
+                const jobFoldedFields = sizeFields.filter((f: string) => jobFolded.includes(f))
+                const otherFields = sizeFields.filter((f: string) =>
+                  !lwh.includes(f) && !flaps.includes(f) && !bottomFlapFields.includes(f) &&
+                  !jobFoldIn.includes(f) && !jobFolded.includes(f)
+                )
+
+                // Map field names to labels
                 const fieldLabels: Record<string, string> = {
                   'SizeHeight': 'Height',
                   'SizeLength': 'Length',
                   'SizeWidth': 'Width',
                   'SizeOpenflap': 'Open Flap',
                   'SizePastingflap': 'Pasting Flap',
+                  'SizeBottomflap': 'Bottom Flap',
+                  'SizeBottomflapPer': 'Bottom Flap %',
                   'JobUps': 'Job Ups',
                   'SizeDiameter': 'Diameter',
                   'SizeDepth': 'Depth',
+                  'SizeJobFoldInH': 'JobFold In H',
+                  'SizeJobFoldInL': 'JobFold In L',
+                  'SizeJobFoldedH': 'Job Folded H',
+                  'SizeJobFoldedL': 'Job Folded L',
                 }
 
                 return (
                   <>
-                    {/* LWH in 3 columns */}
-                    {lwhFields.length > 0 && (
+                    {/* For Brochure types - show Width only from LWH */}
+                    {hasBrochureFields && lwhFields.some((f: string) => f === 'SizeWidth') && (
+                      <div className="grid grid-cols-1 gap-2 mb-3">
+                        <div>
+                          <Label htmlFor="content-SizeWidth" className="text-sm">
+                            Width <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="content-SizeWidth"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={planDetails['SizeWidth'] || ''}
+                            onChange={(e) => handlePlanDetailChange('SizeWidth', e.target.value)}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            className="text-sm h-10"
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* For Brochure types - JobFold In H and JobFold In L (2 per row) */}
+                    {hasBrochureFields && (
+                      <>
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          <div>
+                            <Label htmlFor="content-SizeJobFoldInH" className="text-sm">
+                              JobFold In H <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="content-SizeJobFoldInH"
+                              type="number"
+                              step="1"
+                              min="1"
+                              value={planDetails['SizeJobFoldInH'] || '1'}
+                              onChange={(e) => {
+                                const newJobFoldInH = parseFloat(e.target.value) || 1
+                                const jobFoldedH = parseFloat(planDetails['SizeJobFoldedH']) || 0
+                                const calculatedHeight = jobFoldedH * newJobFoldInH
+                                handlePlanDetailChange('SizeJobFoldInH', e.target.value)
+                                if (calculatedHeight > 0) {
+                                  handlePlanDetailChange('SizeHeight', String(calculatedHeight))
+                                }
+                              }}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              className="text-sm h-10"
+                              placeholder="1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="content-SizeJobFoldInL" className="text-sm">
+                              JobFold In L <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="content-SizeJobFoldInL"
+                              type="number"
+                              step="1"
+                              min="1"
+                              value={planDetails['SizeJobFoldInL'] || '2'}
+                              onChange={(e) => {
+                                const newJobFoldInL = parseFloat(e.target.value) || 2
+                                const jobFoldedL = parseFloat(planDetails['SizeJobFoldedL']) || 0
+                                const calculatedLength = jobFoldedL * newJobFoldInL
+                                handlePlanDetailChange('SizeJobFoldInL', e.target.value)
+                                if (calculatedLength > 0) {
+                                  handlePlanDetailChange('SizeLength', String(calculatedLength))
+                                }
+                              }}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              className="text-sm h-10"
+                              placeholder="2"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Job Folded H and Job Folded L (2 per row) */}
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          <div>
+                            <Label htmlFor="content-SizeJobFoldedH" className="text-sm">
+                              Job Folded H <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="content-SizeJobFoldedH"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={planDetails['SizeJobFoldedH'] || ''}
+                              onChange={(e) => {
+                                const newJobFoldedH = parseFloat(e.target.value) || 0
+                                const jobFoldInH = parseFloat(planDetails['SizeJobFoldInH']) || 1
+                                const calculatedHeight = newJobFoldedH * jobFoldInH
+                                handlePlanDetailChange('SizeJobFoldedH', e.target.value)
+                                if (calculatedHeight > 0) {
+                                  handlePlanDetailChange('SizeHeight', String(calculatedHeight))
+                                }
+                              }}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              className="text-sm h-10"
+                              placeholder="Enter value"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="content-SizeJobFoldedL" className="text-sm">
+                              Job Folded L <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="content-SizeJobFoldedL"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={planDetails['SizeJobFoldedL'] || ''}
+                              onChange={(e) => {
+                                const newJobFoldedL = parseFloat(e.target.value) || 0
+                                const jobFoldInL = parseFloat(planDetails['SizeJobFoldInL']) || 2
+                                const calculatedLength = newJobFoldedL * jobFoldInL
+                                handlePlanDetailChange('SizeJobFoldedL', e.target.value)
+                                if (calculatedLength > 0) {
+                                  handlePlanDetailChange('SizeLength', String(calculatedLength))
+                                }
+                              }}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              className="text-sm h-10"
+                              placeholder="Enter value"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Height and Length - Auto calculated (2 per row) */}
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          <div>
+                            <Label htmlFor="content-SizeHeight-auto" className="text-sm">
+                              Height <span className="text-xs text-blue-600 ml-1">(Auto)</span>
+                            </Label>
+                            <Input
+                              id="content-SizeHeight-auto"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              readOnly
+                              value={planDetails['SizeHeight'] || ''}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              className="text-sm h-10 bg-blue-50 text-blue-900"
+                              placeholder="Job Folded H × JobFold In H"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="content-SizeLength-auto" className="text-sm">
+                              Length <span className="text-xs text-blue-600 ml-1">(Auto)</span>
+                            </Label>
+                            <Input
+                              id="content-SizeLength-auto"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              readOnly
+                              value={planDetails['SizeLength'] || ''}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              className="text-sm h-10 bg-blue-50 text-blue-900"
+                              placeholder="Job Folded L × JobFold In L"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* LWH in 3 columns - only for non-brochure types */}
+                    {!hasBrochureFields && lwhFields.length > 0 && (
                       <div className="grid grid-cols-3 gap-2 mb-3">
                         {lwhFields.map((field: string) => {
                           const label = fieldLabels[field] || field
@@ -1752,7 +1948,43 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                               <Input
                                 id={`content-${field}`}
                                 type="number"
-                                step="1"
+                                step="0.01"
+                                min="0"
+                                value={planDetails[field] || ''}
+                                onChange={(e) => {
+                                  handlePlanDetailChange(field, e.target.value)
+                                  // For Crash Lock - auto-calculate Bottom Flap when Width changes
+                                  if (field === 'SizeWidth' && isCrashLock) {
+                                    const widthValue = parseFloat(e.target.value) || 0
+                                    const bottomFlapPer = parseFloat(planDetails['SizeBottomflapPer']) || 70
+                                    const bottomFlapValue = Math.round(widthValue * bottomFlapPer / 100)
+                                    handlePlanDetailChange('SizeBottomflap', String(bottomFlapValue))
+                                  }
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                className="text-sm h-10"
+                                required
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Open Flap and Pasting Flap in 2 columns */}
+                    {flapFields.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        {flapFields.map((field: string) => {
+                          const label = fieldLabels[field] || field
+                          return (
+                            <div key={field}>
+                              <Label htmlFor={`content-${field}`} className="text-sm">
+                                {label} <span className="text-red-500">*</span>
+                              </Label>
+                              <Input
+                                id={`content-${field}`}
+                                type="number"
+                                step="0.01"
                                 min="0"
                                 value={planDetails[field] || ''}
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
@@ -1766,7 +1998,52 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       </div>
                     )}
 
-                    {/* Other fields in 2 columns */}
+                    {/* Crash Lock: Bottom Flap % and Bottom Flap fields */}
+                    {isCrashLock && (
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                          <Label htmlFor="content-SizeBottomflapPer" className="text-sm">
+                            Bottom Flap % <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="content-SizeBottomflapPer"
+                            type="number"
+                            step="1"
+                            min="0"
+                            max="100"
+                            value={planDetails['SizeBottomflapPer'] || '70'}
+                            onChange={(e) => {
+                              const newPer = parseFloat(e.target.value) || 0
+                              const widthValue = parseFloat(planDetails['SizeWidth']) || 0
+                              const newBottomFlap = Math.round(widthValue * newPer / 100)
+                              handlePlanDetailChange('SizeBottomflapPer', e.target.value)
+                              handlePlanDetailChange('SizeBottomflap', String(newBottomFlap))
+                            }}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            className="text-sm h-10"
+                            placeholder="70"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="content-SizeBottomflap" className="text-sm">
+                            Bottom Flap <span className="text-xs text-blue-600 ml-1">(Auto)</span>
+                          </Label>
+                          <Input
+                            id="content-SizeBottomflap"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            readOnly
+                            value={planDetails['SizeBottomflap'] || ''}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            className="text-sm h-10 bg-blue-50 text-blue-900"
+                            placeholder="Width × Bottom Flap %"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Other fields in 2 columns (excluding handled fields) */}
                     {otherFields.length > 0 && (
                       <div className="grid grid-cols-2 gap-3">
                         {otherFields.map((field: string) => {
