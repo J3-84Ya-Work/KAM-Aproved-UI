@@ -712,9 +712,9 @@ export function InquiriesContent() {
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[500px]">
                           <DialogHeader>
-                            <DialogTitle className="text-[#005180]">Filter Inquiries by Date</DialogTitle>
+                            <DialogTitle className="text-[#005180]">Filter Enquiries by Date</DialogTitle>
                             <DialogDescription>
-                              Select a date range to filter the inquiries list
+                              Select a date range to filter the enquiries list
                             </DialogDescription>
                           </DialogHeader>
                           <div className="grid gap-6 py-4">

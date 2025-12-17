@@ -43,11 +43,11 @@ export default function ClientsPage() {
   }
 
   const handleExport = () => {
-    alert("Export clients as CSV/Excel")
+    alert("Export customers as CSV/Excel")
   }
 
   const handleSubmitClient = () => {
-    clientLogger.log("New Client:", formData)
+    clientLogger.log("New Customer:", formData)
     alert("Customer created successfully! Pending approval.")
     setShowNewClientDialog(false)
     setFormData({

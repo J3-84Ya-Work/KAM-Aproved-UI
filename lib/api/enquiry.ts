@@ -602,41 +602,58 @@ export class MasterDataAPI {
    */
   static async getClients(session: any) {
     try {
+      console.log('🔵 EnquiryAPI.getClients - Starting fetch...')
+      console.log('🔵 EnquiryAPI.getClients - Session:', session)
+      console.log('🔵 EnquiryAPI.getClients - Headers:', getHeaders(session))
 
       const response = await fetch(`${API_BASE_URL}/api/planwindow/GetSbClient`, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
+      console.log('🔵 EnquiryAPI.getClients - Response status:', response.ok, response.status)
 
       let data = await response.json()
+      console.log('🔵 EnquiryAPI.getClients - Raw data (first parse):', data)
+      console.log('🔵 EnquiryAPI.getClients - Data type:', typeof data)
 
       // Handle double-encoded JSON string response
       if (typeof data === 'string') {
         try {
+          console.log('🔵 EnquiryAPI.getClients - Parsing first level...')
           data = JSON.parse(data)
+          console.log('🔵 EnquiryAPI.getClients - After first parse:', data)
+          console.log('🔵 EnquiryAPI.getClients - Type after first parse:', typeof data)
 
           // Check if it's still a string after first parse (triple-encoded)
           if (typeof data === 'string') {
+            console.log('🔵 EnquiryAPI.getClients - Parsing second level (triple-encoded)...')
             data = JSON.parse(data)
+            console.log('🔵 EnquiryAPI.getClients - After second parse:', data)
+            console.log('🔵 EnquiryAPI.getClients - Type after second parse:', typeof data)
           }
         } catch (e) {
+          console.error('🔵 EnquiryAPI.getClients - Parse error:', e)
         }
       }
 
       // Handle different response formats
       let clients = []
       if (Array.isArray(data)) {
+        console.log('🔵 EnquiryAPI.getClients - Data is array, length:', data.length)
         clients = data
       } else if (data.data && Array.isArray(data.data)) {
+        console.log('🔵 EnquiryAPI.getClients - Found data.data array, length:', data.data.length)
         clients = data.data
       } else if (data.Data && Array.isArray(data.Data)) {
+        console.log('🔵 EnquiryAPI.getClients - Found data.Data array, length:', data.Data.length)
         clients = data.Data
       } else {
+        console.log('🔵 EnquiryAPI.getClients - No array found, data:', data)
       }
 
-      if (clients.length > 0) {
-      }
+      console.log('🔵 EnquiryAPI.getClients - Final clients array:', clients)
+      console.log('🔵 EnquiryAPI.getClients - Final clients count:', clients.length)
 
       return {
         success: response.ok,
@@ -644,6 +661,7 @@ export class MasterDataAPI {
         error: data.error || null,
       }
     } catch (error: any) {
+      console.error('🔵 EnquiryAPI.getClients - Error:', error)
       return {
         success: false,
         data: [],

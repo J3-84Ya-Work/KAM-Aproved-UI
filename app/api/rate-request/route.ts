@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Proxy API route for Ask Rate requests to bypass CORS
-// Use environment variable for production, fallback to local IP for development
-const RATE_API_BASE_URL = process.env.RATE_API_BASE_URL || 'http://10.5.24.209:5004'
+// Use environment variable for production, fallback to localhost:5003 for development
+const RATE_API_BASE_URL = process.env.RATE_API_BASE_URL || 'http://localhost:5003'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams, pathname } = new URL(request.url)
+    const { searchParams } = new URL(request.url)
 
     // Extract the path after /api/rate-request
     const path = searchParams.get('path') || ''
@@ -53,10 +53,16 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('🔄 RATE PROXY GET - Error:', error)
     console.error('🔄 RATE PROXY GET - Error stack:', error instanceof Error ? error.stack : 'No stack')
+
+    const errorMessage = error instanceof Error ? error.message : 'Network error'
+    const isConnectionError = errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')
+
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Network error'
+        error: isConnectionError
+          ? `Cannot connect to Rate API at ${RATE_API_BASE_URL}. Please ensure the rate request service is running on port 5003.`
+          : errorMessage
       },
       { status: 500 }
     )
@@ -114,10 +120,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('🔄 RATE PROXY POST - Error:', error)
     console.error('🔄 RATE PROXY POST - Error stack:', error instanceof Error ? error.stack : 'No stack')
+
+    const errorMessage = error instanceof Error ? error.message : 'Network error'
+    const isConnectionError = errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')
+
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Network error'
+        error: isConnectionError
+          ? `Cannot connect to Rate API at ${RATE_API_BASE_URL}. Please ensure the rate request service is running on port 5003.`
+          : errorMessage
       },
       { status: 500 }
     )

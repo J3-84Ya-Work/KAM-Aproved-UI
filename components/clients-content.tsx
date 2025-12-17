@@ -342,78 +342,107 @@ export function ClientsContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch customers from inquiries API
+  // Fetch customers from GetSbClient API (direct fetch to avoid caching issues)
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
+        console.log('🚀 STARTING CUSTOMER FETCH...')
         setIsLoading(true)
         setError(null)
 
-        const response = await EnquiryAPI.getEnquiries(
-          {
-            FromDate: '2025-01-01 00:00:00.000',
-            ToDate: '2026-12-31 23:59:59.999',
-            ApplydateFilter: 'True',
-            RadioValue: 'All',
+        // Direct API call
+        const response = await fetch('https://api.indusanalytics.co.in/api/planwindow/GetSbClient', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+            'CompanyID': '2',
+            'UserID': '2',
+            'Fyear': '2025-2026',
+            'ProductionUnitID': '1',
+            'Content-Type': 'application/json',
           },
-          null
-        )
+        })
 
-        clientLogger.log('📊 Customers API Response:', response)
+        console.log('📊 API Response status:', response.ok, response.status)
 
-        if (response.success && response.data && response.data.length > 0) {
-          // Extract unique customers from inquiries
-          const customersMap = new Map()
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`)
+        }
 
-          response.data.forEach((inquiry: any) => {
-            if (inquiry.LedgerID && inquiry.ClientName) {
-              if (!customersMap.has(inquiry.LedgerID)) {
-                customersMap.set(inquiry.LedgerID, {
-                  id: `CUST-${inquiry.LedgerID}`,
-                  ledgerId: inquiry.LedgerID,
-                  name: inquiry.ClientName,
-                  code: inquiry.LedgerID.toString(),
-                  email: '-',
-                  phone: inquiry.Mobile || '-',
-                  gst: '-',
-                  pan: '-',
-                  status: 'Active',
-                  approvalStatus: '-',
-                  complianceStatus: '-',
-                  totalOrders: 0,
-                  totalValue: 0,
-                  lastOrder: inquiry.EnquiryDate1 || inquiry.EnquiryDate,
-                  kamName: inquiry.SalesRepresentative || '-',
-                  hodName: '-',
-                  submittedDate: inquiry.EnquiryDate1 || inquiry.EnquiryDate,
-                  documents: {
-                    gst: false,
-                    pan: false,
-                    agreement: false,
-                  },
-                })
-              } else {
-                // Update total orders count
-                const customer = customersMap.get(inquiry.LedgerID)
-                customer.totalOrders += 1
-                // Update last order date if newer
-                if (inquiry.EnquiryDate1 || inquiry.EnquiryDate) {
-                  customer.lastOrder = inquiry.EnquiryDate1 || inquiry.EnquiryDate
-                }
-              }
+        let data = await response.json()
+        console.log('📊 Raw data:', data)
+        console.log('📊 Data type:', typeof data)
+
+        // Handle triple-encoded JSON string
+        if (typeof data === 'string') {
+          console.log('📊 Parsing first level...')
+          data = JSON.parse(data)
+          if (typeof data === 'string') {
+            console.log('📊 Parsing second level (triple-encoded)...')
+            data = JSON.parse(data)
+          }
+        }
+
+        console.log('📊 Parsed data:', data)
+
+        // Handle different response formats
+        let clientsData = []
+        if (Array.isArray(data)) {
+          clientsData = data
+        } else if (data?.data && Array.isArray(data.data)) {
+          clientsData = data.data
+        } else if (data?.Data && Array.isArray(data.Data)) {
+          clientsData = data.Data
+        }
+
+        console.log('📊 Clients data:', clientsData)
+        console.log('📊 Clients count:', clientsData.length)
+
+        if (clientsData.length > 0) {
+          // Map client data to match the expected format
+          const customersArray = clientsData.map((client: any) => {
+            console.log('🔍 CLIENT MAPPING - Original:', client)
+
+            const mapped = {
+              id: `CUST-${client.LedgerId || client.ledgerId || client.LedgerID || client.id}`,
+              ledgerId: client.LedgerId || client.ledgerId || client.LedgerID || client.id,
+              name: client.LedgerName || client.ledgerName || client.ClientName || client.name || '-',
+              code: (client.LedgerId || client.ledgerId || client.LedgerID || client.id || '').toString(),
+              email: '-',
+              phone: client.Mobile || client.mobile || client.phone || '-',
+              gst: '-',
+              pan: '-',
+              status: 'Active',
+              approvalStatus: '-',
+              complianceStatus: '-',
+              totalOrders: 0,
+              totalValue: 0,
+              lastOrder: '-',
+              kamName: '-',
+              hodName: '-',
+              submittedDate: '-',
+              creditDays: client.CreditDays || client.creditDays || 0,
+              documents: {
+                gst: false,
+                pan: false,
+                agreement: false,
+              },
             }
+
+            console.log('🔍 CLIENT MAPPING - Mapped:', mapped)
+            return mapped
           })
 
-          const customersArray = Array.from(customersMap.values())
-          clientLogger.log('✅ Unique Customers:', customersArray.length, customersArray)
+          console.log('✅ FINAL CUSTOMERS ARRAY:', customersArray)
+          console.log('✅ FINAL CUSTOMERS COUNT:', customersArray.length)
           setClients(customersArray)
         } else {
-          clientLogger.log('⚠️ No customers found')
-          setError(response.error || 'No customers found')
+          console.log('⚠️ NO CUSTOMERS FOUND')
+          setError('No customers found')
           setClients([])
         }
       } catch (err: any) {
-        clientLogger.error('❌ Error fetching customers:', err)
+        console.error('❌ Error fetching customers:', err)
         setError(err.message || 'An error occurred while loading customers')
         setClients([])
       } finally {
@@ -460,7 +489,7 @@ export function ClientsContent() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Find your clients by name, ID, or email..."
+            placeholder="Find your customers by name, ID, or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 placeholder:truncate"
@@ -475,73 +504,96 @@ export function ClientsContent() {
       {/* Clients Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gradient-to-r from-[#004875] to-[#003d63] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#003d63] [&_th]:text-white [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs">
-                {!isKAM && !isHODUser && (
-                  <TableHead>
-                    <div className="flex items-center justify-between">
-                      <span>HOD</span>
-                      {!isRestrictedUser && (
-                        <Select value={hodFilter} onValueChange={setHodFilter}>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005180] mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading customers...</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center text-red-500">
+                <AlertCircle className="h-16 w-16 mx-auto mb-4" />
+                <p className="text-lg font-medium mb-2">Error loading customers</p>
+                <p className="text-sm">{error}</p>
+              </div>
+            </div>
+          ) : paginatedClients.length === 0 ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center text-gray-500">
+                <p className="text-lg font-medium mb-2">No customers found</p>
+                <p className="text-sm">Try adjusting your search or filters</p>
+              </div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gradient-to-r from-[#004875] to-[#003d63] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#003d63] [&_th]:text-white [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs">
+                  {!isKAM && !isHODUser && (
+                    <TableHead>
+                      <div className="flex items-center justify-between">
+                        <span>HOD</span>
+                        {!isRestrictedUser && (
+                          <Select value={hodFilter} onValueChange={setHodFilter}>
+                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
+                              <Filter className="h-4 w-4 text-white" />
+                            </SelectTrigger>
+                            <SelectContent align="start" className="min-w-[150px]">
+                              <SelectItem value="all">All HODs</SelectItem>
+                              {hodNames.map(hodName => (
+                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </TableHead>
+                  )}
+                  {!isKAM && (
+                    <TableHead>
+                      <div className="flex items-center justify-between">
+                        <span>KAM Name</span>
+                        <Select value={kamFilter} onValueChange={setKamFilter}>
                           <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
                             <Filter className="h-4 w-4 text-white" />
                           </SelectTrigger>
                           <SelectContent align="start" className="min-w-[150px]">
-                            <SelectItem value="all">All HODs</SelectItem>
-                            {hodNames.map(hodName => (
-                              <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
+                            <SelectItem value="all">All KAMs</SelectItem>
+                            {kamNames.map(kamName => (
+                              <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                      )}
-                    </div>
-                  </TableHead>
-                )}
-                {!isKAM && (
+                      </div>
+                    </TableHead>
+                  )}
+                  <TableHead>Customer ID</TableHead>
+                  <TableHead>Company Name</TableHead>
+                  <TableHead>Customer Code</TableHead>
+                  <TableHead>Contact</TableHead>
                   <TableHead>
                     <div className="flex items-center justify-between">
-                      <span>KAM Name</span>
-                      <Select value={kamFilter} onValueChange={setKamFilter}>
+                      <span>Status</span>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
                           <Filter className="h-4 w-4 text-white" />
                         </SelectTrigger>
                         <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All KAMs</SelectItem>
-                          {kamNames.map(kamName => (
-                            <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                          ))}
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="Approved">Approved</SelectItem>
+                          <SelectItem value="Pending">Pending</SelectItem>
+                          <SelectItem value="Rejected">Rejected</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </TableHead>
-                )}
-                <TableHead>Client ID</TableHead>
-                <TableHead>Company Name</TableHead>
-                <TableHead>Customer Code</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>
-                  <div className="flex items-center justify-between">
-                    <span>Status</span>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                        <Filter className="h-4 w-4 text-white" />
-                      </SelectTrigger>
-                      <SelectContent align="start" className="min-w-[150px]">
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="Approved">Approved</SelectItem>
-                        <SelectItem value="Pending">Pending</SelectItem>
-                        <SelectItem value="Rejected">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TableHead>
-                <TableHead>Compliance</TableHead>
-                <TableHead>Total Orders</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedClients.map((client, index) => (
+                  <TableHead>Compliance</TableHead>
+                  <TableHead>Total Orders</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedClients.map((client, index) => (
                 <Dialog key={client.id}>
                   <TableRow
                     className="cursor-pointer border-b border-border/40 bg-white transition-all duration-200 even:bg-[#B92221]/5 hover:bg-[#78BE20]/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
@@ -771,8 +823,9 @@ export function ClientsContent() {
                   </TableRow>
                 </Dialog>
               ))}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
         {totalPages > 1 && (
           <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">

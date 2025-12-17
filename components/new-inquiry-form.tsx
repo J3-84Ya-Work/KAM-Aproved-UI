@@ -1317,10 +1317,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               </div>
             )}
 
-            {/* Row 3: Client Name - Full width */}
+            {/* Row 3: Customer Name - Full width */}
             <div className="w-full">
               <Label htmlFor="clientName" className="text-sm">
-                Client Name <span className="text-red-500">*</span>
+                Customer Name <span className="text-red-500">*</span>
               </Label>
               <Select
                 value={formData.clientName}
@@ -1358,7 +1358,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             {formType === 'detailed' && (
               <>
                 <div className="md:col-span-3">
-                  <Label htmlFor="concernPerson">Client Concern Person</Label>
+                  <Label htmlFor="concernPerson">Customer Concern Person</Label>
                   <Input
                     id="concernPerson"
                     value={formData.concernPerson}

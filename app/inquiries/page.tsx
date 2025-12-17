@@ -13,13 +13,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MessageSquare, FileText, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useCallback, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { canCreate, isHOD } from "@/lib/permissions"
 import { clientLogger } from "@/lib/logger"
 
 export default function InquiriesPage() {
   const router = useRouter()
-  const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
   const [showFAB, setShowFAB] = useState(false)
   const [isHODUser, setIsHODUser] = useState(false)
   const [showInquiryTypeDialog, setShowInquiryTypeDialog] = useState(false)
@@ -91,15 +90,6 @@ export default function InquiriesPage() {
         { label: "Export", onClick: handleExport },
       ]
 
-  const handleMenuToggle = useCallback((toggle: () => void) => {
-    setToggleMenu(() => toggle)
-  }, [])
-
-  const handleMenuClick = () => {
-    if (toggleMenu) {
-      toggleMenu()
-    }
-  }
 
   return (
     <SidebarProvider>
@@ -107,12 +97,12 @@ export default function InquiriesPage() {
         <AppSidebar />
       </div>
       <SidebarInset>
-        <AppHeader pageName="Inquiries" onMenuClick={handleMenuClick} />
+        <AppHeader pageName="Enquiries" />
         <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6">
           <InquiriesContent />
         </div>
         {showFAB && <FloatingActionButton actions={actions} />}
-        <MobileBottomNav onMenuToggle={handleMenuToggle} />
+        <MobileBottomNav />
       </SidebarInset>
 
       {/* Inquiry Type Selection Dialog */}

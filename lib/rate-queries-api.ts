@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger"
-// Rate Queries API Configuration - Using proxy to bypass CORS
-const RATE_API_BASE_URL = '/api/rate-request'
+// Rate Queries API Configuration - Direct connection to rate service
+const RATE_API_BASE_URL = process.env.NEXT_PUBLIC_RATE_API_BASE_URL || 'http://localhost:5003/api/raterequest'
 
 interface RateRequest {
   requestId?: number
@@ -34,7 +34,7 @@ interface ProvideRatePayload {
 // Fetch all rate requests
 export async function getAllRateRequests(): Promise<{ success: boolean; data?: any[]; error?: string }> {
   try {
-    const response = await fetch(`${RATE_API_BASE_URL}?path=/all`, {
+    const response = await fetch(`${RATE_API_BASE_URL}/all`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ export async function getAllRateRequests(): Promise<{ success: boolean; data?: a
 // Fetch rate requests for a specific user
 export async function getUserRateRequests(userId: number): Promise<{ success: boolean; data?: any[]; error?: string }> {
   try {
-    const response = await fetch(`${RATE_API_BASE_URL}?path=/user/${userId}`, {
+    const response = await fetch(`${RATE_API_BASE_URL}/user/${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -96,16 +96,12 @@ export async function getUserRateRequests(userId: number): Promise<{ success: bo
 // Create a new rate request
 export async function createRateRequest(payload: CreateRateRequestPayload): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-
-    const response = await fetch(RATE_API_BASE_URL, {
+    const response = await fetch(`${RATE_API_BASE_URL}/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        endpoint: '/create',
-        ...payload
-      })
+      body: JSON.stringify(payload)
     })
 
     const data = await response.json()
@@ -132,18 +128,15 @@ export async function createRateRequest(payload: CreateRateRequestPayload): Prom
 // Provide rate for a request
 export async function provideRate(payload: ProvideRatePayload): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    logger.log('Endpoint:', `${RATE_API_BASE_URL} (proxy to /provide-rate)`)
+    logger.log('Endpoint:', `${RATE_API_BASE_URL}/provide-rate`)
     logger.log('Body:', payload)
 
-    const response = await fetch(RATE_API_BASE_URL, {
+    const response = await fetch(`${RATE_API_BASE_URL}/provide-rate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        endpoint: '/provide-rate',
-        ...payload
-      })
+      body: JSON.stringify(payload)
     })
 
     const data = await response.json()
@@ -171,14 +164,11 @@ export async function provideRate(payload: ProvideRatePayload): Promise<{ succes
 export async function escalateRateRequest(requestId: number): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
 
-    const response = await fetch(RATE_API_BASE_URL, {
+    const response = await fetch(`${RATE_API_BASE_URL}/${requestId}/escalate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        endpoint: `/${requestId}/escalate`
-      })
     })
 
     const data = await response.json()
@@ -206,7 +196,7 @@ export async function escalateRateRequest(requestId: number): Promise<{ success:
 export async function getRequestHistory(requestId: number): Promise<{ success: boolean; data?: any[]; error?: string }> {
   try {
 
-    const response = await fetch(`${RATE_API_BASE_URL}?path=/${requestId}/history`, {
+    const response = await fetch(`${RATE_API_BASE_URL}/${requestId}/history`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

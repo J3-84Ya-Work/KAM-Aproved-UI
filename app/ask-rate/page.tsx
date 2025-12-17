@@ -31,6 +31,10 @@ interface RateQuery {
   providedRate?: number | string
   createdAt: string
   respondedAt?: string
+  itemCode?: string
+  itemID?: string | number
+  itemName?: string
+  plantID?: string
 }
 
 // Team members list with their departments
@@ -151,6 +155,8 @@ export default function AskRatePage() {
       const userId = 2
       const result = await getUserRateRequests(userId)
       if (result.success && result.data) {
+        clientLogger.log('📋 Ask Rate - Fetched requests:', result.data)
+        clientLogger.log('📋 Ask Rate - First request:', result.data[0])
         setMyRequests(result.data)
       }
     } catch (error) {
@@ -194,13 +200,16 @@ export default function AskRatePage() {
       // Get selected item details
       const selectedItemData = items.find(i => String(i.ItemID || i.id) === selectedItem)
 
+      const itemName = selectedItemData?.ItemName || selectedItemData?.Name || selectedItemData?.name || ""
+      const itemCode = selectedItemData?.ItemCode || selectedItemData?.Code || ""
+
       const result = await createRateRequest({
         requestorId: 2, // You can map this to actual user ID
         department: department,
         requestMessage: message.trim(),
-        ItemCode: selectedItemData?.ItemCode || selectedItemData?.Code || "",
+        ItemCode: itemCode,
         ItemID: selectedItem,
-        ItemName: selectedItemData?.ItemName || selectedItemData?.Name || selectedItemData?.name || "",
+        ItemName: itemName,
         PlantID: "2" // Default plant ID, can be made dynamic if needed
       })
 
@@ -556,6 +565,12 @@ export default function AskRatePage() {
                       <div
                         key={request.requestId}
                         onClick={() => {
+                          clientLogger.log('📋 Ask Rate - Opening timeline for request:', request)
+                          clientLogger.log('📋 Ask Rate - Item details:', {
+                            itemName: request.itemName,
+                            itemCode: request.itemCode,
+                            itemID: request.itemID
+                          })
                           setSelectedRequestForTimeline(request)
                           setShowTimeline(true)
                         }}
@@ -619,6 +634,8 @@ export default function AskRatePage() {
           onOpenChange={setShowTimeline}
           requestId={selectedRequestForTimeline.requestId}
           requestMessage={selectedRequestForTimeline.requestMessage}
+          itemName={selectedRequestForTimeline.itemName}
+          itemCode={selectedRequestForTimeline.itemCode}
         />
       )}
     </SidebarProvider>

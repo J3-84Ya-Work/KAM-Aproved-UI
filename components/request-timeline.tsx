@@ -19,6 +19,9 @@ interface TimelineEntry {
   toUserName?: string
   toUserEmail?: string
   toUserRole?: string
+  itemName?: string
+  itemCode?: string
+  itemID?: string | number
 }
 
 interface RequestTimelineProps {
@@ -26,6 +29,8 @@ interface RequestTimelineProps {
   onOpenChange: (open: boolean) => void
   requestId: number
   requestMessage: string
+  itemName?: string
+  itemCode?: string
 }
 
 const getActionIcon = (action: string) => {
@@ -70,10 +75,24 @@ const getLevelBadge = (level: number) => {
   return colors[level - 1] || colors[0]
 }
 
-export function RequestTimeline({ open, onOpenChange, requestId, requestMessage }: RequestTimelineProps) {
+export function RequestTimeline({ open, onOpenChange, requestId, requestMessage, itemName, itemCode }: RequestTimelineProps) {
   const [timeline, setTimeline] = useState<TimelineEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [detectedItemName, setDetectedItemName] = useState<string | undefined>(itemName)
+  const [detectedItemCode, setDetectedItemCode] = useState<string | undefined>(itemCode)
+
+  // Update detected item details when props change
+  useEffect(() => {
+    console.log('🔍 RequestTimeline - Props received:', {
+      requestId,
+      requestMessage,
+      itemName,
+      itemCode
+    })
+    if (itemName) setDetectedItemName(itemName)
+    if (itemCode) setDetectedItemCode(itemCode)
+  }, [requestId, requestMessage, itemName, itemCode])
 
   useEffect(() => {
     if (open && requestId) {
@@ -87,7 +106,18 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage 
     try {
       const result = await getRequestHistory(requestId)
       if (result.success && result.data) {
+        console.log('📋 Timeline data received:', result.data)
         setTimeline(result.data)
+
+        // Try to extract item details from the timeline data if not provided as props
+        if (!itemName || !itemCode) {
+          const firstEntry = result.data[0]
+          if (firstEntry) {
+            console.log('📋 First timeline entry:', firstEntry)
+            if (firstEntry.itemName) setDetectedItemName(firstEntry.itemName)
+            if (firstEntry.itemCode) setDetectedItemCode(firstEntry.itemCode)
+          }
+        }
       } else {
         setError(result.error || 'Failed to load timeline')
       }
@@ -112,9 +142,30 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage 
                 <p className="text-xs sm:text-sm text-gray-500">Request #{requestId}</p>
               </div>
             </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs font-medium text-blue-900 mb-1">Request Message</p>
-              <p className="text-sm text-blue-800 break-words">{requestMessage}</p>
+            <div className="space-y-2">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs font-medium text-blue-900 mb-1">Request Message</p>
+                <p className="text-sm text-blue-800 break-words">{requestMessage}</p>
+              </div>
+              {(detectedItemName || detectedItemCode) && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <p className="text-xs font-medium text-purple-900 mb-1">Item Details</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    {detectedItemName && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-purple-800">Item:</span>
+                        <span className="text-sm text-purple-900">{detectedItemName}</span>
+                      </div>
+                    )}
+                    {detectedItemCode && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-purple-800">Code:</span>
+                        <span className="text-sm text-purple-900 font-mono">{detectedItemCode}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </DialogHeader>
         </div>

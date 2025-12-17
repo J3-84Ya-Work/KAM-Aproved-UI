@@ -816,7 +816,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     if (currentStepName === 'Job Details') {
       const missing = []
-      if (!jobData.clientName) missing.push('Client Name')
+      if (!jobData.clientName) missing.push('Customer Name')
       if (!jobData.jobName) missing.push('Job Name')
       if (!jobData.quantity) missing.push('Quantity')
       if (missing.length > 0) {
@@ -1588,7 +1588,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       <div className="space-y-4">
         <div className="space-y-1">
           <Label htmlFor="clientName" className="text-sm font-medium text-slate-700">
-            Client Name <span className="text-red-600 font-bold text-xl ml-1">*</span>
+            Customer Name <span className="text-red-600 font-bold text-xl ml-1">*</span>
           </Label>
           <ClientDropdown
             value={jobData.clientName}
@@ -3558,7 +3558,7 @@ Generated with KAM Printing Wizard
             startY: yPos,
             head: [],
             body: [
-              ['Client Name', ':', mainData.LedgerName || 'N/A'],
+              ['Customer Name', ':', mainData.LedgerName || 'N/A'],
               ['To,', ':', mainData.LedgerName || 'N/A'],
               ['', '', `${mainData.Address1 || ''}${mainData.CityName ? ', ' + mainData.CityName : ''}${mainData.PinCode ? ' - ' + mainData.PinCode : ''}`],
               ['Subject', ':', `Quotation For : ${mainData.JobName || 'N/A'}`],
@@ -3772,7 +3772,7 @@ Generated with KAM Printing Wizard
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs text-slate-500 mb-1">Client Name</div>
+                <div className="text-xs text-slate-500 mb-1">Customer Name</div>
                 <div className="font-bold text-slate-900 text-sm">{mainData.LedgerName || 'N/A'}</div>
               </div>
               <div>
@@ -3894,7 +3894,7 @@ Generated with KAM Printing Wizard
                     startY: yPos,
                     head: [],
                     body: [
-                      ['Client Name', ':', mainData.LedgerName || 'N/A'],
+                      ['Customer Name', ':', mainData.LedgerName || 'N/A'],
                       ['To,', ':', mainData.LedgerName || 'N/A'],
                       ['', '', `${mainData.Address1 || ''}${mainData.CityName ? ', ' + mainData.CityName : ''}${mainData.PinCode ? ' - ' + mainData.PinCode : ''}`],
                       ['Subject', ':', `Quotation For : ${mainData.JobName || 'N/A'}`],
@@ -4477,7 +4477,7 @@ Generated with KAM Printing Wizard
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="clientName" className="text-sm font-medium text-slate-700">
-                  Client Name
+                  Customer Name
                 </Label>
                 <ClientDropdown
                   value={jobData.clientName}

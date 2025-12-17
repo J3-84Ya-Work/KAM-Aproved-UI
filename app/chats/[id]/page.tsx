@@ -186,20 +186,7 @@ export default function ConversationPage() {
                                 </div>
                               </div>
                             ) : (
-                              <>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <User className="h-4 w-4" />
-                                  <span className="text-xs font-semibold">
-                                    {message.role === 'user' ? 'You' : 'Assistant'}
-                                  </span>
-                                </div>
-                                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                                <p className={`text-xs mt-2 ${
-                                  message.role === 'user' ? 'text-gray-200' : 'text-gray-500'
-                                }`}>
-                                  {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
-                                </p>
-                              </>
+                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                             )}
                           </div>
                         </div>

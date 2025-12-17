@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { getCurrentUser } from "@/lib/permissions"
 import { EnquiryAPI, QuotationsAPI } from "@/lib/api/enquiry"
+import { getForms } from "@/lib/api/projects"
 import { clientLogger } from "@/lib/logger"
 
 const roleBasedNavItems = {
@@ -51,7 +52,7 @@ const roleBasedNavItems = {
       icon: Users,
     },
     {
-      title: "Inquiries",
+      title: "Enquiries",
       url: "/inquiries",
       icon: FileText,
       badge: 12,
@@ -63,7 +64,7 @@ const roleBasedNavItems = {
       badge: 8,
     },
     {
-      title: "Chats",
+      title: "Conversations",
       url: "/chats",
       icon: MessageSquare,
     },
@@ -226,6 +227,9 @@ export function AppSidebar() {
   const [quotationCount, setQuotationCount] = useState<number>(0)
   const [customerCount, setCustomerCount] = useState<number>(0)
   const [approvalCount, setApprovalCount] = useState<number>(0)
+  const [conversationCount, setConversationCount] = useState<number>(0)
+  const [askRateCount, setAskRateCount] = useState<number>(0)
+  const [projectCount, setProjectCount] = useState<number>(0)
 
   useEffect(() => {
     // Get current user info
@@ -288,12 +292,18 @@ export function AppSidebar() {
     const fetchCustomerCount = async () => {
       try {
         clientLogger.log('📊 Sidebar - Fetching customer count...')
+        const user = getCurrentUser()
+        const userId = user?.userId || '2'
+        const companyId = user?.companyId || '2'
+
+        clientLogger.log('📊 Sidebar - Customer fetch using userId:', userId, 'companyId:', companyId)
+
         const response = await fetch('https://api.indusanalytics.co.in/api/planwindow/GetSbClient', {
           method: 'GET',
           headers: {
             'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
-            'CompanyID': '2',
-            'UserID': '2',
+            'CompanyID': String(companyId),
+            'UserID': String(userId),
             'Fyear': '2025-2026',
             'ProductionUnitID': '1',
             'Content-Type': 'application/json',
@@ -302,12 +312,46 @@ export function AppSidebar() {
 
         clientLogger.log('📊 Sidebar - Customer response status:', response.ok)
         if (response.ok) {
-          const data = await response.json()
-          clientLogger.log('📊 Sidebar - Customer data:', data)
-          if (Array.isArray(data)) {
-            clientLogger.log('✅ Sidebar - Setting customer count:', data.length)
-            setCustomerCount(data.length)
+          let data = await response.json()
+          clientLogger.log('📊 Sidebar - Customer raw data:', data)
+          clientLogger.log('📊 Sidebar - Customer data type:', typeof data)
+
+          // Handle double-encoded JSON string response (same as in enquiry.ts)
+          if (typeof data === 'string') {
+            try {
+              clientLogger.log('📊 Sidebar - Parsing JSON string...')
+              data = JSON.parse(data)
+
+              // Check if it's still a string after first parse (triple-encoded)
+              if (typeof data === 'string') {
+                clientLogger.log('📊 Sidebar - Parsing JSON string again (triple-encoded)...')
+                data = JSON.parse(data)
+              }
+            } catch (e) {
+              clientLogger.error('❌ Sidebar - Failed to parse JSON string:', e)
+            }
           }
+
+          clientLogger.log('📊 Sidebar - Customer data after parsing:', data)
+          clientLogger.log('📊 Sidebar - Customer data is array?', Array.isArray(data))
+
+          // Handle different response formats
+          let clients = []
+          if (Array.isArray(data)) {
+            clients = data
+          } else if (data && typeof data === 'object') {
+            clients = data.data || data.Data || data.customers || data.Customers || []
+          }
+
+          console.log('🔍 CUSTOMER DATA - Total count:', clients.length)
+          console.log('🔍 CUSTOMER DATA - Full list:', clients)
+          console.table(clients)
+
+          clientLogger.log('✅ Sidebar - Setting customer count:', clients.length)
+          clientLogger.log('📊 Sidebar - Full customer list:', clients)
+          setCustomerCount(clients.length)
+        } else {
+          clientLogger.error('❌ Sidebar - Customer API returned error status:', response.status)
         }
       } catch (error) {
         clientLogger.error('❌ Sidebar - Failed to fetch customer count:', error)
@@ -337,11 +381,146 @@ export function AppSidebar() {
       }
     }
 
+    // Fetch conversations count
+    const fetchConversationCount = async () => {
+      try {
+        clientLogger.log('📊 Sidebar - Fetching conversation count...')
+        const user = getCurrentUser()
+        const userId = user?.userId || '2'
+        const companyId = user?.companyId || '2'
+
+        const response = await fetch('https://api.indusanalytics.co.in/api/parksons/conversations', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+            'CompanyID': String(companyId),
+            'UserID': String(userId),
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (Array.isArray(data)) {
+            clientLogger.log('✅ Sidebar - Setting conversation count:', data.length)
+            setConversationCount(data.length)
+          }
+        }
+      } catch (error) {
+        clientLogger.error('❌ Sidebar - Failed to fetch conversation count:', error)
+      }
+    }
+
+    // Fetch ask rate count (pending)
+    const fetchAskRateCount = async () => {
+      try {
+        clientLogger.log('📊 Sidebar - Fetching ask rate count...')
+        const RATE_API_URL = process.env.NEXT_PUBLIC_RATE_API_BASE_URL || 'http://localhost:5003/api/raterequest'
+        const response = await fetch(`${RATE_API_URL}/all`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        clientLogger.log('📊 Sidebar - Ask rate response status:', response.ok)
+        if (response.ok) {
+          let data = await response.json()
+          clientLogger.log('📊 Sidebar - Ask rate raw data:', data)
+          clientLogger.log('📊 Sidebar - Ask rate data type:', typeof data)
+
+          // Handle double-encoded JSON string response
+          if (typeof data === 'string') {
+            try {
+              clientLogger.log('📊 Sidebar - Parsing ask rate JSON string...')
+              data = JSON.parse(data)
+
+              // Check if it's still a string after first parse (triple-encoded)
+              if (typeof data === 'string') {
+                clientLogger.log('📊 Sidebar - Parsing ask rate JSON string again (triple-encoded)...')
+                data = JSON.parse(data)
+              }
+            } catch (e) {
+              clientLogger.error('❌ Sidebar - Failed to parse ask rate JSON string:', e)
+            }
+          }
+
+          clientLogger.log('📊 Sidebar - Ask rate data after parsing:', data)
+
+          // Handle different response formats
+          let askRates = []
+          if (Array.isArray(data)) {
+            askRates = data
+          } else if (data && typeof data === 'object') {
+            askRates = data.data || data.Data || data.requests || data.Requests || []
+          }
+
+          clientLogger.log('📊 Sidebar - Ask rate is array?', Array.isArray(askRates))
+          clientLogger.log('📊 Sidebar - Ask rate total items:', askRates.length)
+
+          if (askRates.length > 0) {
+            clientLogger.log('📊 Sidebar - First ask rate item:', askRates[0])
+            clientLogger.log('📊 Sidebar - First item keys:', Object.keys(askRates[0]))
+          }
+
+          // Count only pending requests - check multiple possible field names
+          const pendingCount = askRates.filter((item: any) =>
+            item.Status === 'Pending' ||
+            item.status === 'Pending' ||
+            item.STATUS === 'Pending' ||
+            item.State === 'Pending' ||
+            item.state === 'Pending'
+          ).length
+
+          clientLogger.log('✅ Sidebar - Setting ask rate count (pending only):', pendingCount)
+          setAskRateCount(pendingCount)
+        } else {
+          clientLogger.error('❌ Sidebar - Ask rate API returned error status:', response.status)
+        }
+      } catch (error) {
+        clientLogger.error('❌ Sidebar - Failed to fetch ask rate count:', error)
+      }
+    }
+
+    // Fetch projects count (all types: SDO, JDO, Commercial)
+    const fetchProjectCount = async () => {
+      try {
+        clientLogger.log('📊 Sidebar - Fetching projects count...')
+
+        // Fetch all three types in parallel
+        const [sdoResponse, jdoResponse, commercialResponse] = await Promise.all([
+          getForms({ FormType: 'SDO' }),
+          getForms({ FormType: 'JDO' }),
+          getForms({ FormType: 'Commercial' })
+        ])
+
+        let totalCount = 0
+
+        if (sdoResponse.success && Array.isArray(sdoResponse.data)) {
+          totalCount += sdoResponse.data.length
+        }
+        if (jdoResponse.success && Array.isArray(jdoResponse.data)) {
+          totalCount += jdoResponse.data.length
+        }
+        if (commercialResponse.success && Array.isArray(commercialResponse.data)) {
+          totalCount += commercialResponse.data.length
+        }
+
+        clientLogger.log('✅ Sidebar - Setting project count:', totalCount)
+        setProjectCount(totalCount)
+      } catch (error) {
+        clientLogger.error('❌ Sidebar - Failed to fetch project count:', error)
+      }
+    }
+
     clientLogger.log('🚀 Sidebar - Starting all count fetches...')
     fetchInquiryCount()
     fetchQuotationCount()
     fetchCustomerCount()
     fetchApprovalCount()
+    fetchConversationCount()
+    fetchAskRateCount()
+    fetchProjectCount()
     clientLogger.log('🚀 Sidebar - All fetch functions called')
   }, [])
 
@@ -425,7 +604,7 @@ export function AppSidebar() {
               {navItems.map((item) => {
                 // Get dynamic count for specific items
                 let displayCount: number | undefined = item.badge
-                if (item.title === 'Inquiries') {
+                if (item.title === 'Enquiries') {
                   displayCount = inquiryCount
                 } else if (item.title === 'Quotations') {
                   displayCount = quotationCount
@@ -435,6 +614,15 @@ export function AppSidebar() {
                 } else if (item.title === 'Approvals') {
                   displayCount = approvalCount
                   clientLogger.log('🔢 Sidebar - Approvals menu item, count:', approvalCount)
+                } else if (item.title === 'Conversations') {
+                  displayCount = conversationCount
+                  clientLogger.log('🔢 Sidebar - Conversations menu item, count:', conversationCount)
+                } else if (item.title === 'Ask Rate') {
+                  displayCount = askRateCount
+                  clientLogger.log('🔢 Sidebar - Ask Rate menu item, count:', askRateCount)
+                } else if (item.title === 'Projects') {
+                  displayCount = projectCount
+                  clientLogger.log('🔢 Sidebar - Projects menu item, count:', projectCount)
                 }
 
                 return (

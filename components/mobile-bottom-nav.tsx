@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 const roleBasedNavItems = {
   KAM: [
     {
-      title: "Inquiries",
+      title: "Enquiries",
       url: "/inquiries",
       icon: FileText,
     },

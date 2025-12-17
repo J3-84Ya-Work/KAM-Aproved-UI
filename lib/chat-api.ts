@@ -165,16 +165,28 @@ export async function getConversations(userId: string = '2', companyId: string =
     console.log('[Chat API] First item from array:', dataArray[0])
     console.log('[Chat API] All field names in first item:', dataArray[0] ? Object.keys(dataArray[0]) : 'No items')
 
-    const normalizedData = dataArray.map((item: any) => {
+    const normalizedData = dataArray.map((item: any, index: number) => {
+      // Try to extract conversationId from various possible field names
+      const conversationId = item.ConversationID ||
+                            item.conversationId ||
+                            item.id ||
+                            item.conversation_id ||
+                            item.ConversationId ||
+                            item.conversationID ||
+                            item.chatId ||
+                            item.ChatId ||
+                            // If no ID field exists, use index as fallback (not ideal but prevents undefined)
+                            index + 1
+
       const normalized = {
-        conversationId: item.conversationId || item.id || item.conversation_id || item.ConversationId,
-        userId: item.userId || item.user_id || item.UserId,
+        conversationId: conversationId,
+        userId: item.userId || item.user_id || item.UserId || item.UserID,
         userName: item.userName || item.user_name || item.UserName,
-        title: item.title || item.Title || item.name || item.Name || item.topic || item.Topic,
+        title: item.Title || item.title || item.name || item.Name || item.topic || item.Topic,
         lastMessage: item.lastMessage || item.last_message || item.LastMessage || item.recentMessage,
-        lastMessageTime: item.lastMessageTime || item.last_message_time || item.LastMessageTime || item.lastUpdated,
-        createdAt: item.createdAt || item.created_at || item.CreatedAt,
-        updatedAt: item.updatedAt || item.updated_at || item.UpdatedAt,
+        lastMessageTime: item.LastActivityAt || item.lastActivityAt || item.lastMessageTime || item.last_message_time || item.LastMessageTime || item.lastUpdated,
+        createdAt: item.CreatedAt || item.createdAt || item.created_at,
+        updatedAt: item.UpdatedAt || item.updatedAt || item.updated_at || item.LastActivityAt || item.lastActivityAt,
       }
       console.log('[Chat API] Normalized item:', normalized, 'from original:', item)
       return normalized
@@ -223,12 +235,12 @@ export async function getMessages(conversationId: number, userId: string = '2', 
     // Normalize the data to match our Message interface
     const dataArray = Array.isArray(rawData) ? rawData : (rawData?.data || [])
     const normalizedData = dataArray.map((item: any) => ({
-      messageId: item.messageId || item.id || item.message_id || item.MessageId,
-      conversationId: item.conversationId || item.conversation_id || item.ConversationId || conversationId,
-      role: item.role || item.Role || (item.sender === 'user' ? 'user' : 'assistant'),
-      content: item.content || item.message || item.Content || item.Message || '',
-      timestamp: item.timestamp || item.created_at || item.createdAt || item.Timestamp || new Date().toISOString(),
-      createdAt: item.createdAt || item.created_at || item.CreatedAt,
+      messageId: item.MessageID || item.messageId || item.id || item.message_id || item.MessageId,
+      conversationId: item.ConversationID || item.conversationId || item.conversation_id || item.ConversationId || conversationId,
+      role: (item.Role || item.role || (item.sender === 'user' ? 'user' : 'assistant')) as 'user' | 'assistant' | 'system',
+      content: item.MessageContent || item.content || item.message || item.Content || item.Message || '',
+      timestamp: item.CreatedAt || item.timestamp || item.created_at || item.createdAt || item.Timestamp || new Date().toISOString(),
+      createdAt: item.CreatedAt || item.createdAt || item.created_at,
     }))
 
     console.log('[Chat API] Messages normalized data:', normalizedData)

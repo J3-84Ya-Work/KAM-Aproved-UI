@@ -4,14 +4,14 @@ import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/app-header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
-import { MessageSquare, Clock } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { MessageSquare } from "lucide-react"
 import { getConversations, Conversation } from "@/lib/chat-api"
 import { formatDistanceToNow } from "date-fns"
 import { clientLogger } from "@/lib/logger"
 import { getCurrentUser } from "@/lib/permissions"
+import { FloatingActionButton } from "@/components/floating-action-button"
 
 export default function ChatsPage() {
   const router = useRouter()
@@ -68,75 +68,99 @@ export default function ChatsPage() {
   // Navigate to conversation page when clicked
   const handleConversationClick = (conversation: Conversation) => {
     console.log('🔍 Conversation clicked:', conversation)
+    console.log('🔍 Conversation ID:', conversation.conversationId)
+    console.log('🔍 All conversation fields:', Object.keys(conversation))
+
+    if (!conversation.conversationId) {
+      console.error('❌ ERROR: conversationId is undefined!')
+      console.error('Full conversation object:', JSON.stringify(conversation, null, 2))
+      alert('Error: Cannot open conversation - ID is missing')
+      return
+    }
+
     router.push(`/chats/${conversation.conversationId}`)
   }
+
+  const actions = [
+    { label: "New Chat", onClick: handleNewChat }
+  ]
 
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <AppHeader pageName="Chats" />
-        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 max-w-4xl mx-auto w-full">
-          <Card className="flex flex-col h-[calc(100vh-180px)]">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Conversations
-                  {conversations.length > 0 && (
-                    <Badge variant="secondary" className="ml-auto">
-                      {conversations.length}
-                    </Badge>
-                  )}
-                </CardTitle>
-                <button
-                  onClick={handleNewChat}
-                  className="mt-3 w-full px-4 py-2 bg-[#005180] text-white rounded-lg hover:bg-[#004166] transition-colors flex items-center justify-center gap-2"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  New Chat
-                </button>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-hidden p-0">
-                {loading ? (
-                  <div className="text-center py-8 text-gray-500">Loading conversations...</div>
-                ) : conversations.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>No conversations found</p>
+        <AppHeader pageName="Conversations" />
+        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6">
+          <Card className="surface-elevated overflow-hidden relative">
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005180] mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading conversations...</p>
                   </div>
-                ) : (
-                  <ScrollArea className="h-full">
-                    <div className="space-y-2 p-4">
+                </div>
+              ) : conversations.length === 0 ? (
+                <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+                  <div className="text-center text-gray-500">
+                    <MessageSquare className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium mb-2">No conversations yet</p>
+                    <p className="text-sm">Start a new chat to begin</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto relative z-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gradient-to-r from-[#005180] to-[#003d63] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#003d63]">
+                        <TableHead className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          Title
+                        </TableHead>
+                        <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          Created
+                        </TableHead>
+                        <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
+                          Last Activity
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {conversations.map((conversation) => (
-                        <div
+                        <TableRow
                           key={conversation.conversationId}
                           onClick={() => handleConversationClick(conversation)}
-                          className="p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md bg-white border-gray-200 hover:border-[#005180] hover:bg-gray-50"
+                          className="cursor-pointer hover:bg-gray-50 transition-colors"
                         >
-                          <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-semibold text-sm truncate">
-                              {conversation.title || `Conversation #${conversation.conversationId}`}
-                            </h3>
-                          </div>
-                          {conversation.lastMessage && (
-                            <p className="text-xs truncate mb-2 text-gray-600">
-                              {conversation.lastMessage}
-                            </p>
-                          )}
-                          {conversation.lastMessageTime && (
-                            <p className="text-xs flex items-center gap-1 text-gray-500">
-                              <Clock className="h-3 w-3" />
-                              {formatDistanceToNow(new Date(conversation.lastMessageTime), { addSuffix: true })}
-                            </p>
-                          )}
-                        </div>
+                          <TableCell className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="h-4 w-4 text-[#005180] flex-shrink-0" />
+                              <span className="font-medium">
+                                {conversation.title || `Conversation #${conversation.conversationId}`}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-sm text-gray-600">
+                            {conversation.createdAt
+                              ? formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })
+                              : '-'}
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-sm text-gray-600">
+                            {conversation.lastMessageTime
+                              ? formatDistanceToNow(new Date(conversation.lastMessageTime), { addSuffix: true })
+                              : conversation.createdAt
+                              ? formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })
+                              : '-'}
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
+        <FloatingActionButton actions={actions} />
       </SidebarInset>
     </SidebarProvider>
   )
