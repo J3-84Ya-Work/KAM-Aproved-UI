@@ -18,6 +18,7 @@ interface Message {
   timestamp: Date
   isLoading?: boolean
   options?: string[]
+  allowMultiSelect?: boolean  // Flag to enable multiple selection for this message
 }
 
 // Function to parse numbered options from message text

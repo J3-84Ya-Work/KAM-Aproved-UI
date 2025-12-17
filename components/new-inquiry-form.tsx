@@ -1422,9 +1422,21 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 step="1"
                 min="1"
                 value={formData.quantity}
-                onChange={(e) => handleInputChange("quantity", e.target.value)}
+                onChange={(e) => {
+                  // Only allow positive integers
+                  const value = e.target.value.replace(/[^\d]/g, '')
+                  const cleanValue = value.replace(/^0+/, '') || ''
+                  handleInputChange("quantity", cleanValue)
+                }}
+                onKeyDown={(e) => {
+                  // Prevent decimal point, minus, plus, and e (scientific notation)
+                  if (['.', '-', '+', 'e', 'E'].includes(e.key)) {
+                    e.preventDefault()
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className={`h-10 ${validationErrors.quantity ? "border-red-500" : ""}`}
+                placeholder="Enter quantity"
               />
             </div>
             {formType === 'detailed' && (
@@ -1438,9 +1450,20 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   step="1"
                   min="1"
                   value={formData.annualQuantity}
-                  onChange={(e) => handleInputChange("annualQuantity", e.target.value)}
+                  onChange={(e) => {
+                    // Only allow positive integers
+                    const value = e.target.value.replace(/[^\d]/g, '')
+                    const cleanValue = value.replace(/^0+/, '') || ''
+                    handleInputChange("annualQuantity", cleanValue)
+                  }}
+                  onKeyDown={(e) => {
+                    if (['.', '-', '+', 'e', 'E'].includes(e.key)) {
+                      e.preventDefault()
+                    }
+                  }}
                   onWheel={(e) => e.currentTarget.blur()}
                   className={`h-10 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.annualQuantity ? "border-red-500" : ""}`}
+                  placeholder="Enter annual quantity"
                   required
                 />
               </div>

@@ -1566,9 +1566,19 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   }
 
   const renderJobDetails = () => {
+    // Check if enquiry is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null
+
     return (
     <div className="p-2 sm:p-4 space-y-3 sm:space-y-4 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
       {renderStepHeader("Job Details", false)}
+
+      {/* Read-only notice */}
+      {isReadOnly && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+          <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+        </div>
+      )}
 
       {/* Header with clear button */}
       <div className="flex items-center justify-between py-1 sm:py-2">
@@ -1576,6 +1586,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           <Package className="w-6 h-6 text-[#005180]" />
           <p className="text-slate-600 text-sm">Let's get started with your project</p>
         </div>
+        {!isReadOnly && (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -1606,6 +1617,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             <span className="text-xs font-medium">Clear Store</span>
           </Button>
         </div>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -1615,7 +1627,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </Label>
           <ClientDropdown
             value={jobData.clientName}
-            onValueChange={(value) => setJobData({ ...jobData, clientName: value })}
+            onValueChange={(value) => !isReadOnly && setJobData({ ...jobData, clientName: value })}
+            disabled={isReadOnly}
           />
         </div>
 
@@ -1626,8 +1639,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           <Input
             id="jobName"
             value={jobData.jobName}
-            onChange={(e) => setJobData({ ...jobData, jobName: e.target.value })}
-            className="h-10 border border-slate-300 focus:border-[#005180] transition-colors"
+            onChange={(e) => !isReadOnly && setJobData({ ...jobData, jobName: e.target.value })}
+            disabled={isReadOnly}
+            className={`h-10 border border-slate-300 focus:border-[#005180] transition-colors ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
           />
         </div>
 
@@ -1637,13 +1651,49 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </Label>
           <Input
             id="quantity"
-            type="number"
-            step="1"
-            min="0"
+            type="tel"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-form-type="other"
+            disabled={isReadOnly}
             value={jobData.quantity}
-            onChange={(e) => setJobData({ ...jobData, quantity: e.target.value })}
+            onChange={(e) => {
+              if (isReadOnly) return
+              // Get the raw value and extract only integers
+              const rawValue = e.target.value
+              // Remove any non-digit characters
+              const digitsOnly = rawValue.replace(/[^0-9]/g, '')
+              // Remove leading zeros
+              const cleanValue = digitsOnly.replace(/^0+/, '') || ''
+              // Only update if value changed (prevents cursor jumping)
+              if (cleanValue !== jobData.quantity) {
+                setJobData({ ...jobData, quantity: cleanValue })
+              }
+              // Force the input to show only digits
+              e.target.value = cleanValue
+            }}
+            onKeyDown={(e) => {
+              if (isReadOnly) return
+              // Allow control keys
+              if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+                return
+              }
+              // Allow Ctrl/Cmd combinations
+              if (e.ctrlKey || e.metaKey) {
+                return
+              }
+              // Block non-numeric keys
+              if (!/^[0-9]$/.test(e.key)) {
+                e.preventDefault()
+              }
+            }}
             onWheel={(e) => e.currentTarget.blur()}
-            className="h-10 border border-slate-300 focus:border-[#005180] transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className={`h-10 border border-slate-300 focus:border-[#005180] transition-colors ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+            placeholder="Enter quantity"
           />
         </div>
       </div>
@@ -1654,6 +1704,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const renderCartonType = () => {
     const selectedCategory = categories.find((c: any) => String(c.id) === String(selectedCategoryId))
     const selectedCategoryName = selectedCategory?.name || "Select Category"
+    // Check if enquiry is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null
 
     // Filter categories and contents based on search
     const filteredCategories = categories.filter((category: any) => {
@@ -1669,6 +1721,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     return (
       <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
         {renderStepHeader("Category & Carton Type", false)}
+
+        {/* Read-only notice */}
+        {isReadOnly && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+            <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+          </div>
+        )}
+
         <div className="text-center py-2">
           <p className="text-slate-600 text-sm">First select category, then choose the perfect box style</p>
         </div>
@@ -1679,13 +1739,15 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           <Select
             value={selectedCategoryId || ""}
             onValueChange={(value) => {
+              if (isReadOnly) return
               if (value) {
                 setSelectedCategoryId(value)
                 fetchContents(value)
               }
             }}
+            disabled={isReadOnly}
           >
-            <SelectTrigger className="w-full h-12">
+            <SelectTrigger className={`w-full h-12 ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}>
               <SelectValue placeholder="Select a category" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
@@ -1749,12 +1811,15 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   {filteredContents.map((content) => (
                     <Card
                       key={content.ContentID}
-                      className={`w-full p-3 sm:p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                      className={`w-full p-3 sm:p-4 transition-all duration-200 ${
+                        isReadOnly ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:shadow-lg'
+                      } ${
                         jobData.cartonType === content.ContentName
                           ? "border-2 border-[#005180] bg-[#005180]/10 shadow-md"
                           : "border border-slate-200 hover:border-[#005180]"
                       }`}
                       onClick={async () => {
+                          if (isReadOnly) return
                           // set carton type immediately
                           setJobData({ ...jobData, cartonType: content.ContentName })
 
@@ -1815,9 +1880,20 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     )
   }
 
-  const renderSize = () => (
+  const renderSize = () => {
+    // Check if enquiry is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null
+
+    return (
     <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
       {renderStepHeader("Box Size (mm)", false)}
+
+      {/* Read-only notice */}
+      {isReadOnly && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+          <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+        </div>
+      )}
 
       <div className="space-y-3">
         {
@@ -1842,7 +1918,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             if (fname.includes('open')) return { key: 'openFlap', label: 'Open Flap', icon: '📋' }
             if (fname.includes('pasting')) return { key: 'pastingFlap', label: 'Pasting Flap', icon: '📋' }
             if (fname.includes('bottomflapper') || fname.includes('bottomflapper')) return { key: 'bottomFlapPer', label: 'Bottom Flap %', icon: '📐' }
-            if (fname.includes('bottomflap') || fname.includes('bottom_flap')) return { key: 'bottomFlap', label: 'Bottom Flap', icon: '📐' }
+            if (fname.includes('bottomflap') || fname.includes('bottom_flap')) {
+              // For Crash Lock types, label as "Bottom Flap %" since it's auto-calculated from width
+              const contentName = content?.ContentName?.toLowerCase() || ''
+              const isCrashLock = contentName.includes('crash lock') || contentName.includes('crashlock')
+              return { key: 'bottomFlap', label: isCrashLock ? 'Bottom Flap %' : 'Bottom Flap', icon: '📐' }
+            }
             return { key: f, label: f, icon: '📏' }
           }
 
@@ -1872,24 +1953,45 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 <div className="grid grid-cols-3 gap-2 bg-white rounded-lg p-3 border border-slate-200">
                   {lwhFields.map((f: string) => {
                     const { key, label } = mapField(f)
+                    // Only show asterisk if this field is in the ContentSizes for this carton type
+                    const isRequired = fields.includes(f)
                     return (
                       <div key={f} className="flex flex-col gap-1">
                         <Label className="text-sm font-medium text-slate-700">
-                          {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                          {label} {isRequired && <span className="text-red-500 font-bold text-lg ml-1">*</span>}
                         </Label>
                         <Input
                           type="number"
-                          step="1"
+                          step="0.01"
                           min="0"
+                          disabled={isReadOnly}
                           value={String((jobData.dimensions as any)[key] ?? '')}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            if (isReadOnly) return
+                            const cleanValue = e.target.value
+                            const updatedDimensions: any = { ...(jobData.dimensions as any), [key]: cleanValue }
+
+                            // Auto-calculate Bottom Flap for Crash Lock types when width changes
+                            if (key === 'width' && cleanValue) {
+                              const contentName = content?.ContentName?.toLowerCase() || ''
+                              const isCrashLock = contentName.includes('crash lock') || contentName.includes('crashlock')
+                              if (isCrashLock) {
+                                const widthValue = parseFloat(cleanValue)
+                                if (!isNaN(widthValue)) {
+                                  // Use bottomFlapPer if set, otherwise default to 70%
+                                  const bottomFlapPer = parseFloat((jobData.dimensions as any).bottomFlapPer) || 70
+                                  updatedDimensions.bottomFlap = Math.round(widthValue * bottomFlapPer / 100).toString()
+                                }
+                              }
+                            }
+
                             setJobData({
                               ...jobData,
-                              dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
+                              dimensions: updatedDimensions,
                             })
-                          }
+                          }}
                           onWheel={(e) => e.currentTarget.blur()}
-                          className="h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                         />
                       </div>
                     )
@@ -1902,24 +2004,28 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 <div className="grid grid-cols-2 gap-2 bg-white rounded-lg p-3 border border-slate-200">
                   {flapFields.map((f: string) => {
                     const { key, label } = mapField(f)
+                    // Only show asterisk if this field is in the ContentSizes for this carton type
+                    const isRequired = fields.includes(f)
                     return (
                       <div key={f} className="flex flex-col gap-1">
                         <Label className="text-sm font-medium text-slate-700">
-                          {label} <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                          {label} {isRequired && <span className="text-red-500 font-bold text-lg ml-1">*</span>}
                         </Label>
                         <Input
                           type="number"
-                          step="1"
+                          step="0.01"
                           min="0"
+                          disabled={isReadOnly}
                           value={String((jobData.dimensions as any)[key] ?? '')}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            if (isReadOnly) return
                             setJobData({
                               ...jobData,
                               dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
                             })
-                          }
+                          }}
                           onWheel={(e) => e.currentTarget.blur()}
-                          className="h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                         />
                       </div>
                     )
@@ -1927,26 +2033,113 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 </div>
               )}
 
-              {/* Other fields individually */}
+              {/* Crash Lock: Show Bottom Flap % and Bottom Flap fields */}
+              {(() => {
+                const contentName = content?.ContentName?.toLowerCase() || ''
+                const isCrashLock = contentName.includes('crash lock') || contentName.includes('crashlock')
+
+                if (isCrashLock) {
+                  // Get current width value
+                  const widthValue = parseFloat((jobData.dimensions as any).width) || 0
+                  // Get bottom flap percentage (default 70)
+                  const bottomFlapPer = parseFloat((jobData.dimensions as any).bottomFlapPer) || 70
+                  // Calculate bottom flap value
+                  const bottomFlapValue = Math.round(widthValue * bottomFlapPer / 100)
+
+                  return (
+                    <div className="space-y-3">
+                      {/* Bottom Flap % - Editable, default 70 */}
+                      <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-slate-200">
+                        <div className="text-lg">📐</div>
+                        <Label className="w-28 text-sm font-medium text-slate-700">
+                          Bottom Flap % <span className="text-red-500 font-bold text-lg ml-1">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          step="1"
+                          min="0"
+                          max="100"
+                          disabled={isReadOnly}
+                          value={String((jobData.dimensions as any).bottomFlapPer ?? '70')}
+                          onChange={(e) => {
+                            if (isReadOnly) return
+                            const newPer = e.target.value
+                            const newBottomFlap = Math.round(widthValue * (parseFloat(newPer) || 0) / 100)
+                            setJobData({
+                              ...jobData,
+                              dimensions: {
+                                ...(jobData.dimensions as any),
+                                bottomFlapPer: newPer,
+                                bottomFlap: String(newBottomFlap)
+                              },
+                            })
+                          }}
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className={`flex-1 h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                          placeholder="70"
+                        />
+                        <span className="text-xs text-slate-500 w-6">%</span>
+                      </div>
+
+                      {/* Bottom Flap - Auto calculated, read-only */}
+                      <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-slate-200">
+                        <div className="text-lg">📐</div>
+                        <Label className="w-28 text-sm font-medium text-slate-700">
+                          Bottom Flap <span className="text-xs text-blue-600 ml-1">(Auto)</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={String(bottomFlapValue)}
+                          readOnly
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className="flex-1 h-8 border-slate-300 bg-blue-50 text-blue-900 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="0"
+                        />
+                        <span className="text-xs text-slate-500 w-6">{jobData.dimensions.unit}</span>
+                      </div>
+                    </div>
+                  )
+                }
+                return null
+              })()}
+
+              {/* Other fields individually (excluding bottomFlap and bottomFlapPer for Crash Lock) */}
               {otherFields.map((f: string) => {
                 const { key, label, icon } = mapField(f)
+                const contentName = content?.ContentName?.toLowerCase() || ''
+                const isCrashLock = contentName.includes('crash lock') || contentName.includes('crashlock')
+
+                // Skip bottomFlap and bottomFlapPer for Crash Lock (handled above)
+                if (isCrashLock && (key === 'bottomFlap' || key === 'bottomFlapPer')) {
+                  return null
+                }
+
+                // Only show asterisk if this field is in the ContentSizes for this carton type
+                const isRequired = fields.includes(f)
+
                 return (
                   <div key={f} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-slate-200">
                     <div className="text-lg">{icon}</div>
-                    <Label className="w-28 text-sm font-medium text-slate-700">{label} <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
+                    <Label className="w-28 text-sm font-medium text-slate-700">
+                      {label} {isRequired && <span className="text-red-500 font-bold text-lg ml-1">*</span>}
+                    </Label>
                     <Input
                       type="number"
-                      step="1"
+                      step="0.01"
                       min="0"
+                      disabled={isReadOnly}
                       value={String((jobData.dimensions as any)[key] ?? '')}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        if (isReadOnly) return
                         setJobData({
                           ...jobData,
                           dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
                         })
-                      }
+                      }}
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="flex-1 h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className={`flex-1 h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                       placeholder="0"
                     />
                     <span className="text-xs text-slate-500 w-6">{jobData.dimensions.unit}</span>
@@ -1971,10 +2164,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               <Label className="text-xs text-slate-600">{label}</Label>
               <Input
                 type="number"
+                disabled={isReadOnly}
                 step="1"
                 min="0"
                 value={jobData.dimensions.trimming[key as keyof typeof jobData.dimensions.trimming]}
-                onChange={(e) =>
+                onChange={(e) => {
+                  if (isReadOnly) return
                   setJobData({
                     ...jobData,
                     dimensions: {
@@ -1985,9 +2180,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       },
                     },
                   })
-                }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                 placeholder="0"
               />
             </div>
@@ -1997,12 +2192,24 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     </div>
   )
+  }
 
-  const renderPaperDetails = () => (
+  const renderPaperDetails = () => {
+    // Check if enquiry is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null
+
+    return (
     <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
       {renderStepHeader("Paper Details", false)}
 
-      <div className="space-y-4">
+      {/* Read-only notice */}
+      {isReadOnly && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+          <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+        </div>
+      )}
+
+      <div className={`space-y-4 ${isReadOnly ? 'pointer-events-none opacity-75' : ''}`}>
         {/* Paper Quality and GSM in first row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-lg p-3 border border-slate-200">
@@ -2346,8 +2553,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       </div>
     </div>
   )
+  }
 
   const renderProcesses = () => {
+    // Check if enquiry is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null
+
     // Filter operations based on search
     const filteredOperations = operations.filter((op: any) => {
       const name = op.DisplayProcessName ?? op.ProcessName ?? String(op)
@@ -2372,6 +2583,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     return (
       <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
         {renderStepHeader("Printing Processes", false)}
+
+        {/* Read-only notice */}
+        {isReadOnly && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+            <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+          </div>
+        )}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -2417,7 +2635,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   <Checkbox
                     id={key}
                     checked={isSelected}
+                    disabled={isReadOnly}
                     onCheckedChange={(checked) => {
+                      if (isReadOnly) return
                       if (checked) {
                         setJobData({
                           ...jobData,
@@ -2430,7 +2650,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         })
                       }
                     }}
-                    className="flex-shrink-0"
+                    className={`flex-shrink-0 ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                   />
                   <div className="flex flex-col min-w-0 flex-1">
                     <Label htmlFor={key} className="text-sm font-semibold text-slate-800 truncate cursor-pointer" title={name}>{name}</Label>
@@ -2461,7 +2681,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     <Checkbox
                       id={process}
                       checked={isSelected}
+                      disabled={isReadOnly}
                       onCheckedChange={(checked) => {
+                        if (isReadOnly) return
                         if (checked) {
                           setJobData({
                             ...jobData,
@@ -2516,12 +2738,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     // Extract unique values for dropdowns
     const uniqueMachines = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.MachineName || p.MachineType).filter(Boolean))) : []
-    const uniqueUps = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.NoOfSets || p.TotalUps || p.Ups).filter(Boolean))).sort((a, b) => a - b) : []
+    // Use TotalUps first (it's UpsL × UpsW), then fall back to NoOfSets or Ups
+    const uniqueUps = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.TotalUps || p.NoOfSets || p.Ups).filter(Boolean))).sort((a, b) => a - b) : []
     const uniqueCosts = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.UnitPrice || p.TotalPlanCost).filter(Boolean))).sort((a, b) => a - b) : []
 
     const filteredResults = planningResults ? planningResults.filter((plan: any, index: number) => {
       const unitCost = plan.UnitPrice || plan.TotalPlanCost || 0
-      const ups = plan.NoOfSets || plan.TotalUps || plan.Ups || 0
+      // Use TotalUps first (it's UpsL × UpsW), then fall back to NoOfSets or Ups
+      const ups = plan.TotalUps || plan.NoOfSets || plan.Ups || 0
       const machineName = (plan.MachineName || plan.MachineID || '').toString().toLowerCase()
 
       clientLogger.log(`=== Plan ${index + 1} - Filtering ===`, {
@@ -2798,7 +3022,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           const totalAmount = plan.TotalAmount || plan.totalAmount || 0
           const finalQuantity = plan.FinalQuantity || plan.finalQuantity || Number(jobData.quantity) || 0
           const machineName = plan.MachineName || plan.MachineType || 'N/A'
-          const ups = plan.NoOfSets || plan.TotalUps || 0
+          // Use TotalUps first (it's UpsL × UpsW), then fall back to NoOfSets or Ups
+          const ups = plan.TotalUps || plan.NoOfSets || plan.Ups || 0
           const printingStyle = plan.PrintingStyle || 'N/A'
 
           // Check if this plan is selected
