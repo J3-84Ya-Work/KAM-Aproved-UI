@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Bot, FileEdit, Sparkles, X } from "lucide-react"
+import { Plus, Bot, FileEdit, Sparkles, X, FileStack } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function FloatingNewInquiryButton() {
@@ -11,7 +11,11 @@ export function FloatingNewInquiryButton() {
 
   const handleOptionClick = (mode: string) => {
     setIsOpen(false)
-    router.push(`/inquiries/new?mode=${mode}`)
+    if (mode === 'drafts') {
+      router.push(`/drafts`)
+    } else {
+      router.push(`/inquiries/new?mode=${mode}`)
+    }
   }
 
   return (
@@ -19,6 +23,14 @@ export function FloatingNewInquiryButton() {
       {/* Option Buttons - Show when open */}
       {isOpen && (
         <div className="flex flex-col gap-3 mb-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <Button
+            onClick={() => handleOptionClick('drafts')}
+            className="bg-white hover:bg-gray-50 text-gray-700 shadow-lg border border-gray-200 h-12 px-4 rounded-full flex items-center gap-3"
+          >
+            <FileStack className="h-5 w-5 text-green-600" />
+            <span className="font-medium">Drafts</span>
+          </Button>
+
           <Button
             onClick={() => handleOptionClick('ai')}
             className="bg-white hover:bg-gray-50 text-gray-700 shadow-lg border border-gray-200 h-12 px-4 rounded-full flex items-center gap-3"

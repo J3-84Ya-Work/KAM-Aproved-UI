@@ -86,7 +86,7 @@ export default function InquiriesPage() {
     ? [{ label: "Export", onClick: handleExport }]
     : [
         { label: "New Enquiry", onClick: handleNewInquiry },
-        { label: "Draft", onClick: () => router.push("/chats") },
+        { label: "Draft", onClick: () => router.push("/drafts") },
         { label: "Export", onClick: handleExport },
       ]
 
