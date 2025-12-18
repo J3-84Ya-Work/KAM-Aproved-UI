@@ -1088,6 +1088,14 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           if (planDetails.SizeWidth) parts.push(`SizeWidth=${planDetails.SizeWidth}`)
           if (planDetails.SizeOpenflap) parts.push(`SizeOpenflap=${planDetails.SizeOpenflap}`)
           if (planDetails.SizePastingflap) parts.push(`SizePastingflap=${planDetails.SizePastingflap}`)
+          // Crash Lock fields
+          if (planDetails.SizeBottomflap) parts.push(`SizeBottomflap=${planDetails.SizeBottomflap}`)
+          if (planDetails.SizeBottomflapPer) parts.push(`SizeBottomflapPer=${planDetails.SizeBottomflapPer}`)
+          // Brochure JobFold fields
+          if (planDetails.SizeJobFoldInH) parts.push(`SizeJobFoldInH=${planDetails.SizeJobFoldInH}`)
+          if (planDetails.SizeJobFoldInL) parts.push(`SizeJobFoldInL=${planDetails.SizeJobFoldInL}`)
+          if (planDetails.SizeJobFoldedH) parts.push(`SizeJobFoldedH=${planDetails.SizeJobFoldedH}`)
+          if (planDetails.SizeJobFoldedL) parts.push(`SizeJobFoldedL=${planDetails.SizeJobFoldedL}`)
           if (planDetails.JobUps) parts.push(`JobUps=${planDetails.JobUps}`)
           if (planDetails.PlanFColor) parts.push(`PlanFColor=${planDetails.PlanFColor}`)
           if (planDetails.PlanBColor) parts.push(`PlanBColor=${planDetails.PlanBColor}`)
@@ -1109,6 +1117,14 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           if (planDetails.SizeWidth) parts.push(`W=${planDetails.SizeWidth}`)
           if (planDetails.SizeOpenflap) parts.push(`OF=${planDetails.SizeOpenflap}`)
           if (planDetails.SizePastingflap) parts.push(`PF=${planDetails.SizePastingflap}`)
+          // Crash Lock fields
+          if (planDetails.SizeBottomflap) parts.push(`BF=${planDetails.SizeBottomflap}`)
+          if (planDetails.SizeBottomflapPer) parts.push(`BF%=${planDetails.SizeBottomflapPer}`)
+          // Brochure JobFold fields
+          if (planDetails.SizeJobFoldedH) parts.push(`FH=${planDetails.SizeJobFoldedH}`)
+          if (planDetails.SizeJobFoldedL) parts.push(`FL=${planDetails.SizeJobFoldedL}`)
+          if (planDetails.SizeJobFoldInH) parts.push(`FInH=${planDetails.SizeJobFoldInH}`)
+          if (planDetails.SizeJobFoldInL) parts.push(`FInL=${planDetails.SizeJobFoldInL}`)
           return parts.length > 0 ? parts.join(', ') + ' (MM)' : ''
         }
 
@@ -1769,27 +1785,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
                 return (
                   <>
-                    {/* For Brochure types - show Width only from LWH */}
-                    {hasBrochureFields && lwhFields.some((f: string) => f === 'SizeWidth') && (
-                      <div className="grid grid-cols-1 gap-2 mb-3">
-                        <div>
-                          <Label htmlFor="content-SizeWidth" className="text-sm">
-                            Width <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="content-SizeWidth"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={planDetails['SizeWidth'] || ''}
-                            onChange={(e) => handlePlanDetailChange('SizeWidth', e.target.value)}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            className="text-sm h-10"
-                            required
-                          />
-                        </div>
-                      </div>
-                    )}
+                    {/* Width field removed for brochure types - not needed */}
 
                     {/* For Brochure types - JobFold In H and JobFold In L (2 per row) */}
                     {hasBrochureFields && (
@@ -1854,7 +1850,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                             <Input
                               id="content-SizeJobFoldedH"
                               type="number"
-                              step="0.01"
+                              step="0.001"
                               min="0"
                               value={planDetails['SizeJobFoldedH'] || ''}
                               onChange={(e) => {
@@ -1878,7 +1874,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                             <Input
                               id="content-SizeJobFoldedL"
                               type="number"
-                              step="0.01"
+                              step="0.001"
                               min="0"
                               value={planDetails['SizeJobFoldedL'] || ''}
                               onChange={(e) => {
@@ -1906,7 +1902,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                             <Input
                               id="content-SizeHeight-auto"
                               type="number"
-                              step="0.01"
+                              step="0.001"
                               min="0"
                               readOnly
                               value={planDetails['SizeHeight'] || ''}
@@ -1922,7 +1918,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                             <Input
                               id="content-SizeLength-auto"
                               type="number"
-                              step="0.01"
+                              step="0.001"
                               min="0"
                               readOnly
                               value={planDetails['SizeLength'] || ''}
@@ -1948,7 +1944,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                               <Input
                                 id={`content-${field}`}
                                 type="number"
-                                step="0.01"
+                                step="0.001"
                                 min="0"
                                 value={planDetails[field] || ''}
                                 onChange={(e) => {
@@ -1984,7 +1980,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                               <Input
                                 id={`content-${field}`}
                                 type="number"
-                                step="0.01"
+                                step="0.001"
                                 min="0"
                                 value={planDetails[field] || ''}
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
@@ -2031,7 +2027,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                           <Input
                             id="content-SizeBottomflap"
                             type="number"
-                            step="0.01"
+                            step="0.001"
                             min="0"
                             readOnly
                             value={planDetails['SizeBottomflap'] || ''}
@@ -2373,7 +2369,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       className="h-10 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       min="0"
                       max="100"
-                      step="0.01"
+                      step="0.001"
                     />
                   </div>
                 </div>

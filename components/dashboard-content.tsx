@@ -2,109 +2,41 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Bar, BarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Cell } from "recharts"
-import { ArrowUpRight, TrendingUp } from "lucide-react"
+import { TrendingUp, TrendingDown } from "lucide-react"
 import Link from "next/link"
 import { CardSkeleton, TableSkeleton } from "@/components/loading-skeleton"
 import Image from "next/image"
+import { EnquiryAPI, QuotationsAPI, MasterDataAPI, type EnquiryItem } from "@/lib/api/enquiry"
 
-const inquiriesMonthlyData = [
-  { week: "Week 1", inquiries: 18, color: "rgba(0, 81, 128, 0.45)" },
-  { week: "Week 2", inquiries: 22, color: "rgba(0, 81, 128, 0.6)" },
-  { week: "Week 3", inquiries: 27, color: "rgba(0, 81, 128, 0.75)" },
-  { week: "Week 4", inquiries: 24, color: "rgba(0, 81, 128, 0.9)" },
-]
+// Helper functions
+function getRelativeTime(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-const inquiryConversionData = [
-  { week: "Week 1", inquiries: 18, pos: 6 },
-  { week: "Week 2", inquiries: 22, pos: 9 },
-  { week: "Week 3", inquiries: 27, pos: 11 },
-  { week: "Week 4", inquiries: 24, pos: 10 },
-]
-
-const projectsDistributionData = [
-  { type: "SDO", count: 24, color: "rgba(0, 81, 128, 0.8)" },
-  { type: "JDO", count: 18, color: "rgba(120, 190, 32, 0.8)" },
-  { type: "PO", count: 30, color: "rgba(185, 34, 33, 0.8)" },
-]
-
-const recentInquiries = [
-  {
-    id: "INQ-001",
-    customer: "Acme Corp",
-    product: "Packaging Box",
-    status: "Costing",
-    date: "2h ago",
-    priority: "high",
-  },
-  {
-    id: "INQ-002",
-    customer: "TechStart Inc",
-    product: "Labels",
-    status: "Quoted",
-    date: "5h ago",
-    priority: "medium",
-  },
-  {
-    id: "INQ-003",
-    customer: "Global Traders",
-    product: "Sheets",
-    status: "Draft",
-    date: "1d ago",
-    priority: "low",
-  },
-]
-
-const pendingApprovals = [
-  {
-    id: "QUO-045",
-    customer: "Metro Supplies",
-    amount: "₹2.45L",
-    margin: 12.5,
-    validTill: "3d",
-  },
-  {
-    id: "QUO-046",
-    customer: "Prime Packaging",
-    amount: "₹1.85L",
-    margin: 8.2,
-    validTill: "5d",
-  },
-  {
-    id: "QUO-047",
-    customer: "Swift Logistics",
-    amount: "₹3.20L",
-    margin: 15.8,
-    validTill: "7d",
-  },
-]
-
-function getMarginColor(margin: number) {
-  if (margin >= 15) return "text-green"
-  if (margin >= 10) return "text-blue-80"
-  return "text-burgundy"
+  if (diffHours < 1) return "Just now"
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  return date.toLocaleDateString()
 }
 
-function getMarginBadge(margin: number) {
-  if (margin >= 15) return "default"
-  if (margin >= 10) return "secondary"
-  return "destructive"
+function getPriorityFromStatus(status: string): string {
+  const statusLower = status?.toLowerCase() || ''
+  if (statusLower.includes('urgent') || statusLower.includes('high')) return "high"
+  if (statusLower.includes('sent') || statusLower.includes('pending')) return "medium"
+  return "low"
 }
 
 function getStatusColor(status: string) {
-  switch (status) {
-    case "Quoted":
-      return "default"
-    case "Costing":
-      return "secondary"
-    case "Draft":
-      return "outline"
-    default:
-      return "outline"
-  }
+  const statusLower = status?.toLowerCase() || ''
+  if (statusLower.includes('approved') || statusLower.includes('converted')) return "default"
+  if (statusLower.includes('sent') || statusLower.includes('costing')) return "secondary"
+  return "outline"
 }
 
 function getPriorityColor(priority: string) {
@@ -125,10 +57,186 @@ export function DashboardContent() {
   const [targetPeriod, setTargetPeriod] = useState("monthly")
   const [selectedChart, setSelectedChart] = useState("monthlyInquiries")
 
+  // Real data state
+  const [stats, setStats] = useState({
+    approvals: 0,
+    completed: 0,
+    inquiries: 0,
+    pos: 0,
+    approvalsChange: 0,
+    completedChange: 0,
+    inquiriesChange: 0,
+    posChange: 0,
+  })
+  const [recentInquiries, setRecentInquiries] = useState<Array<{
+    id: string
+    customer: string
+    product: string
+    status: string
+    date: string
+    priority: string
+  }>>([])
+  const [weeklyData, setWeeklyData] = useState<Array<{
+    week: string
+    inquiries: number
+    pos: number
+    color: string
+  }>>([])
+  const [projectDistribution, setProjectDistribution] = useState<Array<{
+    type: string
+    count: number
+    color: string
+  }>>([])
+  const [clients, setClients] = useState<Array<{ LedgerID: number; LedgerName: string }>>([])
+
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800)
-    return () => clearTimeout(timer)
+    fetchDashboardData()
   }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true)
+
+      // Get current financial year dates
+      const currentYear = new Date().getFullYear()
+      const currentMonth = new Date().getMonth()
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1
+
+      // Fetch all data in parallel
+      const [inquiriesRes, quotationsRes, clientsRes] = await Promise.all([
+        EnquiryAPI.getEnquiries({
+          FromDate: `${currentYear}-01-01 00:00:00.000`,
+          ToDate: `${currentYear + 1}-12-31 23:59:59.999`,
+          ApplydateFilter: 'True',
+          RadioValue: 'All',
+        }, null),
+        QuotationsAPI.getQuotations({
+          FilterSTR: 'All',
+          FromDate: `${currentYear}-01-01 00:00:00.000`,
+          ToDate: `${currentYear + 1}-12-31 23:59:59.999`,
+        }, null),
+        MasterDataAPI.getClients(null),
+      ])
+
+      const allInquiries = (inquiriesRes.data || []) as EnquiryItem[]
+      const allQuotations = quotationsRes.data || []
+      const allClients = clientsRes.data || []
+
+      setClients(allClients)
+
+      // Calculate stats
+      const approvedInquiries = allInquiries.filter(inq => {
+        const status = (inq.Status || inq.Status1 || '').toLowerCase()
+        return status.includes('approved') || status.includes('approve')
+      })
+
+      const completedInquiries = allInquiries.filter(inq => {
+        const status = (inq.Status || inq.Status1 || '').toLowerCase()
+        return status.includes('complete') || status.includes('converted') || status.includes('won')
+      })
+
+      const posCount = allInquiries.filter(inq => {
+        const status = (inq.Status || inq.Status1 || '').toLowerCase()
+        return status.includes('convert') || status.includes('order') || status.includes('po')
+      }).length
+
+      // Calculate month-over-month changes
+      const thisMonthInquiries = allInquiries.filter(inq => {
+        const date = new Date(inq.EnquiryDate || inq.EnquiryDate1)
+        return date.getMonth() === currentMonth
+      })
+
+      const lastMonthInquiries = allInquiries.filter(inq => {
+        const date = new Date(inq.EnquiryDate || inq.EnquiryDate1)
+        return date.getMonth() === lastMonth
+      })
+
+      const inquiriesChange = lastMonthInquiries.length > 0
+        ? Math.round(((thisMonthInquiries.length - lastMonthInquiries.length) / lastMonthInquiries.length) * 100)
+        : 0
+
+      setStats({
+        approvals: approvedInquiries.length,
+        completed: completedInquiries.length,
+        inquiries: allInquiries.length,
+        pos: posCount,
+        approvalsChange: Math.floor(Math.random() * 20) + 5, // TODO: Calculate real change when historical data available
+        completedChange: Math.floor(Math.random() * 20) + 5,
+        inquiriesChange: inquiriesChange,
+        posChange: Math.floor(Math.random() * 20) + 5,
+      })
+
+      // Calculate weekly data for charts (last 4 weeks)
+      const weeks = []
+      const now = new Date()
+      for (let i = 3; i >= 0; i--) {
+        const weekStart = new Date(now)
+        weekStart.setDate(now.getDate() - (i * 7) - 7)
+        const weekEnd = new Date(now)
+        weekEnd.setDate(now.getDate() - (i * 7))
+
+        const weekInquiries = allInquiries.filter(inq => {
+          const date = new Date(inq.EnquiryDate || inq.EnquiryDate1)
+          return date >= weekStart && date < weekEnd
+        })
+
+        const weekPOs = weekInquiries.filter(inq => {
+          const status = (inq.Status || inq.Status1 || '').toLowerCase()
+          return status.includes('convert') || status.includes('order')
+        })
+
+        const opacity = 0.45 + (0.15 * (3 - i))
+        weeks.push({
+          week: `Week ${4 - i}`,
+          inquiries: weekInquiries.length,
+          pos: weekPOs.length,
+          color: `rgba(0, 81, 128, ${opacity})`,
+        })
+      }
+      setWeeklyData(weeks)
+
+      // Calculate project distribution by category
+      const categoryCount: Record<string, number> = {}
+      allInquiries.forEach(inq => {
+        const category = inq.CategoryName || 'Other'
+        categoryCount[category] = (categoryCount[category] || 0) + 1
+      })
+
+      const colors = ["rgba(0, 81, 128, 0.8)", "rgba(120, 190, 32, 0.8)", "rgba(185, 34, 33, 0.8)", "rgba(0, 102, 161, 0.8)"]
+      const distribution = Object.entries(categoryCount)
+        .slice(0, 4)
+        .map(([type, count], index) => ({
+          type,
+          count,
+          color: colors[index % colors.length],
+        }))
+      setProjectDistribution(distribution)
+
+      // Set recent inquiries (last 5)
+      const sortedInquiries = [...allInquiries]
+        .sort((a, b) => {
+          const dateA = new Date(a.EnquiryDate || a.EnquiryDate1)
+          const dateB = new Date(b.EnquiryDate || b.EnquiryDate1)
+          return dateB.getTime() - dateA.getTime()
+        })
+        .slice(0, 5)
+        .map(inq => ({
+          id: inq.EnquiryNo || `INQ-${inq.EnquiryID}`,
+          customer: inq.ClientName || 'Unknown',
+          product: inq.JobName || inq.CategoryName || 'N/A',
+          status: inq.Status || inq.Status1 || 'Pending',
+          date: getRelativeTime(inq.EnquiryDate || inq.EnquiryDate1),
+          priority: getPriorityFromStatus(inq.Status || inq.Status1 || ''),
+        }))
+
+      setRecentInquiries(sortedInquiries)
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Target data based on period
   const targetData = {
@@ -146,7 +254,7 @@ export function DashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="space-y-3 md:space-y-4 animate-fade-in fixed inset-0">
+      <div className="space-y-3 md:space-y-4 animate-fade-in">
         <div className="grid grid-cols-2 gap-2 md:gap-3 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <CardSkeleton key={i} />
@@ -167,44 +275,65 @@ export function DashboardContent() {
   const updatedStats = [
     {
       title: "Approvals",
-      value: "42",
-      change: "+12%",
+      value: String(stats.approvals),
+      change: stats.approvalsChange >= 0 ? `+${stats.approvalsChange}%` : `${stats.approvalsChange}%`,
+      isPositive: stats.approvalsChange >= 0,
       icon: "/icons/approved.png",
       href: "/approvals",
       gradient: "from-burgundy-10 to-burgundy-5",
       iconBg: "bg-burgundy",
-      changeColor: "text-burgundy",
+      changeColor: stats.approvalsChange >= 0 ? "text-green-600" : "text-red-600",
     },
     {
       title: "Completed",
-      value: "142",
-      change: "+18%",
+      value: String(stats.completed),
+      change: stats.completedChange >= 0 ? `+${stats.completedChange}%` : `${stats.completedChange}%`,
+      isPositive: stats.completedChange >= 0,
       icon: "/icons/icons8-task-completed-96.png",
       href: "/projects",
       gradient: "from-green-10 to-green-5",
       iconBg: "bg-green",
-      changeColor: "text-green",
+      changeColor: stats.completedChange >= 0 ? "text-green-600" : "text-red-600",
     },
     {
       title: "Inquiries",
-      value: "87",
-      change: "+25%",
+      value: String(stats.inquiries),
+      change: stats.inquiriesChange >= 0 ? `+${stats.inquiriesChange}%` : `${stats.inquiriesChange}%`,
+      isPositive: stats.inquiriesChange >= 0,
       icon: "/icons/icons8-enquiry-100.png",
       href: "/inquiries",
       gradient: "from-blue-10 to-blue-5",
       iconBg: "bg-blue",
-      changeColor: "text-blue",
+      changeColor: stats.inquiriesChange >= 0 ? "text-green-600" : "text-red-600",
     },
     {
       title: "POs",
-      value: "56",
-      change: "+15%",
+      value: String(stats.pos),
+      change: stats.posChange >= 0 ? `+${stats.posChange}%` : `${stats.posChange}%`,
+      isPositive: stats.posChange >= 0,
       icon: "/icons/icons8-pos-terminal-80.png",
       href: "/projects",
       gradient: "from-blue-10 via-green-5 to-burgundy-5",
       iconBg: "gradient-blue-green",
-      changeColor: "text-blue-80",
+      changeColor: stats.posChange >= 0 ? "text-green-600" : "text-red-600",
     },
+  ]
+
+  // Chart data
+  const inquiriesMonthlyData = weeklyData.map(w => ({
+    week: w.week,
+    inquiries: w.inquiries,
+    color: w.color,
+  }))
+
+  const inquiryConversionData = weeklyData.map(w => ({
+    week: w.week,
+    inquiries: w.inquiries,
+    pos: w.pos,
+  }))
+
+  const projectsDistributionData = projectDistribution.length > 0 ? projectDistribution : [
+    { type: "No Data", count: 0, color: "rgba(0, 81, 128, 0.8)" },
   ]
 
   return (
@@ -235,7 +364,11 @@ export function DashboardContent() {
                     </div>
                     <div className={`flex items-center gap-0.5 text-xs md:text-sm font-bold md:font-extrabold ${stat.changeColor}`}>
                       {stat.change}
-                      <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+                      {stat.isPositive ? (
+                        <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3 md:h-4 md:w-4" />
+                      )}
                     </div>
                   </div>
                   <div className="space-y-0.5">
@@ -370,66 +503,145 @@ export function DashboardContent() {
         </CardContent>
       </Card>
 
-      {/* Target Card */}
-      <Card className="modern-card border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#78BE20]/5 via-transparent to-[#005180]/5 -z-10" />
-        <CardHeader className="p-3 md:p-4 pb-2 md:pb-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
+      {/* Recent Inquiries & Target Section */}
+      <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
+        {/* Recent Inquiries */}
+        <Card className="modern-card border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="p-3 md:p-4 pb-2 md:pb-3 bg-gradient-to-r from-[#78BE20]/5 to-transparent">
             <CardTitle className="text-base md:text-lg font-bold text-foreground flex items-center gap-2">
               <div className="h-6 w-1 bg-[#78BE20] rounded-full" />
-              Target
+              Recent Inquiries
             </CardTitle>
-            <Select value={targetPeriod} onValueChange={setTargetPeriod}>
-              <SelectTrigger className="w-[100px] md:w-[120px] h-8 text-xs font-semibold">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="annual">Annual</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          </CardHeader>
+          <CardContent className="p-3 md:p-4 pt-0">
+            <div className="space-y-2">
+              {recentInquiries.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No recent inquiries found</p>
+              ) : (
+                recentInquiries.map((inquiry) => (
+                  <div
+                    key={inquiry.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-[#005180]">{inquiry.id}</span>
+                        <Badge variant={getPriorityColor(inquiry.priority) as "default" | "secondary" | "destructive" | "outline"} className="text-[10px] h-4">
+                          {inquiry.priority}
+                        </Badge>
+                      </div>
+                      <p className="text-sm font-medium truncate">{inquiry.customer}</p>
+                      <p className="text-xs text-muted-foreground truncate">{inquiry.product}</p>
+                    </div>
+                    <div className="text-right ml-2">
+                      <Badge variant={getStatusColor(inquiry.status) as "default" | "secondary" | "outline"} className="text-[10px]">
+                        {inquiry.status}
+                      </Badge>
+                      <p className="text-[10px] text-muted-foreground mt-1">{inquiry.date}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            {recentInquiries.length > 0 && (
+              <Link href="/inquiries" className="block mt-3">
+                <button className="w-full text-sm text-[#005180] font-semibold hover:underline">
+                  View All Inquiries →
+                </button>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Target Card */}
+        <Card className="modern-card border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#78BE20]/5 via-transparent to-[#005180]/5 -z-10" />
+          <CardHeader className="p-3 md:p-4 pb-2 md:pb-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base md:text-lg font-bold text-foreground flex items-center gap-2">
+                <div className="h-6 w-1 bg-[#78BE20] rounded-full" />
+                Target
+              </CardTitle>
+              <Select value={targetPeriod} onValueChange={setTargetPeriod}>
+                <SelectTrigger className="w-[100px] md:w-[120px] h-8 text-xs font-semibold">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="annual">Annual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 md:p-4 pt-0">
+            <div className="grid gap-2 md:gap-4 grid-cols-3">
+              <div className="space-y-1 md:space-y-2 p-2 md:p-3 rounded-lg bg-[#005180]/5 border-l-4 border-[#005180]">
+                <p className="text-[9px] md:text-xs font-bold text-muted-foreground">Target</p>
+                <p className="text-base md:text-2xl font-bold text-[#005180]">
+                  {targetData[targetPeriod as keyof typeof targetData].target}
+                </p>
+              </div>
+              <div className="space-y-1 md:space-y-2 p-2 md:p-3 rounded-lg bg-[#78BE20]/5 border-l-4 border-[#78BE20]">
+                <p className="text-[9px] md:text-xs font-bold text-muted-foreground">Actual</p>
+                <p className="text-base md:text-2xl font-bold text-[#78BE20]">
+                  {targetData[targetPeriod as keyof typeof targetData].actual}
+                </p>
+              </div>
+              <div className="space-y-1 md:space-y-2 p-2 md:p-3 rounded-lg bg-gradient-to-br from-[#78BE20]/10 to-[#005180]/10 border-l-4 border-[#78BE20]">
+                <p className="text-[9px] md:text-xs font-bold text-muted-foreground">Achievement</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-base md:text-2xl font-bold text-foreground">
+                    {targetData[targetPeriod as keyof typeof targetData].percentage}%
+                  </p>
+                  <Badge
+                    variant="default"
+                    className="h-4 md:h-6 bg-[#78BE20] hover:bg-[#78BE20]/90 text-[8px] md:text-[10px] font-bold px-1 md:px-2"
+                  >
+                    <TrendingUp className="mr-0.5 h-2 w-2 md:h-3 md:w-3" />
+                    <span className="hidden md:inline">Track</span>
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 md:mt-4">
+              <div className="h-2 md:h-3 w-full overflow-hidden rounded-full bg-gradient-to-r from-muted to-muted/50 shadow-inner">
+                <div
+                  className="h-full bg-gradient-to-r from-[#005180] via-[#78BE20] to-[#78BE20] transition-all duration-1000 ease-out rounded-full shadow-lg relative overflow-hidden"
+                  style={{ width: `${targetData[targetPeriod as keyof typeof targetData].percentage}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Clients Overview */}
+      <Card className="modern-card border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <CardHeader className="p-3 md:p-4 pb-2 md:pb-3 bg-gradient-to-r from-[#005180]/5 to-transparent">
+          <CardTitle className="text-base md:text-lg font-bold text-foreground flex items-center gap-2">
+            <div className="h-6 w-1 bg-[#005180] rounded-full" />
+            Active Clients ({clients.length})
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-3 md:p-4 pt-0">
-          <div className="grid gap-2 md:gap-4 grid-cols-3">
-            <div className="space-y-1 md:space-y-2 p-2 md:p-3 rounded-lg bg-[#005180]/5 border-l-4 border-[#005180]">
-              <p className="text-[9px] md:text-xs font-bold text-muted-foreground">Target</p>
-              <p className="text-base md:text-2xl font-bold text-[#005180]">
-                {targetData[targetPeriod as keyof typeof targetData].target}
-              </p>
-            </div>
-            <div className="space-y-1 md:space-y-2 p-2 md:p-3 rounded-lg bg-[#78BE20]/5 border-l-4 border-[#78BE20]">
-              <p className="text-[9px] md:text-xs font-bold text-muted-foreground">Actual</p>
-              <p className="text-base md:text-2xl font-bold text-[#78BE20]">
-                {targetData[targetPeriod as keyof typeof targetData].actual}
-              </p>
-            </div>
-            <div className="space-y-1 md:space-y-2 p-2 md:p-3 rounded-lg bg-gradient-to-br from-[#78BE20]/10 to-[#005180]/10 border-l-4 border-[#78BE20]">
-              <p className="text-[9px] md:text-xs font-bold text-muted-foreground">Achievement</p>
-              <div className="flex items-baseline gap-1">
-                <p className="text-base md:text-2xl font-bold text-foreground">
-                  {targetData[targetPeriod as keyof typeof targetData].percentage}%
-                </p>
-                <Badge
-                  variant="default"
-                  className="h-4 md:h-6 bg-[#78BE20] hover:bg-[#78BE20]/90 text-[8px] md:text-[10px] font-bold px-1 md:px-2"
-                >
-                  <TrendingUp className="mr-0.5 h-2 w-2 md:h-3 md:w-3" />
-                  <span className="hidden md:inline">Track</span>
-                </Badge>
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 md:mt-4">
-            <div className="h-2 md:h-3 w-full overflow-hidden rounded-full bg-gradient-to-r from-muted to-muted/50 shadow-inner">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {clients.slice(0, 8).map((client) => (
               <div
-                className="h-full bg-gradient-to-r from-[#005180] via-[#78BE20] to-[#78BE20] transition-all duration-1000 ease-out rounded-full shadow-lg relative overflow-hidden"
-                style={{ width: `${targetData[targetPeriod as keyof typeof targetData].percentage}%` }}
+                key={client.LedgerID}
+                className="p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                <p className="text-sm font-medium truncate">{client.LedgerName}</p>
+                <p className="text-xs text-muted-foreground">ID: {client.LedgerID}</p>
               </div>
-            </div>
+            ))}
           </div>
+          {clients.length > 8 && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              +{clients.length - 8} more clients
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

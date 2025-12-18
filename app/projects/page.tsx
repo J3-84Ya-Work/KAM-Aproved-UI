@@ -6,20 +6,16 @@ import { ProjectsContent } from "@/components/projects-content"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { ProjectBriefingForm, ProjectBriefingData } from "@/components/project-briefing-form"
-import { NewSDOForm } from "@/components/new-sdo-form"
-import { NewJDOForm } from "@/components/new-jdo-form"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { isKAM } from "@/lib/permissions"
 import { clientLogger } from "@/lib/logger"
 
 export default function ProjectsPage() {
+  const router = useRouter()
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
   const [showProjectBriefing, setShowProjectBriefing] = useState(false)
-  const [showSDOForm, setShowSDOForm] = useState(false)
-  const [showJDOForm, setShowJDOForm] = useState(false)
   const [projectType, setProjectType] = useState<"JDO" | "Commercial" | "SDO" | "PN" | null>(null)
-  const [jdoFormType, setJdoFormType] = useState<"JDO" | "Commercial" | "PN">("JDO")
 
   // Check if user is KAM (can create new records)
   const userIsKAM = isKAM()
@@ -47,22 +43,19 @@ export default function ProjectsPage() {
   }
 
   const handleNewSDO = () => {
-    setShowSDOForm(true)
+    router.push('/projects/new?type=SDO')
   }
 
   const handleNewJDO = () => {
-    setJdoFormType("JDO")
-    setShowJDOForm(true)
+    router.push('/projects/new?type=JDO')
   }
 
   const handleNewCommercial = () => {
-    setJdoFormType("Commercial")
-    setShowJDOForm(true)
+    router.push('/projects/new?type=Commercial')
   }
 
   const handleNewPN = () => {
-    setJdoFormType("PN")
-    setShowJDOForm(true)
+    router.push('/projects/new?type=PN')
   }
 
   const handleProjectBriefingSubmit = (data: ProjectBriefingData) => {
@@ -152,37 +145,6 @@ export default function ProjectsPage() {
         docNumber={`FDMKT-${projectType}-${Date.now().toString().slice(-6)}`}
         projectType={projectType}
       />
-
-      {/* SDO Form Dialog */}
-      <Dialog open={showSDOForm} onOpenChange={setShowSDOForm}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
-          <NewSDOForm
-            onClose={() => setShowSDOForm(false)}
-            onSubmit={(data) => {
-              clientLogger.log("SDO Form submitted:", data)
-              setShowSDOForm(false)
-              // Refresh the page to show new data
-              window.location.reload()
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* JDO Form Dialog */}
-      <Dialog open={showJDOForm} onOpenChange={setShowJDOForm}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
-          <NewJDOForm
-            projectType={jdoFormType}
-            onClose={() => setShowJDOForm(false)}
-            onSubmit={(data) => {
-              clientLogger.log(`${jdoFormType} Form submitted:`, data)
-              setShowJDOForm(false)
-              // Refresh the page to show new data
-              window.location.reload()
-            }}
-          />
-        </DialogContent>
-      </Dialog>
     </SidebarProvider>
   )
 }

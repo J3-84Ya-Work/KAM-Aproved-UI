@@ -75,6 +75,11 @@ interface JobData {
     bottomFlap?: string
     bottomFlapPer?: string
     die: string
+    // Brochure JobFold fields
+    JobFoldedH?: string
+    JobFoldedL?: string
+    JobFoldInH?: string
+    JobFoldInL?: string
   }
   paperDetails: {
     quality: string
@@ -226,6 +231,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         right: "",
       },
       die: "",
+      // Brochure JobFold fields
+      JobFoldedH: "",
+      JobFoldedL: "",
+      JobFoldInH: "1",
+      JobFoldInL: "2",
     },
     paperDetails: {
       quality: "",
@@ -952,13 +962,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             SizeWidth: parseFloat(dims.width) || 0,
             SizeOpenflap: parseFloat(dims.openFlap) || 0,
             SizePastingflap: parseFloat(dims.pastingFlap) || 0,
-            SizeBottomflap: 0,
+            SizeBottomflap: parseFloat(dims.bottomFlap || '0') || 0,
             JobNoOfPages: 0,
             JobUps: 0,
             JobFlapHeight: 0,
             JobTongHeight: 0,
-            JobFoldedH: 0,
-            JobFoldedL: 0,
+            JobFoldedH: parseFloat(dims.JobFoldedH || '0') || 0,
+            JobFoldedL: parseFloat(dims.JobFoldedL || '0') || 0,
             PlanContentType: jobData.cartonType ? jobData.cartonType.replace(/\s+/g, '') : '',
             PlanFColor: Number(paper.frontColor) || 0,
             PlanBColor: Number(paper.backColor) || 0,
@@ -1004,8 +1014,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             PaperTrimtop: 0,
             PaperTrimbottom: 0,
             ChkPaperByClient: false,
-            JobFoldInL: 1,
-            JobFoldInH: 1,
+            JobFoldInL: parseFloat(dims.JobFoldInL || '2') || 2,
+            JobFoldInH: parseFloat(dims.JobFoldInH || '1') || 1,
             ChkPlanInAvailableStock: false,
             PlanPlateBearer: 0,
             PlanStandardARGap: 0,
@@ -1038,7 +1048,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             ChkBackToBackPastingRequired: false,
             JobAcrossUps: 0,
             JobAroundUps: 0,
-            SizeBottomflapPer: 0,
+            SizeBottomflapPer: parseFloat(dims.bottomFlapPer || '0') || 0,
             SizeZipperLength: 0,
             ZipperWeightPerMeter: 0,
             JobSizeInputUnit: 'MM',
@@ -1071,6 +1081,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             TypeOfPrinting: null,
             EnquiryType: 'Bid',
             SalesType: 'Export',
+            Source: 'KAM APP',
           }
 
           clientLogger.log('\n' + '='.repeat(80))
@@ -1631,7 +1642,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 setEnquiryNumber(null)
                 setPlanningResults(null)
                 setQuotationNumber(null)
-                setLoadedDraftId(null) // Clear loaded draft ID
+                setLoadedDraftId(null)
+                setCreatedEnquiryId(null)
+                setSelectedPlan(null)
                 showToast('All form data cleared', 'success')
               }
             }}
@@ -1651,7 +1664,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </Label>
           <ClientDropdown
             value={jobData.clientName}
-            onValueChange={(value) => !isReadOnly && setJobData({ ...jobData, clientName: value })}
+            onValueChange={(value) => {
+              if (!isReadOnly) setJobData({ ...jobData, clientName: value })
+            }}
             disabled={isReadOnly}
           />
         </div>
@@ -1663,60 +1678,75 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           <Input
             id="jobName"
             value={jobData.jobName}
-            onChange={(e) => !isReadOnly && setJobData({ ...jobData, jobName: e.target.value })}
+            onChange={(e) => {
+              if (!isReadOnly) setJobData({ ...jobData, jobName: e.target.value })
+            }}
             disabled={isReadOnly}
             className={`h-10 border border-slate-300 focus:border-[#005180] transition-colors ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
           />
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="quantity" className="text-sm font-medium text-slate-700">
+          <Label htmlFor="qty-input" className="text-sm font-medium text-slate-700">
             Quantity <span className="text-red-600 font-bold text-xl ml-1">*</span>
           </Label>
-          <Input
-            id="quantity"
+          <input
+            id="qty-input"
             type="tel"
             inputMode="numeric"
             pattern="[0-9]*"
             autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
+            data-lpignore="true"
             data-form-type="other"
             disabled={isReadOnly}
-            value={jobData.quantity}
-            onChange={(e) => {
-              if (isReadOnly) return
-              // Get the raw value and extract only integers
-              const rawValue = e.target.value
-              // Remove any non-digit characters
-              const digitsOnly = rawValue.replace(/[^0-9]/g, '')
-              // Remove leading zeros
-              const cleanValue = digitsOnly.replace(/^0+/, '') || ''
-              // Only update if value changed (prevents cursor jumping)
-              if (cleanValue !== jobData.quantity) {
-                setJobData({ ...jobData, quantity: cleanValue })
+            value={jobData.quantity || ''}
+            onBeforeInput={(e: React.FormEvent<HTMLInputElement> & { data?: string }) => {
+              // Block any non-numeric input at the earliest stage
+              const inputData = (e as any).data
+              if (inputData && !/^\d+$/.test(inputData)) {
+                e.preventDefault()
               }
-              // Force the input to show only digits
-              e.target.value = cleanValue
             }}
             onKeyDown={(e) => {
-              if (isReadOnly) return
-              // Allow control keys
-              if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
-                return
-              }
-              // Allow Ctrl/Cmd combinations
-              if (e.ctrlKey || e.metaKey) {
-                return
-              }
-              // Block non-numeric keys
+              // Allow: backspace, delete, tab, escape, enter, arrows
+              const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+              if (allowedKeys.includes(e.key)) return
+              // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+              if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return
+              // Block everything except digits 0-9
               if (!/^[0-9]$/.test(e.key)) {
                 e.preventDefault()
               }
             }}
-            onWheel={(e) => e.currentTarget.blur()}
-            className={`h-10 border border-slate-300 focus:border-[#005180] transition-colors ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+            onInput={(e) => {
+              if (isReadOnly) return
+              const target = e.target as HTMLInputElement
+              // Immediately strip any non-digits that got through
+              const cleaned = target.value.replace(/\D/g, '')
+              if (target.value !== cleaned) {
+                target.value = cleaned
+              }
+              setJobData(prev => ({ ...prev, quantity: cleaned }))
+            }}
+            onChange={(e) => {
+              if (isReadOnly) return
+              const cleaned = e.target.value.replace(/\D/g, '')
+              setJobData(prev => ({ ...prev, quantity: cleaned }))
+            }}
+            onPaste={(e) => {
+              e.preventDefault()
+              const pasted = e.clipboardData.getData('text')
+              const digitsOnly = pasted.replace(/\D/g, '')
+              if (digitsOnly) {
+                const target = e.target as HTMLInputElement
+                const start = target.selectionStart || 0
+                const end = target.selectionEnd || 0
+                const currentVal = target.value
+                const newVal = currentVal.substring(0, start) + digitsOnly + currentVal.substring(end)
+                setJobData(prev => ({ ...prev, quantity: newVal.replace(/\D/g, '') }))
+              }
+            }}
+            className={`flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005180] focus:border-[#005180] transition-colors ${isReadOnly ? 'bg-slate-100 cursor-not-allowed opacity-50' : ''}`}
             placeholder="Enter quantity"
           />
         </div>
@@ -2006,7 +2036,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         </Label>
                         <Input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           disabled={isReadOnly}
                           value={String((jobData.dimensions as any)[key] ?? '')}
@@ -2043,38 +2073,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 </div>
               )}
 
-              {/* For brochure types, only show Width field if present */}
-              {hasBrochureFields && lwhFields.some((f: string) => mapField(f).key === 'width') && (
-                <div className="grid grid-cols-1 gap-2 bg-white rounded-lg p-3 border border-slate-200">
-                  {lwhFields.filter((f: string) => mapField(f).key === 'width').map((f: string) => {
-                    const { key, label } = mapField(f)
-                    const isRequired = fields.includes(f)
-                    return (
-                      <div key={f} className="flex flex-col gap-1">
-                        <Label className="text-sm font-medium text-slate-700">
-                          {label} {isRequired && <span className="text-red-500 font-bold text-lg ml-1">*</span>}
-                        </Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          disabled={isReadOnly}
-                          value={String((jobData.dimensions as any)[key] ?? '')}
-                          onChange={(e) => {
-                            if (isReadOnly) return
-                            setJobData({
-                              ...jobData,
-                              dimensions: { ...(jobData.dimensions as any), [key]: e.target.value },
-                            })
-                          }}
-                          onWheel={(e) => e.currentTarget.blur()}
-                          className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              {/* Width field removed for brochure types - not needed */}
 
               {/* Open Flap and Pasting Flap in one row */}
               {flapFields.length > 0 && (
@@ -2090,7 +2089,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         </Label>
                         <Input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           disabled={isReadOnly}
                           value={String((jobData.dimensions as any)[key] ?? '')}
@@ -2183,7 +2182,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       </Label>
                       <Input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         min="0"
                         disabled={isReadOnly}
                         value={String((jobData.dimensions as any).JobFoldedH ?? '')}
@@ -2212,7 +2211,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       </Label>
                       <Input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         min="0"
                         disabled={isReadOnly}
                         value={String((jobData.dimensions as any).JobFoldedL ?? '')}
@@ -2245,7 +2244,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       </Label>
                       <Input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         min="0"
                         readOnly
                         value={String((jobData.dimensions as any).height ?? '')}
@@ -2260,7 +2259,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       </Label>
                       <Input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         min="0"
                         readOnly
                         value={String((jobData.dimensions as any).length ?? '')}
@@ -2329,7 +2328,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         </Label>
                         <Input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           value={String(bottomFlapValue)}
                           readOnly
@@ -2367,7 +2366,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     </Label>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="0.001"
                       min="0"
                       disabled={isReadOnly}
                       value={String((jobData.dimensions as any)[key] ?? '')}
@@ -3454,13 +3453,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       SizePastingflap: Number(dims.pastingFlap) || 0,
       SizeBottomflap: Number(dims.bottomFlap) || 0,
 
-      // Job specs - DEFAULTS (not used in current UI)
+      // Job specs - USER PROVIDED or DEFAULTS
       JobNoOfPages: 0,
       JobUps: 0,
       JobFlapHeight: 0,
       JobTongHeight: 0,
-      JobFoldedH: 0,
-      JobFoldedL: 0,
+      JobFoldedH: Number(dims.JobFoldedH) || 0,
+      JobFoldedL: Number(dims.JobFoldedL) || 0,
 
       // Content & printing details - USER PROVIDED
       PlanContentType: jd.cartonType || '',
@@ -3538,9 +3537,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       // Paper by client flag - DEFAULT
       ChkPaperByClient: false,
 
-      // Folding - DEFAULTS (not in UI)
-      JobFoldInL: 1,
-      JobFoldInH: 1,
+      // Folding - USER PROVIDED or DEFAULTS
+      JobFoldInL: Number(dims.JobFoldInL) || 2,
+      JobFoldInH: Number(dims.JobFoldInH) || 1,
 
       // Stock check - DEFAULT
       ChkPlanInAvailableStock: false,
