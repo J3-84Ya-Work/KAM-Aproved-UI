@@ -2,14 +2,14 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import type React from "react"
 import { useRouter } from "next/navigation"
-import { Send, Loader2, Mic, ArrowLeft, Save } from "lucide-react"
+import { Send, Loader2, Mic, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { sendMessage } from "@/lib/chat-api"
-import { useAutoSaveDraft, type FormType } from "@/hooks/use-auto-save-draft"
-import { Badge } from "@/components/ui/badge"
+import { useAutoSaveDraft } from "@/hooks/use-auto-save-draft"
 import { clientLogger } from "@/lib/logger"
+import { useToast } from "@/hooks/use-toast"
 
 interface Message {
   id: string
@@ -56,13 +56,16 @@ export function AICostingChat({
   loadedDraftData?: any
 }) {
   const router = useRouter()
+  const { toast } = useToast()
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({}) // Track multi-select per message
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<any>(null)
   const recognitionRef = useRef<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -191,14 +194,19 @@ export function AICostingChat({
             (typeof response.data === "string" ? response.data : null) ||
             JSON.stringify(response.data)
 
+          // Check if the message contains "select" (case-insensitive)
+          const shouldShowButtons = /select/i.test(aiResponseText)
+          // Check if multi-select should be enabled for processes
+          const isMultiSelect = /select\s+processes/i.test(aiResponseText)
           const { cleanText, options } = parseOptions(aiResponseText)
 
           const aiMessage: Message = {
             id: `${Date.now()}-ai`,
-            content: options.length > 0 ? cleanText : aiResponseText,
+            content: shouldShowButtons && options.length > 0 ? cleanText : aiResponseText,
             sender: "ai",
             timestamp: new Date(),
-            options: options.length > 0 ? options : undefined,
+            options: shouldShowButtons && options.length > 0 ? options : undefined,
+            allowMultiSelect: isMultiSelect,
           }
           setMessages((prev) => [...prev, aiMessage])
         } else {
@@ -345,6 +353,29 @@ export function AICostingChat({
       e.preventDefault()
       handleSendMessage()
     }
+    // Shift+Enter allows new line (default textarea behavior)
+  }
+
+  const handleCopyMessage = async (content: string, messageId: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopiedMessageId(messageId)
+      toast({
+        title: "Copied!",
+        description: "Message copied to clipboard",
+      })
+
+      // Reset copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedMessageId(null)
+      }, 2000)
+    } catch (error) {
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy message to clipboard",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleMicClick = () => {
@@ -366,18 +397,67 @@ export function AICostingChat({
     }
   }
 
-  const handleOptionSelect = (option: string) => {
-    sendChatMessage(option)
+  const handleOptionSelect = (option: string, messageId: string, isMultiSelect: boolean) => {
+    if (isMultiSelect) {
+      // Toggle option in multi-select mode
+      setSelectedOptions(prev => {
+        const currentSelections = prev[messageId] || []
+        const isSelected = currentSelections.includes(option)
 
-    // Force scroll after option is selected
-    setTimeout(() => {
-      if (scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
-        if (scrollContainer) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight
+        if (isSelected) {
+          // Remove option
+          return {
+            ...prev,
+            [messageId]: currentSelections.filter(opt => opt !== option)
+          }
+        } else {
+          // Add option
+          return {
+            ...prev,
+            [messageId]: [...currentSelections, option]
+          }
         }
-      }
-    }, 100)
+      })
+    } else {
+      // Single select - send immediately
+      sendChatMessage(option)
+
+      // Force scroll after option is selected
+      setTimeout(() => {
+        if (scrollAreaRef.current) {
+          const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
+          if (scrollContainer) {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight
+          }
+        }
+      }, 100)
+    }
+  }
+
+  const handleMultiSelectSubmit = (messageId: string) => {
+    const selections = selectedOptions[messageId] || []
+    if (selections.length > 0) {
+      // Join selected options with comma
+      const message = selections.join(', ')
+      sendChatMessage(message)
+
+      // Clear selections for this message
+      setSelectedOptions(prev => {
+        const newState = { ...prev }
+        delete newState[messageId]
+        return newState
+      })
+
+      // Force scroll
+      setTimeout(() => {
+        if (scrollAreaRef.current) {
+          const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
+          if (scrollContainer) {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight
+          }
+        }
+      }, 100)
+    }
   }
 
   if (isInitialLoading) {
@@ -412,30 +492,67 @@ export function AICostingChat({
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`rounded-2xl px-4 py-3 text-base leading-relaxed shadow-sm whitespace-pre-wrap ${
-                    message.sender === "user" ? "chat-bubble-user text-foreground" : "chat-bubble-ai text-foreground"
-                  }`}
-                >
-                  {message.content}
+                <div className="relative group">
+                  <div
+                    className={`rounded-2xl px-4 py-3 text-base leading-relaxed shadow-sm whitespace-pre-wrap ${
+                      message.sender === "user" ? "chat-bubble-user text-foreground" : "chat-bubble-ai text-foreground"
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+
+                  {/* Copy button - shows on hover */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-background border shadow-sm"
+                    onClick={() => handleCopyMessage(message.content, message.id)}
+                    title="Copy message"
+                  >
+                    {copiedMessageId === message.id ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
               </div>
 
-              {/* Display option buttons if available */}
+              {/* Display option buttons only when message contains "select" */}
               {message.options && message.options.length > 0 && (
                 <div className="flex flex-col gap-2 mt-3 ml-0">
-                  {message.options.map((option, optionIndex) => (
+                  {message.options.map((option, optionIndex) => {
+                    const isMultiSelect = message.allowMultiSelect || false
+                    const isSelected = isMultiSelect && (selectedOptions[message.id] || []).includes(option)
+
+                    return (
+                      <Button
+                        key={`${message.id}-option-${optionIndex}`}
+                        variant={isSelected ? "default" : "outline"}
+                        onClick={() => handleOptionSelect(option, message.id, isMultiSelect)}
+                        disabled={isTyping}
+                        className={`justify-start text-left h-auto py-3 px-4 transition-all ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "hover:bg-primary/10 hover:border-primary"
+                        }`}
+                      >
+                        <span className="font-semibold mr-2 text-primary">{optionIndex + 1}.</span>
+                        <span>{option}</span>
+                      </Button>
+                    )
+                  })}
+
+                  {/* Submit button for multi-select */}
+                  {message.allowMultiSelect && (selectedOptions[message.id] || []).length > 0 && (
                     <Button
-                      key={`${message.id}-option-${optionIndex}`}
-                      variant="outline"
-                      onClick={() => handleOptionSelect(option)}
+                      onClick={() => handleMultiSelectSubmit(message.id)}
                       disabled={isTyping}
-                      className="justify-start text-left h-auto py-3 px-4 hover:bg-primary/10 hover:border-primary transition-all"
+                      className="mt-2 bg-primary text-white hover:bg-primary/90"
                     >
-                      <span className="font-semibold mr-2 text-primary">{optionIndex + 1}.</span>
-                      <span>{option}</span>
+                      Submit Selected ({(selectedOptions[message.id] || []).length})
                     </Button>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
@@ -469,7 +586,7 @@ export function AICostingChat({
 
       {/* Fixed Input Area */}
       <div className="border-t border-border/50 bg-background px-4 py-3 shadow-sm shrink-0 z-10">
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-3 input-focus-glow focus-within:border-primary">
+        <div className="flex items-end gap-2 rounded-xl border border-border bg-muted/50 px-4 py-3 input-focus-glow focus-within:border-primary">
           <Button
             variant="ghost"
             size="icon"
@@ -480,13 +597,24 @@ export function AICostingChat({
           >
             <Mic className="h-5 w-5" />
           </Button>
-          <Input
+          <Textarea
             ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder={isListening ? "Listening..." : "Message AI Assistant..."}
-            className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[40px] max-h-[120px]"
+            rows={1}
+            style={{
+              height: 'auto',
+              overflow: inputValue.split('\n').length > 3 ? 'auto' : 'hidden'
+            }}
+            onInput={(e) => {
+              // Auto-resize textarea
+              const target = e.target as HTMLTextAreaElement
+              target.style.height = 'auto'
+              target.style.height = `${Math.min(target.scrollHeight, 120)}px`
+            }}
           />
           <Button
             onClick={handleSendMessage}
