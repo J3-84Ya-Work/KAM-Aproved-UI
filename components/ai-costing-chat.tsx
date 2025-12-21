@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import type React from "react"
 import { useRouter } from "next/navigation"
-import { Send, Loader2, Mic, Copy, Check } from "lucide-react"
+import { Send, Loader2, Mic, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -64,6 +64,7 @@ export function AICostingChat({
   const [isListening, setIsListening] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({}) // Track multi-select per message
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<any>(null)
   const recognitionRef = useRef<any>(null)
@@ -349,11 +350,15 @@ export function AICostingChat({
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // On desktop: Enter sends, Shift+Enter adds new line
+    // On mobile: Let Enter add new line, user clicks send button
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
+    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
       e.preventDefault()
       handleSendMessage()
     }
-    // Shift+Enter allows new line (default textarea behavior)
+    // On mobile, Enter always creates new line
   }
 
   const handleCopyMessage = async (content: string, messageId: string) => {
@@ -375,6 +380,21 @@ export function AICostingChat({
         description: "Could not copy message to clipboard",
         variant: "destructive",
       })
+    }
+  }
+
+  // Long press handlers
+  const handleLongPressStart = (content: string, messageId: string) => {
+    const timer = setTimeout(() => {
+      handleCopyMessage(content, messageId)
+    }, 500) // 500ms long press
+    setLongPressTimer(timer)
+  }
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
     }
   }
 
@@ -491,30 +511,30 @@ export function AICostingChat({
               className="message-fade-in"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
-                <div className="relative group">
+              <div className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} w-full pr-2`}>
+                <div className="relative group max-w-[85%] md:max-w-[80%]">
                   <div
-                    className={`rounded-2xl px-4 py-3 text-base leading-relaxed shadow-sm whitespace-pre-wrap ${
-                      message.sender === "user" ? "chat-bubble-user text-foreground" : "chat-bubble-ai text-foreground"
-                    }`}
+                    className={`rounded-2xl px-4 py-3 text-base leading-relaxed shadow-sm whitespace-pre-wrap break-words cursor-pointer transition-all active:scale-95 ${
+                      message.sender === "user"
+                        ? "bg-blue text-white"
+                        : "bg-blue-5 text-foreground"
+                    } ${copiedMessageId === message.id ? "ring-2 ring-green-500" : ""}`}
+                    onMouseDown={() => handleLongPressStart(message.content, message.id)}
+                    onMouseUp={handleLongPressEnd}
+                    onMouseLeave={handleLongPressEnd}
+                    onTouchStart={() => handleLongPressStart(message.content, message.id)}
+                    onTouchEnd={handleLongPressEnd}
+                    onTouchCancel={handleLongPressEnd}
                   >
                     {message.content}
                   </div>
 
-                  {/* Copy button - shows on hover */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute -top-2 -right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-background border shadow-sm"
-                    onClick={() => handleCopyMessage(message.content, message.id)}
-                    title="Copy message"
-                  >
-                    {copiedMessageId === message.id ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+                  {/* Show check icon when copied */}
+                  {copiedMessageId === message.id && (
+                    <div className="absolute -top-2 -right-2 h-7 w-7 flex items-center justify-center bg-green-500 rounded-full shadow-sm">
+                      <Check className="h-4 w-4 text-white" />
+                    </div>
+                  )}
                 </div>
               </div>
 
