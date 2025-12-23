@@ -58,6 +58,7 @@ interface JobData {
   clientName: string
   jobName: string
   quantity: string
+  annualQuantity: string
   cartonType: string
   dimensions: {
     height: string
@@ -216,6 +217,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     clientName: "",
     jobName: "",
     quantity: "",
+    annualQuantity: "",
     cartonType: "",
     dimensions: {
       height: "",
@@ -829,6 +831,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       if (!jobData.clientName) missing.push('Customer Name')
       if (!jobData.jobName) missing.push('Job Name')
       if (!jobData.quantity) missing.push('Quantity')
+      if (!jobData.annualQuantity) missing.push('Annual Quantity')
       if (missing.length > 0) {
         showToast(`Please fill: ${missing.join(', ')}`, 'error')
         return
@@ -1446,14 +1449,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     onStepChange?.(steps[stepIndex])
   }
 
-  // Reusable header without back button
-  const renderStepHeader = (title?: string, showAddQty: boolean = false, showAutoSaveStatus: boolean = false) => (
+  // Reusable header without back button - shows title and auto-save status in one row
+  const renderStepHeader = (title?: string) => (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
         {title && <h2 className="text-lg font-semibold text-[#005180]">{title}</h2>}
       </div>
-      {/* Auto-save status indicator for Best Plans */}
-      {showAutoSaveStatus && (jobData.jobName !== '' || jobData.clientName !== '') && (
+      {/* Auto-save status indicator - always visible on all pages */}
+      {(jobData.jobName !== '' || jobData.clientName !== '') && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {saveStatus === 'saving' && (
             <>
@@ -1475,18 +1478,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           )}
         </div>
       )}
-      {/* Add Quantity button removed as per user request */}
-      {/* {showAddQty && selectedPlan && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-[#005180] text-[#005180] hover:bg-[#005180]/10"
-          onClick={() => setShowQuantityDialog(true)}
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Add Quantity
-        </Button>
-      )} */}
     </div>
   )
 
@@ -1606,7 +1597,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     return (
     <div className="p-2 sm:p-4 space-y-3 sm:space-y-4 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-      {renderStepHeader("Job Details", false)}
+      {renderStepHeader("Job Details")}
 
       {/* Read-only notice */}
       {isReadOnly && (
@@ -1614,48 +1605,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
         </div>
       )}
-
-      {/* Header with clear button */}
-      <div className="flex items-center justify-between py-1 sm:py-2">
-        <div className="flex items-center gap-2 flex-1">
-          <Package className="w-6 h-6 text-[#005180]" />
-          <p className="text-slate-600 text-sm">Let's get started with your project</p>
-        </div>
-        {!isReadOnly && (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={clearJobDetailsFields}
-            className="flex items-center gap-1.5 h-8 px-3 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
-          >
-            <Eraser className="w-3.5 h-3.5" />
-            <span className="text-xs font-medium">Clear</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (confirm('This will clear all form data and reset. Continue?')) {
-                setJobData(DEFAULT_JOB_DATA)
-                setCurrentStep(0)
-                setEnquiryNumber(null)
-                setPlanningResults(null)
-                setQuotationNumber(null)
-                setLoadedDraftId(null)
-                setCreatedEnquiryId(null)
-                setSelectedPlan(null)
-                showToast('All form data cleared', 'success')
-              }
-            }}
-            className="flex items-center gap-1.5 h-8 px-3 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span className="text-xs font-medium">Clear Store</span>
-          </Button>
-        </div>
-        )}
-      </div>
 
       <div className="space-y-4">
         <div className="space-y-1">
@@ -1750,6 +1699,66 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             placeholder="Enter quantity"
           />
         </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="annual-qty-input" className="text-sm font-medium text-slate-700">
+            Annual Quantity <span className="text-red-600 font-bold text-xl ml-1">*</span>
+          </Label>
+          <input
+            id="annual-qty-input"
+            type="tel"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
+            data-lpignore="true"
+            data-form-type="other"
+            disabled={isReadOnly}
+            value={jobData.annualQuantity || ''}
+            onBeforeInput={(e: React.FormEvent<HTMLInputElement> & { data?: string }) => {
+              const inputData = (e as any).data
+              if (inputData && !/^\d+$/.test(inputData)) {
+                e.preventDefault()
+              }
+            }}
+            onKeyDown={(e) => {
+              const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+              if (allowedKeys.includes(e.key)) return
+              if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return
+              if (!/^[0-9]$/.test(e.key)) {
+                e.preventDefault()
+              }
+            }}
+            onInput={(e) => {
+              if (isReadOnly) return
+              const target = e.target as HTMLInputElement
+              const cleaned = target.value.replace(/\D/g, '')
+              if (target.value !== cleaned) {
+                target.value = cleaned
+              }
+              setJobData(prev => ({ ...prev, annualQuantity: cleaned }))
+            }}
+            onChange={(e) => {
+              if (isReadOnly) return
+              const cleaned = e.target.value.replace(/\D/g, '')
+              setJobData(prev => ({ ...prev, annualQuantity: cleaned }))
+            }}
+            onPaste={(e) => {
+              e.preventDefault()
+              const pasted = e.clipboardData.getData('text')
+              const digitsOnly = pasted.replace(/\D/g, '')
+              if (digitsOnly) {
+                const target = e.target as HTMLInputElement
+                const start = target.selectionStart || 0
+                const end = target.selectionEnd || 0
+                const currentVal = target.value
+                const newVal = currentVal.substring(0, start) + digitsOnly + currentVal.substring(end)
+                setJobData(prev => ({ ...prev, annualQuantity: newVal.replace(/\D/g, '') }))
+              }
+            }}
+            className={`flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005180] focus:border-[#005180] transition-colors ${isReadOnly ? 'bg-slate-100 cursor-not-allowed opacity-50' : ''}`}
+            placeholder="Enter annual quantity"
+          />
+        </div>
       </div>
     </div>
     )
@@ -1774,7 +1783,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     return (
       <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-        {renderStepHeader("Category & Carton Type", false)}
+        {renderStepHeader("Category & Carton Type")}
 
         {/* Read-only notice */}
         {isReadOnly && (
@@ -1940,7 +1949,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     return (
     <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-      {renderStepHeader("Box Size (mm)", false)}
+      {renderStepHeader("Box Size (mm)")}
 
       {/* Read-only notice */}
       {isReadOnly && (
@@ -2439,7 +2448,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     return (
     <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-      {renderStepHeader("Paper Details", false)}
+      {renderStepHeader("Paper Details")}
 
       {/* Read-only notice */}
       {isReadOnly && (
@@ -2471,8 +2480,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               <SelectTrigger className="h-8 w-full">
                 <SelectValue placeholder="Select quality" />
               </SelectTrigger>
-              <SelectContent className="max-h-[300px] overflow-y-auto">
-                <div className="p-2 sticky top-0 bg-white border-b z-10">
+              <SelectContent className="max-h-[300px] overflow-hidden">
+                <div className="p-2 bg-white border-b">
                   <Input
                     placeholder="Search quality..."
                     value={qualitySearch}
@@ -2482,6 +2491,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     onKeyDown={(e) => e.stopPropagation()}
                   />
                 </div>
+                <div className="max-h-[240px] overflow-y-auto">
                 {qualities && qualities.length > 0 ? (
                   qualities
                     .filter((q) => {
@@ -2513,6 +2523,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     <SelectItem value="Kraft Paper">Kraft Paper</SelectItem>
                   </>
                 )}
+                </div>
               </SelectContent>
             </Select>
           </div>
@@ -2527,8 +2538,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 <SelectTrigger className="h-8">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  <div className="p-2 sticky top-0 bg-white border-b z-10">
+                <SelectContent className="max-h-[300px] overflow-hidden">
+                  <div className="p-2 bg-white border-b">
                     <Input
                       placeholder="Search GSM..."
                       value={gsmSearch}
@@ -2538,6 +2549,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       onKeyDown={(e) => e.stopPropagation()}
                     />
                   </div>
+                  <div className="max-h-[240px] overflow-y-auto">
                   {loadingGsm ? (
                     <SelectItem value="__loading" disabled>Loading...</SelectItem>
                   ) : gsms && gsms.length > 0 ? (
@@ -2566,6 +2578,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                       <SelectItem value="250">250</SelectItem>
                     </>
                   )}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
@@ -2821,7 +2834,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     return (
       <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-        {renderStepHeader("Printing Processes", false)}
+        {renderStepHeader("Printing Processes")}
 
         {/* Read-only notice */}
         {isReadOnly && (
@@ -3137,6 +3150,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     <div className={`text-lg font-bold ${isSelected ? 'text-[#004875]' : 'text-[#005180]'}`}>
                       ₹ {unitCost.toFixed(2)}
                     </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Per 1000: <span className="font-semibold text-green-600">₹ {(unitCost * 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -3206,13 +3222,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     // Filter controls
     const filterControls = planningResults && planningResults.length > 0 ? (
-      <Card className="p-2 bg-slate-50 border-slate-200">
-        <div className="flex items-center gap-2">
-          <Label className="text-xs font-medium text-slate-700 whitespace-nowrap">Filters:</Label>
-
+      <Card className="p-2 md:p-3 bg-slate-50 border-slate-200">
+        <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
           <Select value={filterMachine} onValueChange={setFilterMachine}>
-            <SelectTrigger className="h-8 text-xs flex-1 min-w-[100px]">
-              <SelectValue placeholder="Machine..." />
+            <SelectTrigger className="h-8 text-xs flex-1 min-w-[100px] md:min-w-[140px]">
+              <SelectValue placeholder="Select Machine" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Machines</SelectItem>
@@ -3225,8 +3239,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </Select>
 
           <Select value={filterUps} onValueChange={setFilterUps}>
-            <SelectTrigger className="h-8 text-xs w-[90px]">
-              <SelectValue placeholder="UPS..." />
+            <SelectTrigger className="h-8 text-xs w-[90px] md:w-[110px]">
+              <SelectValue placeholder="Select UPS" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All UPS</SelectItem>
@@ -3239,8 +3253,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </Select>
 
           <Select value={filterUnitCost} onValueChange={setFilterUnitCost}>
-            <SelectTrigger className="h-8 text-xs w-[100px]">
-              <SelectValue placeholder="Cost..." />
+            <SelectTrigger className="h-8 text-xs w-[100px] md:w-[120px]">
+              <SelectValue placeholder="Select Cost" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Costs</SelectItem>
@@ -3279,9 +3293,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         </div>
 
         {filteredResults && filteredResults.length > 0 ? filteredResults.map((plan: any, index: number) => {
-          const unitPrice = plan.UnitPrice || plan.unitPrice || 0
-          const totalAmount = plan.TotalAmount || plan.totalAmount || 0
-          const finalQuantity = plan.FinalQuantity || plan.finalQuantity || Number(jobData.quantity) || 0
+          // Show the quantity user entered (from jobData), not the production quantity
+          const displayQuantity = Number(jobData.quantity) || plan.PlanContQty || plan.Quantity || plan.FinalQuantity || 0
+          // Get total amount - could be GrantAmount, TotalAmount, TotalPlanCost
+          const totalAmount = plan.GrantAmount || plan.TotalAmount || plan.totalAmount || plan.TotalPlanCost || 0
+          // Get unit price directly from API
+          const unitPrice = plan.UnitPrice || plan.unitPrice || plan.Rate || plan.rate || 0
+          // Calculate per 1000 cost
+          const per1000Cost = unitPrice * 1000
           const machineName = plan.MachineName || plan.MachineType || 'N/A'
           // Use TotalUps first (it's UpsL × UpsW), then fall back to NoOfSets or Ups
           const ups = plan.TotalUps || plan.NoOfSets || plan.Ups || 0
@@ -3301,6 +3320,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               onClick={() => {
                 setSelectedPlan(plan)
                 clientLogger.log('=== Plan selected ===', plan)
+                clientLogger.log('=== Plan fields ===', Object.keys(plan))
+                clientLogger.log('=== UnitPrice:', plan.UnitPrice, 'GrantAmount:', plan.GrantAmount, 'TotalAmount:', plan.TotalAmount, 'FinalQuantity:', plan.FinalQuantity)
               }}
             >
               <div className="space-y-3">
@@ -3318,8 +3339,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-[#005180]">₹{unitPrice.toFixed(2)}</div>
+                    <div className="text-2xl font-bold text-[#005180]">₹{unitPrice.toFixed(4)}</div>
                     <div className="text-xs text-slate-500">per unit</div>
+                    <div className="text-xs text-green-600 mt-1">Per 1000: ₹{per1000Cost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
                   </div>
                 </div>
 
@@ -3327,7 +3349,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <div className="text-xs text-slate-500">Quantity</div>
-                    <div className="font-semibold text-slate-800">{finalQuantity.toLocaleString()}</div>
+                    <div className="font-semibold text-slate-800">{displayQuantity.toLocaleString()}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">UPS</div>
@@ -3339,16 +3361,16 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">Total Amount</div>
-                    <div className="font-semibold text-green-600">₹{totalAmount.toFixed(2)}</div>
+                    <div className="font-semibold text-green-600">₹{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
                   </div>
                 </div>
 
-                {/* Additional Info */}
-                {plan.GrantAmount && (
+                {/* Grant Amount if different from Total Amount */}
+                {plan.GrantAmount && plan.GrantAmount !== totalAmount && (
                   <div className="pt-2 border-t border-slate-200">
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">Grant Amount</span>
-                      <span className="font-semibold text-slate-800">₹{plan.GrantAmount.toFixed(2)}</span>
+                      <span className="font-semibold text-slate-800">₹{plan.GrantAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 )}
@@ -3365,7 +3387,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     return (
       <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-        {renderStepHeader("Best Plans", true, true)}
+        {renderStepHeader("Best Plans")}
         {filterControls}
         {plansDisplay}
         {errorNode}
@@ -4138,10 +4160,11 @@ Generated with KAM Printing Wizard
             ].filter(row => row[2] !== ''), // Filter out empty rows
             theme: 'plain',
             styles: { fontSize: 9, cellPadding: 1 },
+            tableWidth: 180,
             columnStyles: {
               0: { cellWidth: 35, fontStyle: 'bold' },
               1: { cellWidth: 5 },
-              2: { cellWidth: 150 }
+              2: { cellWidth: 140 }
             }
           })
 
@@ -4170,8 +4193,9 @@ Generated with KAM Printing Wizard
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 2 },
             headStyles: { fillColor: [200, 220, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.5, lineColor: [0, 0, 0] },
+            tableWidth: 180,
             columnStyles: {
-              0: { cellWidth: 100 },
+              0: { cellWidth: 90 },
               1: { cellWidth: 30 },
               2: { cellWidth: 30 },
               3: { cellWidth: 30 }
@@ -4181,23 +4205,26 @@ Generated with KAM Printing Wizard
           yPos = (pdf as any).lastAutoTable.finalY + 2
 
           // Product Details Table
+          const unitCostValue = priceData.UnitCost || 0
+          const per1000CostValue = unitCostValue * 1000
           autoTable(pdf, {
             startY: yPos,
             body: [
-              ['Product Name', ':', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()],
-              ['Product Code', ':', detailsData.ProductCode || 'N/A', 'Unit Cost', `${priceData.CurrencySymbol || '₹'} ${(priceData.UnitCost || 0).toFixed(2)}`],
-              ['Category', ':', detailsData.CategoryName || mainData.CategoryName || 'N/A', 'Sub Total', `${priceData.CurrencySymbol || '₹'} ${(priceData.TotalCost || priceData.GrandTotalCost || 0).toLocaleString()}`],
-              ['Carton Type', ':', detailsData.CartonTypeName || 'N/A', 'Tax Amount', `${priceData.CurrencySymbol || '₹'} ${(priceData.TaxAmount || 0).toLocaleString()}`],
-              ['Domain', ':', mainData.DomainName || detailsData.DomainName || 'N/A', 'Grand Total', `${priceData.CurrencySymbol || '₹'} ${(priceData.GrandTotalCost || 0).toLocaleString()}`]
+              ['Product Name', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()],
+              ['Product Code', detailsData.ProductCode || 'N/A', 'Unit Cost', `${priceData.CurrencySymbol || '₹'} ${unitCostValue.toFixed(4)}`],
+              ['Category', detailsData.CategoryName || mainData.CategoryName || 'N/A', 'Per 1000 Cost', `${priceData.CurrencySymbol || '₹'} ${per1000CostValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`],
+              ['Carton Type', detailsData.CartonTypeName || 'N/A', 'Sub Total', `${priceData.CurrencySymbol || '₹'} ${(priceData.TotalCost || priceData.GrandTotalCost || 0).toLocaleString()}`],
+              ['Domain', mainData.DomainName || detailsData.DomainName || 'N/A', 'Tax Amount', `${priceData.CurrencySymbol || '₹'} ${(priceData.TaxAmount || 0).toLocaleString()}`],
+              ['', '', 'Grand Total', `${priceData.CurrencySymbol || '₹'} ${(priceData.GrandTotalCost || 0).toLocaleString()}`]
             ],
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 2 },
+            tableWidth: 180,
             columnStyles: {
               0: { fontStyle: 'bold', cellWidth: 30 },
-              1: { cellWidth: 5 },
-              2: { cellWidth: 60 },
-              3: { fontStyle: 'bold', cellWidth: 30 },
-              4: { cellWidth: 65, halign: 'right' }
+              1: { cellWidth: 60 },
+              2: { fontStyle: 'bold', cellWidth: 28 },
+              3: { cellWidth: 62, halign: 'right' }
             }
           })
 
@@ -4212,24 +4239,24 @@ Generated with KAM Printing Wizard
           autoTable(pdf, {
             startY: yPos,
             body: [
-              ['Content Name', ':', detailsData.ContentName || 'N/A', 'Job Size (mm)', `${detailsData.JobSizeH || 0} x ${detailsData.JobSizeL || 0}`],
-              ['Color Details', ':', `Front: ${detailsData.PlanFColor || 0} + ${detailsData.PlanFSpColor || 0} | Back: ${detailsData.PlanBColor || 0} + ${detailsData.PlanBSpColor || 0}`, 'Job Size (Inch)', `H: ${detailsData.SizeHeight || 0}" L: ${detailsData.SizeLength || 0}"`],
-              ['Quality', ':', detailsData.QualityName || 'N/A', 'Paper GSM', detailsData.PaperGSM || 'N/A'],
-              ['Mill', ':', detailsData.MillName || 'N/A', 'Finish', detailsData.FinishName || 'N/A'],
-              ['Grain Direction', ':', detailsData.GrainDirection || 'N/A', 'Box Weight (Kg)', (detailsData.BoxWeight || 0).toFixed(2)],
-              ['Material Details', ':', detailsData.MaterialDetails || `${detailsData.QualityName || ''} ${detailsData.PaperGSM || ''}GSM`, 'Supplied By', mainData.CompanyName || 'Client'],
-              ['Operations', ':', detailsData.Operations || 'N/A', 'Printing Type', detailsData.PrintingType || 'N/A'],
-              ['Ups (Per Sheet)', ':', detailsData.TotalUps || detailsData.Ups || 'N/A', 'Plan Type', detailsData.PlanType || 'N/A']
+              ['Content Name', detailsData.ContentName || 'N/A', 'Job Size (mm)', `${detailsData.JobSizeH || 0} x ${detailsData.JobSizeL || 0}`],
+              ['Color Details', `Front: ${detailsData.PlanFColor || 0} + ${detailsData.PlanFSpColor || 0} | Back: ${detailsData.PlanBColor || 0} + ${detailsData.PlanBSpColor || 0}`, 'Job Size (Inch)', `H: ${detailsData.SizeHeight || 0}" L: ${detailsData.SizeLength || 0}"`],
+              ['Quality', detailsData.QualityName || 'N/A', 'Paper GSM', detailsData.PaperGSM || 'N/A'],
+              ['Mill', detailsData.MillName || 'N/A', 'Finish', detailsData.FinishName || 'N/A'],
+              ['Grain Direction', detailsData.GrainDirection || 'N/A', 'Box Weight (Kg)', (detailsData.BoxWeight || 0).toFixed(2)],
+              ['Material Details', detailsData.MaterialDetails || `${detailsData.QualityName || ''} ${detailsData.PaperGSM || ''}GSM`, 'Supplied By', mainData.CompanyName || 'Client'],
+              ['Operations', detailsData.Operations || 'N/A', 'Printing Type', detailsData.PrintingType || 'N/A'],
+              ['Ups (Per Sheet)', detailsData.TotalUps || detailsData.Ups || 'N/A', 'Plan Type', detailsData.PlanType || 'N/A']
             ],
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
             headStyles: { fillColor: [240, 240, 240] },
+            tableWidth: 180,
             columnStyles: {
               0: { fontStyle: 'bold', cellWidth: 30 },
-              1: { cellWidth: 5 },
-              2: { cellWidth: 55 },
-              3: { fontStyle: 'bold', cellWidth: 30 },
-              4: { cellWidth: 40 }
+              1: { cellWidth: 60 },
+              2: { fontStyle: 'bold', cellWidth: 28 },
+              3: { cellWidth: 62 }
             }
           })
 
@@ -4249,7 +4276,13 @@ Generated with KAM Printing Wizard
               body: plyData,
               theme: 'grid',
               styles: { fontSize: 9, cellPadding: 2 },
-              headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' }
+              headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
+              tableWidth: 180,
+              columnStyles: {
+                0: { cellWidth: 30 },
+                1: { cellWidth: 50 },
+                2: { cellWidth: 100 }
+              }
             })
 
             yPos = (pdf as any).lastAutoTable.finalY + 5
@@ -4305,7 +4338,7 @@ Generated with KAM Printing Wizard
 
       return (
         <div className="p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-          {renderStepHeader("Quotation Details", true)}
+          {renderStepHeader("Quotation Details")}
 
           {/* Printable Quotation Content */}
           <div ref={quotationPrintRef} className="bg-white">
@@ -4381,16 +4414,10 @@ Generated with KAM Printing Wizard
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-slate-500 mb-1">Unit Cost</div>
-                  <div className="text-xl font-bold text-[#005180]">₹ {(priceData.UnitCost || 0).toFixed(2)}</div>
+                  <div className="text-xl font-bold text-[#005180]">₹ {(priceData.UnitCost || 0).toFixed(4)}</div>
+                  <div className="text-xs text-green-600 mt-1">Per 1000: ₹ {((priceData.UnitCost || 0) * 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
                 </div>
               </div>
-
-              {priceData.UnitCost1000 && (
-                <div className="flex justify-between items-center py-2 border-b border-green-200">
-                  <span className="text-sm text-slate-600">Cost per 1000:</span>
-                  <span className="font-bold text-slate-900">₹ {priceData.UnitCost1000.toLocaleString()}</span>
-                </div>
-              )}
 
               {priceData.QuotedCost && (
                 <div className="flex justify-between items-center py-2 border-b border-green-200">
@@ -4472,10 +4499,11 @@ Generated with KAM Printing Wizard
                     ],
                     theme: 'plain',
                     styles: { fontSize: 9, cellPadding: 1 },
+                    tableWidth: 180,
                     columnStyles: {
                       0: { cellWidth: 35, fontStyle: 'bold' },
                       1: { cellWidth: 5 },
-                      2: { cellWidth: 150 }
+                      2: { cellWidth: 140 }
                     }
                   })
 
@@ -4506,38 +4534,38 @@ Generated with KAM Printing Wizard
                     theme: 'grid',
                     styles: { fontSize: 9, cellPadding: 2 },
                     headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.5, lineColor: [0, 0, 0] },
+                    tableWidth: 180,
                     columnStyles: {
-                      0: { cellWidth: 50 },
+                      0: { cellWidth: 45 },
                       1: { cellWidth: 30 },
                       2: { cellWidth: 30 },
                       3: { cellWidth: 35 },
-                      4: { cellWidth: 25 },
-                      5: { cellWidth: 20 }
+                      4: { cellWidth: 22 },
+                      5: { cellWidth: 18 }
                     }
                   })
 
                   yPos = (pdf as any).lastAutoTable.finalY + 2
 
                   // Product Details Table
+                  const unitCost2 = priceData.UnitCost || 0
+                  const per1000Cost2 = unitCost2 * 1000
                   autoTable(pdf, {
                     startY: yPos,
                     body: [
-                      ['Product Name', ':', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString(), 'Rate', (priceData.UnitCost || 0).toFixed(2), 'Rate Type', 'UnitCost'],
-                      ['Product Code', ':', detailsData.ProductCode || '', '', '', '', '', '', ''],
-                      ['Category', ':', detailsData.CategoryName || mainData.CategoryName || '', 'Total Amount', '', '', (priceData.GrandTotalCost || 0).toLocaleString(), '', '']
+                      ['Product Name', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()],
+                      ['Product Code', detailsData.ProductCode || 'N/A', 'Unit Cost', `₹ ${unitCost2.toFixed(4)}`],
+                      ['Category', detailsData.CategoryName || mainData.CategoryName || 'N/A', 'Per 1000 Cost', `₹ ${per1000Cost2.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`],
+                      ['', '', 'Total Amount', `₹ ${(priceData.GrandTotalCost || 0).toLocaleString()}`]
                     ],
                     theme: 'grid',
                     styles: { fontSize: 9, cellPadding: 2 },
+                    tableWidth: 180,
                     columnStyles: {
                       0: { fontStyle: 'bold', cellWidth: 30 },
-                      1: { cellWidth: 5 },
-                      2: { cellWidth: 60 },
-                      3: { fontStyle: 'bold', cellWidth: 25 },
-                      4: { cellWidth: 20 },
-                      5: { cellWidth: 15 },
-                      6: { cellWidth: 15 },
-                      7: { cellWidth: 20 },
-                      8: { cellWidth: 15 }
+                      1: { cellWidth: 60 },
+                      2: { fontStyle: 'bold', cellWidth: 28 },
+                      3: { cellWidth: 62, halign: 'right' }
                     }
                   })
 
@@ -4546,29 +4574,25 @@ Generated with KAM Printing Wizard
                   // Content Details and Job Size Details
                   pdf.setFontSize(10)
                   pdf.setFont('helvetica', 'bold')
-                  pdf.text('Content Details :-', 15, yPos)
-                  pdf.text('Job Size Details', 105, yPos)
-                  yPos += 2
+                  pdf.text('Technical Specifications', 15, yPos)
+                  yPos += 5
 
                   autoTable(pdf, {
                     startY: yPos,
                     body: [
-                      ['Content Name', ':', detailsData.ContentName || 'N/A'],
-                      ['Color Details', ':', `F:${detailsData.PlanFColor || 0} / B:${detailsData.PlanBColor || 0}, SF:${detailsData.PlanFSpColor || 0} / SB:${detailsData.PlanBSpColor || 0}`],
-                      ['Job Size', ':', `${detailsData.JobSizeH || 0} x ${detailsData.JobSizeL || 0}`],
-                      ['Job Size(Inch)', ':', `H:${detailsData.SizeHeight || 0}, L:${detailsData.SizeLength || 0}`],
-                      ['Material Details', ':', detailsData.MaterialDetails || `Quality:${detailsData.QualityName || ''}, GSM:${detailsData.PaperGSM || ''}`, 'Supplied By :', mainData.CompanyName || 'N/A'],
-                      ['Operations', ':', detailsData.Operations || 'N/A'],
-                      ['BoxWeight', ':', (detailsData.BoxWeight || 0).toFixed(2)]
+                      ['Content Name', detailsData.ContentName || 'N/A', 'Job Size (mm)', `${detailsData.JobSizeH || 0} x ${detailsData.JobSizeL || 0}`],
+                      ['Color Details', `Front: ${detailsData.PlanFColor || 0} + ${detailsData.PlanFSpColor || 0} | Back: ${detailsData.PlanBColor || 0} + ${detailsData.PlanBSpColor || 0}`, 'Job Size (Inch)', `H: ${detailsData.SizeHeight || 0}" L: ${detailsData.SizeLength || 0}"`],
+                      ['Material Details', detailsData.MaterialDetails || `${detailsData.QualityName || ''} ${detailsData.PaperGSM || ''}GSM`, 'Supplied By', mainData.CompanyName || 'N/A'],
+                      ['Operations', detailsData.Operations || 'N/A', 'Box Weight (Kg)', (detailsData.BoxWeight || 0).toFixed(2)]
                     ],
-                    theme: 'plain',
-                    styles: { fontSize: 9, cellPadding: 1 },
+                    theme: 'grid',
+                    styles: { fontSize: 9, cellPadding: 2 },
+                    tableWidth: 180,
                     columnStyles: {
-                      0: { fontStyle: 'bold', cellWidth: 35 },
-                      1: { cellWidth: 5 },
-                      2: { cellWidth: 90 },
-                      3: { fontStyle: 'bold', cellWidth: 30 },
-                      4: { cellWidth: 30 }
+                      0: { fontStyle: 'bold', cellWidth: 30 },
+                      1: { cellWidth: 60 },
+                      2: { fontStyle: 'bold', cellWidth: 28 },
+                      3: { cellWidth: 62 }
                     }
                   })
 
@@ -4588,7 +4612,13 @@ Generated with KAM Printing Wizard
                       body: plyData,
                       theme: 'grid',
                       styles: { fontSize: 9, cellPadding: 2 },
-                      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' }
+                      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
+                      tableWidth: 180,
+                      columnStyles: {
+                        0: { cellWidth: 30 },
+                        1: { cellWidth: 50 },
+                        2: { cellWidth: 100 }
+                      }
                     })
 
                     yPos = (pdf as any).lastAutoTable.finalY + 5
@@ -4649,7 +4679,7 @@ Generated with KAM Printing Wizard
     // Otherwise show the original Final Cost page
     return (
     <div className="p-2 sm:p-3 space-y-4 animate-fade-in">
-      {renderStepHeader("Final Cost", true)}
+      {renderStepHeader("Final Cost")}
 
       {/* Selected Plan Details */}
       {selectedPlan && (() => {
@@ -5037,45 +5067,7 @@ Generated with KAM Printing Wizard
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 0:
-        return (
-          <div className="p-3 space-y-3 animate-fade-in">
-            <div className="text-center mb-4">
-              <Package className="w-12 h-12 text-[#005180] mx-auto mb-2" />
-              <p className="text-slate-600 text-sm">Let's get started with your project</p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="clientName" className="text-sm font-medium text-slate-700">
-                  Customer Name
-                </Label>
-                <ClientDropdown
-                  value={jobData.clientName}
-                  onValueChange={(value) => setJobData({ ...jobData, clientName: value })}
-                  placeholder="Select existing customer"
-                />
-              </div>
-
-              {[
-                { key: "jobName", label: "Job Name", placeholder: "Enter job name" },
-                { key: "quantity", label: "Quantity", placeholder: "Enter quantity" },
-              ].map(({ key, label, placeholder }) => (
-                <div key={key} className="space-y-1">
-                  <Label htmlFor={key} className="text-sm font-medium text-slate-700">
-                    {label}
-                  </Label>
-                  <Input
-                    id={key}
-                    value={jobData[key as keyof JobData] as string}
-                    onChange={(e) => setJobData({ ...jobData, [key]: e.target.value })}
-                    placeholder={placeholder}
-                    className="h-10 border border-slate-300 focus:border-[#005180] transition-colors"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )
+        return renderJobDetails()
       case 1:
         return renderCartonType()
       case 2:
@@ -5166,32 +5158,6 @@ Generated with KAM Printing Wizard
 
   return (
     <div className="flex flex-col h-full">
-      {/* Auto-save Status Indicator - Hide on Best Plans step since it's shown in the header */}
-      {currentStep !== steps.indexOf('Best Plans') && (jobData.jobName !== '' || jobData.clientName !== '') && (
-        <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground px-4 pt-2">
-          {saveStatus === 'saving' && (
-            <>
-              <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-              <span>Saving draft...</span>
-            </>
-          )}
-          {saveStatus === 'saved' && lastSaved && (
-            <>
-              <div className="h-2 w-2 rounded-full bg-green-600" />
-              <span className="text-green-600">Draft saved</span>
-              <span className="text-muted-foreground">
-                {lastSaved.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </>
-          )}
-          {saveStatus === 'error' && (
-            <>
-              <div className="h-2 w-2 rounded-full bg-red-600" />
-              <span className="text-red-600">Failed to save draft</span>
-            </>
-          )}
-        </div>
-      )}
       <div className="flex-1 overflow-y-auto pb-16">{renderCurrentStep()}</div>
 
       {/* Fixed bottom navigation */}

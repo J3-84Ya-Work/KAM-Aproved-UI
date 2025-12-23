@@ -1,19 +1,19 @@
 "use client"
 import {
-  FileText,
   FileCheck,
+  FileText,
   FolderKanban,
+  LayoutDashboard,
   Users,
   MessageSquare,
   Settings,
-  LayoutDashboard,
-  MoreHorizontal,
   ChevronLeft,
   ChevronRight,
   LogOut,
   UserCircle,
   Home,
   DollarSign,
+  Package,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -33,10 +33,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { getCurrentUser } from "@/lib/permissions"
-import { EnquiryAPI, QuotationsAPI } from "@/lib/api/enquiry"
-import { getForms } from "@/lib/api/projects"
 import { clientLogger } from "@/lib/logger"
 
 const roleBasedNavItems = {
@@ -47,21 +44,29 @@ const roleBasedNavItems = {
       icon: Home,
     },
     {
-      title: "Customer",
-      url: "/clients",
-      icon: Users,
-    },
-    {
       title: "Enquiries",
       url: "/inquiries",
       icon: FileText,
-      badge: 12,
     },
     {
       title: "Quotations",
       url: "/quotations",
       icon: FileCheck,
-      badge: 8,
+    },
+    {
+      title: "Projects",
+      url: "/projects",
+      icon: Package,
+    },
+    {
+      title: "Analytics",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Customer",
+      url: "/clients",
+      icon: Users,
     },
     {
       title: "Conversations",
@@ -72,17 +77,6 @@ const roleBasedNavItems = {
       title: "Ask Rate",
       url: "/ask-rate",
       icon: DollarSign,
-    },
-    {
-      title: "Projects",
-      url: "/projects",
-      icon: FolderKanban,
-      badge: 5,
-    },
-    {
-      title: "Analytics",
-      url: "/dashboard",
-      icon: LayoutDashboard,
     },
     {
       title: "Settings",
@@ -97,16 +91,6 @@ const roleBasedNavItems = {
       icon: FileCheck,
     },
     {
-      title: "Customer",
-      url: "/clients",
-      icon: Users,
-    },
-    {
-      title: "Inquiries",
-      url: "/inquiries",
-      icon: FileText,
-    },
-    {
       title: "Quotations",
       url: "/quotations",
       icon: FileCheck,
@@ -114,12 +98,17 @@ const roleBasedNavItems = {
     {
       title: "Projects",
       url: "/projects",
-      icon: FolderKanban,
+      icon: Package,
     },
     {
       title: "Analytics",
       url: "/dashboard",
       icon: LayoutDashboard,
+    },
+    {
+      title: "Customer",
+      url: "/clients",
+      icon: Users,
     },
     {
       title: "Settings",
@@ -134,16 +123,6 @@ const roleBasedNavItems = {
       icon: FileCheck,
     },
     {
-      title: "Customer",
-      url: "/clients",
-      icon: Users,
-    },
-    {
-      title: "Inquiries",
-      url: "/inquiries",
-      icon: FileText,
-    },
-    {
       title: "Quotations",
       url: "/quotations",
       icon: FileCheck,
@@ -151,12 +130,17 @@ const roleBasedNavItems = {
     {
       title: "Projects",
       url: "/projects",
-      icon: FolderKanban,
+      icon: Package,
     },
     {
       title: "Analytics",
       url: "/dashboard",
       icon: LayoutDashboard,
+    },
+    {
+      title: "Customer",
+      url: "/clients",
+      icon: Users,
     },
     {
       title: "Settings",
@@ -171,16 +155,6 @@ const roleBasedNavItems = {
       icon: FileCheck,
     },
     {
-      title: "Customer",
-      url: "/clients",
-      icon: Users,
-    },
-    {
-      title: "Inquiries",
-      url: "/inquiries",
-      icon: FileText,
-    },
-    {
       title: "Quotations",
       url: "/quotations",
       icon: FileCheck,
@@ -188,12 +162,17 @@ const roleBasedNavItems = {
     {
       title: "Projects",
       url: "/projects",
-      icon: FolderKanban,
+      icon: Package,
     },
     {
       title: "Analytics",
       url: "/dashboard",
       icon: LayoutDashboard,
+    },
+    {
+      title: "Customer",
+      url: "/clients",
+      icon: Users,
     },
     {
       title: "Settings",
@@ -223,13 +202,9 @@ export function AppSidebar() {
   const [userRole, setUserRole] = useState<string>("")
   const [userName, setUserName] = useState<string>("")
   const [navItems, setNavItems] = useState(roleBasedNavItems.KAM) // Default to KAM
-  const [inquiryCount, setInquiryCount] = useState<number>(0)
-  const [quotationCount, setQuotationCount] = useState<number>(0)
   const [customerCount, setCustomerCount] = useState<number>(0)
-  const [approvalCount, setApprovalCount] = useState<number>(0)
   const [conversationCount, setConversationCount] = useState<number>(0)
   const [askRateCount, setAskRateCount] = useState<number>(0)
-  const [projectCount, setProjectCount] = useState<number>(0)
 
   useEffect(() => {
     // Get current user info
@@ -243,49 +218,6 @@ export function AppSidebar() {
       setNavItems(roleBasedNavItems[user.role as keyof typeof roleBasedNavItems] || roleBasedNavItems.KAM)
     } else {
       clientLogger.log('AppSidebar - No user found in localStorage')
-    }
-
-    // Fetch inquiry count
-    const fetchInquiryCount = async () => {
-      try {
-        // Get current financial year dates
-        const currentYear = new Date().getFullYear()
-        const nextYear = currentYear + 1
-
-        const response = await EnquiryAPI.getEnquiries({
-          FromDate: `${currentYear}-01-01 00:00:00.000`,
-          ToDate: `${nextYear}-12-31 23:59:59.999`,
-          ApplydateFilter: 'True',
-          RadioValue: 'All',
-        }, null)
-
-        if (response.success && response.data) {
-          setInquiryCount(response.data.length)
-        }
-      } catch (error) {
-        clientLogger.error('Failed to fetch inquiry count:', error)
-      }
-    }
-
-    // Fetch quotation count
-    const fetchQuotationCount = async () => {
-      try {
-        // Get current financial year dates
-        const currentYear = new Date().getFullYear()
-        const nextYear = currentYear + 1
-
-        const response = await QuotationsAPI.getQuotations({
-          FilterSTR: 'All',
-          FromDate: `${currentYear}-01-01 00:00:00.000`,
-          ToDate: `${nextYear}-12-31 23:59:59.999`,
-        }, null)
-
-        if (response.success && response.data) {
-          setQuotationCount(response.data.length)
-        }
-      } catch (error) {
-        clientLogger.error('Failed to fetch quotation count:', error)
-      }
     }
 
     // Fetch customer count
@@ -355,29 +287,6 @@ export function AppSidebar() {
         }
       } catch (error) {
         clientLogger.error('❌ Sidebar - Failed to fetch customer count:', error)
-      }
-    }
-
-    // Fetch approvals count (pending quotations)
-    const fetchApprovalCount = async () => {
-      try {
-        clientLogger.log('📊 Sidebar - Fetching approval count...')
-        const currentYear = new Date().getFullYear()
-        const nextYear = currentYear + 1
-
-        const response = await QuotationsAPI.getQuotations({
-          FilterSTR: 'Pending',
-          FromDate: `${currentYear}-01-01 00:00:00.000`,
-          ToDate: `${nextYear}-12-31 23:59:59.999`,
-        }, null)
-
-        clientLogger.log('📊 Sidebar - Approval response:', response)
-        if (response.success && response.data) {
-          clientLogger.log('✅ Sidebar - Setting approval count:', response.data.length)
-          setApprovalCount(response.data.length)
-        }
-      } catch (error) {
-        clientLogger.error('❌ Sidebar - Failed to fetch approval count:', error)
       }
     }
 
@@ -482,45 +391,10 @@ export function AppSidebar() {
       }
     }
 
-    // Fetch projects count (all types: SDO, JDO, Commercial)
-    const fetchProjectCount = async () => {
-      try {
-        clientLogger.log('📊 Sidebar - Fetching projects count...')
-
-        // Fetch all three types in parallel
-        const [sdoResponse, jdoResponse, commercialResponse] = await Promise.all([
-          getForms({ FormType: 'SDO' }),
-          getForms({ FormType: 'JDO' }),
-          getForms({ FormType: 'Commercial' })
-        ])
-
-        let totalCount = 0
-
-        if (sdoResponse.success && Array.isArray(sdoResponse.data)) {
-          totalCount += sdoResponse.data.length
-        }
-        if (jdoResponse.success && Array.isArray(jdoResponse.data)) {
-          totalCount += jdoResponse.data.length
-        }
-        if (commercialResponse.success && Array.isArray(commercialResponse.data)) {
-          totalCount += commercialResponse.data.length
-        }
-
-        clientLogger.log('✅ Sidebar - Setting project count:', totalCount)
-        setProjectCount(totalCount)
-      } catch (error) {
-        clientLogger.error('❌ Sidebar - Failed to fetch project count:', error)
-      }
-    }
-
     clientLogger.log('🚀 Sidebar - Starting all count fetches...')
-    fetchInquiryCount()
-    fetchQuotationCount()
     fetchCustomerCount()
-    fetchApprovalCount()
     fetchConversationCount()
     fetchAskRateCount()
-    fetchProjectCount()
     clientLogger.log('🚀 Sidebar - All fetch functions called')
   }, [])
 
@@ -553,7 +427,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="hidden md:flex">
       {/* Toggle Button at Top */}
       <div className="border-b border-gray-200 p-2">
         <Button
@@ -603,26 +477,16 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map((item) => {
                 // Get dynamic count for specific items
-                let displayCount: number | undefined = item.badge
-                if (item.title === 'Enquiries') {
-                  displayCount = inquiryCount
-                } else if (item.title === 'Quotations') {
-                  displayCount = quotationCount
-                } else if (item.title === 'Customer') {
+                let displayCount: number | undefined = undefined
+                if (item.title === 'Customer') {
                   displayCount = customerCount
                   clientLogger.log('🔢 Sidebar - Customer menu item, count:', customerCount)
-                } else if (item.title === 'Approvals') {
-                  displayCount = approvalCount
-                  clientLogger.log('🔢 Sidebar - Approvals menu item, count:', approvalCount)
                 } else if (item.title === 'Conversations') {
                   displayCount = conversationCount
                   clientLogger.log('🔢 Sidebar - Conversations menu item, count:', conversationCount)
                 } else if (item.title === 'Ask Rate') {
                   displayCount = askRateCount
                   clientLogger.log('🔢 Sidebar - Ask Rate menu item, count:', askRateCount)
-                } else if (item.title === 'Projects') {
-                  displayCount = projectCount
-                  clientLogger.log('🔢 Sidebar - Projects menu item, count:', projectCount)
                 }
 
                 return (
