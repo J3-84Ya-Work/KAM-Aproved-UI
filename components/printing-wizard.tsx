@@ -3339,9 +3339,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-[#005180]">₹{unitPrice.toFixed(4)}</div>
-                    <div className="text-xs text-slate-500">per unit</div>
-                    <div className="text-xs text-green-600 mt-1">Per 1000: ₹{per1000Cost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                    <div className="text-2xl font-bold text-[#005180]">₹{per1000Cost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                    <div className="text-xs text-slate-500">per 1000</div>
+                    <div className="text-xs text-slate-600 mt-1">Unit: ₹{unitPrice.toFixed(4)}</div>
                   </div>
                 </div>
 
@@ -4150,21 +4150,20 @@ Generated with KAM Printing Wizard
             startY: yPos,
             head: [],
             body: [
-              ['Customer Name', ':', mainData.LedgerName || 'N/A'],
-              ['To,', ':', mainData.LedgerName || 'N/A'],
-              ['', '', `${mainData.Address1 || ''}${mainData.CityName ? ', ' + mainData.CityName : ''}${mainData.PinCode ? ' - ' + mainData.PinCode : ''}`],
-              ['Subject', ':', `Quotation For : ${mainData.JobName || 'N/A'}`],
-              ['Kind Attention', ':', mainData.ContactPerson || ''],
-              ['Email', ':', mainData.LedgerEmail || ''],
-              ['Phone', ':', mainData.LedgerContactNo || ''],
-            ].filter(row => row[2] !== ''), // Filter out empty rows
+              ['Customer Name', mainData.LedgerName || 'N/A'],
+              ['To,', mainData.LedgerName || 'N/A'],
+              ['', `${mainData.Address1 || ''}${mainData.CityName ? ', ' + mainData.CityName : ''}${mainData.PinCode ? ' - ' + mainData.PinCode : ''}`],
+              ['Subject', `Quotation For: ${mainData.JobName || 'N/A'}`],
+              ['Kind Attention', mainData.ContactPerson || ''],
+              ['Email', mainData.LedgerEmail || ''],
+              ['Phone', mainData.LedgerContactNo || '']
+            ].filter(row => row[1] !== ''),
             theme: 'plain',
             styles: { fontSize: 9, cellPadding: 1 },
             tableWidth: 180,
             columnStyles: {
               0: { cellWidth: 35, fontStyle: 'bold' },
-              1: { cellWidth: 5 },
-              2: { cellWidth: 140 }
+              1: { cellWidth: 145 }
             }
           })
 
@@ -4209,8 +4208,8 @@ Generated with KAM Printing Wizard
           const per1000CostValue = unitCostValue * 1000
           autoTable(pdf, {
             startY: yPos,
+            head: [['Product Name', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()]],
             body: [
-              ['Product Name', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()],
               ['Product Code', detailsData.ProductCode || 'N/A', 'Unit Cost', `${priceData.CurrencySymbol || '₹'} ${unitCostValue.toFixed(4)}`],
               ['Category', detailsData.CategoryName || mainData.CategoryName || 'N/A', 'Per 1000 Cost', `${priceData.CurrencySymbol || '₹'} ${per1000CostValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`],
               ['Carton Type', detailsData.CartonTypeName || 'N/A', 'Sub Total', `${priceData.CurrencySymbol || '₹'} ${(priceData.TotalCost || priceData.GrandTotalCost || 0).toLocaleString()}`],
@@ -4218,13 +4217,14 @@ Generated with KAM Printing Wizard
               ['', '', 'Grand Total', `${priceData.CurrencySymbol || '₹'} ${(priceData.GrandTotalCost || 0).toLocaleString()}`]
             ],
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2 },
+            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
             tableWidth: 180,
             columnStyles: {
               0: { fontStyle: 'bold', cellWidth: 30 },
               1: { cellWidth: 60 },
-              2: { fontStyle: 'bold', cellWidth: 28 },
-              3: { cellWidth: 62, halign: 'right' }
+              2: { fontStyle: 'bold', cellWidth: 30 },
+              3: { cellWidth: 60, halign: 'right' }
             }
           })
 
@@ -4249,14 +4249,13 @@ Generated with KAM Printing Wizard
               ['Ups (Per Sheet)', detailsData.TotalUps || detailsData.Ups || 'N/A', 'Plan Type', detailsData.PlanType || 'N/A']
             ],
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fillColor: [240, 240, 240] },
+            styles: { fontSize: 8, cellPadding: 3 },
             tableWidth: 180,
             columnStyles: {
               0: { fontStyle: 'bold', cellWidth: 30 },
               1: { cellWidth: 60 },
-              2: { fontStyle: 'bold', cellWidth: 28 },
-              3: { cellWidth: 62 }
+              2: { fontStyle: 'bold', cellWidth: 30 },
+              3: { cellWidth: 60 }
             }
           })
 
@@ -4491,19 +4490,20 @@ Generated with KAM Printing Wizard
                     startY: yPos,
                     head: [],
                     body: [
-                      ['Customer Name', ':', mainData.LedgerName || 'N/A'],
-                      ['To,', ':', mainData.LedgerName || 'N/A'],
-                      ['', '', `${mainData.Address1 || ''}${mainData.CityName ? ', ' + mainData.CityName : ''}${mainData.PinCode ? ' - ' + mainData.PinCode : ''}`],
-                      ['Subject', ':', `Quotation For : ${mainData.JobName || 'N/A'}`],
-                      ['Kind Attention', ':', ''],
-                    ],
+                      ['Customer Name', mainData.LedgerName || 'N/A'],
+                      ['To,', mainData.LedgerName || 'N/A'],
+                      ['', `${mainData.Address1 || ''}${mainData.CityName ? ', ' + mainData.CityName : ''}${mainData.PinCode ? ' - ' + mainData.PinCode : ''}`],
+                      ['Subject', `Quotation For: ${mainData.JobName || 'N/A'}`],
+                      ['Kind Attention', mainData.ContactPerson || ''],
+                      ['Email', mainData.LedgerEmail || ''],
+                      ['Phone', mainData.LedgerContactNo || '']
+                    ].filter(row => row[1] !== ''),
                     theme: 'plain',
                     styles: { fontSize: 9, cellPadding: 1 },
                     tableWidth: 180,
                     columnStyles: {
                       0: { cellWidth: 35, fontStyle: 'bold' },
-                      1: { cellWidth: 5 },
-                      2: { cellWidth: 140 }
+                      1: { cellWidth: 145 }
                     }
                   })
 
@@ -4552,20 +4552,23 @@ Generated with KAM Printing Wizard
                   const per1000Cost2 = unitCost2 * 1000
                   autoTable(pdf, {
                     startY: yPos,
+                    head: [['Product Name', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()]],
                     body: [
-                      ['Product Name', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()],
                       ['Product Code', detailsData.ProductCode || 'N/A', 'Unit Cost', `₹ ${unitCost2.toFixed(4)}`],
                       ['Category', detailsData.CategoryName || mainData.CategoryName || 'N/A', 'Per 1000 Cost', `₹ ${per1000Cost2.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`],
-                      ['', '', 'Total Amount', `₹ ${(priceData.GrandTotalCost || 0).toLocaleString()}`]
+                      ['Carton Type', detailsData.CartonTypeName || 'N/A', 'Sub Total', `₹ ${(priceData.TotalCost || priceData.GrandTotalCost || 0).toLocaleString()}`],
+                      ['Domain', mainData.DomainName || detailsData.DomainName || 'N/A', 'Tax Amount', `₹ ${(priceData.TaxAmount || 0).toLocaleString()}`],
+                      ['', '', 'Grand Total', `₹ ${(priceData.GrandTotalCost || 0).toLocaleString()}`]
                     ],
                     theme: 'grid',
-                    styles: { fontSize: 9, cellPadding: 2 },
+                    styles: { fontSize: 9, cellPadding: 3 },
+                    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
                     tableWidth: 180,
                     columnStyles: {
                       0: { fontStyle: 'bold', cellWidth: 30 },
                       1: { cellWidth: 60 },
-                      2: { fontStyle: 'bold', cellWidth: 28 },
-                      3: { cellWidth: 62, halign: 'right' }
+                      2: { fontStyle: 'bold', cellWidth: 30 },
+                      3: { cellWidth: 60, halign: 'right' }
                     }
                   })
 
@@ -4582,17 +4585,21 @@ Generated with KAM Printing Wizard
                     body: [
                       ['Content Name', detailsData.ContentName || 'N/A', 'Job Size (mm)', `${detailsData.JobSizeH || 0} x ${detailsData.JobSizeL || 0}`],
                       ['Color Details', `Front: ${detailsData.PlanFColor || 0} + ${detailsData.PlanFSpColor || 0} | Back: ${detailsData.PlanBColor || 0} + ${detailsData.PlanBSpColor || 0}`, 'Job Size (Inch)', `H: ${detailsData.SizeHeight || 0}" L: ${detailsData.SizeLength || 0}"`],
-                      ['Material Details', detailsData.MaterialDetails || `${detailsData.QualityName || ''} ${detailsData.PaperGSM || ''}GSM`, 'Supplied By', mainData.CompanyName || 'N/A'],
-                      ['Operations', detailsData.Operations || 'N/A', 'Box Weight (Kg)', (detailsData.BoxWeight || 0).toFixed(2)]
+                      ['Quality', detailsData.QualityName || 'N/A', 'Paper GSM', detailsData.PaperGSM || 'N/A'],
+                      ['Mill', detailsData.MillName || 'N/A', 'Finish', detailsData.FinishName || 'N/A'],
+                      ['Grain Direction', detailsData.GrainDirection || 'N/A', 'Box Weight (Kg)', (detailsData.BoxWeight || 0).toFixed(2)],
+                      ['Material Details', detailsData.MaterialDetails || `${detailsData.QualityName || ''} ${detailsData.PaperGSM || ''}GSM`, 'Supplied By', mainData.CompanyName || 'Client'],
+                      ['Operations', detailsData.Operations || 'N/A', 'Printing Type', detailsData.PrintingType || 'N/A'],
+                      ['Ups (Per Sheet)', detailsData.TotalUps || detailsData.Ups || 'N/A', 'Plan Type', detailsData.PlanType || 'N/A']
                     ],
                     theme: 'grid',
-                    styles: { fontSize: 9, cellPadding: 2 },
+                    styles: { fontSize: 8, cellPadding: 3 },
                     tableWidth: 180,
                     columnStyles: {
                       0: { fontStyle: 'bold', cellWidth: 30 },
                       1: { cellWidth: 60 },
-                      2: { fontStyle: 'bold', cellWidth: 28 },
-                      3: { cellWidth: 62 }
+                      2: { fontStyle: 'bold', cellWidth: 30 },
+                      3: { cellWidth: 60 }
                     }
                   })
 

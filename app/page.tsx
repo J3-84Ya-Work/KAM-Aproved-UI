@@ -34,7 +34,7 @@ export default function Page() {
       clientLogger.log("[v0] User authenticated:", auth)
 
       // Redirect HOD and Vertical Head to Approvals page
-      if (auth.role === "H.O.D" || auth.role === "Vertical Head") {
+      if (auth.role === "H.O.D" || auth.role === "Vertical Head" || auth.role === "VerticalHead" || auth.role === "VH") {
         clientLogger.log("[v0] HOD/VH user detected, redirecting to approvals")
         router.push("/approvals")
         return
@@ -155,7 +155,10 @@ export default function Page() {
         <AppSidebar />
       </div>
       <SidebarInset>
-        <AppHeader onMenuClick={handleMenuClick} showBackButton={chatStarted} />
+        <AppHeader
+          showNewChatButton={chatStarted}
+          onNewChatClick={handleBackToWelcome}
+        />
         <div className="h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)] relative overflow-hidden">
           <div
             className={`absolute inset-0 transition-all duration-500 ease-in-out ${

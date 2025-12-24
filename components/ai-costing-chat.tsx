@@ -104,17 +104,16 @@ export function AICostingChat({
     }
   }, [messages, inputValue, chatId])
 
-  // Auto-save hook
+  // Auto-save hook - disabled for AI chat
   useAutoSaveDraft({
     formData,
     formType: 'DynamicFill',
     draftName: `AI_Chat_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}`,
-    enabled: messages.length > 0, // Only save if there are messages
-    debounceMs: 2000,  // Save 2 seconds after user stops typing
-    initialDraftId: loadedDraftId,  // Pass the loaded draft ID for updates
+    enabled: false, // Disabled - no auto-save for AI chat
+    debounceMs: 2000,
+    initialDraftId: loadedDraftId,
     onSaveSuccess: (draftId) => {
       clientLogger.log('[AI Chat] Draft saved/updated with ID:', draftId)
-      // Update the loaded draft ID if this was a new save
       if (!loadedDraftId && draftId) {
         setLoadedDraftId(draftId)
       }
