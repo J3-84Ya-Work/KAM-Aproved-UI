@@ -3293,18 +3293,42 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         </div>
 
         {filteredResults && filteredResults.length > 0 ? filteredResults.map((plan: any, index: number) => {
-          // Show the quantity user entered (from jobData), not the production quantity
-          const displayQuantity = Number(jobData.quantity) || plan.PlanContQty || plan.Quantity || plan.FinalQuantity || 0
-          // Get total amount - could be GrantAmount, TotalAmount, TotalPlanCost
-          const totalAmount = plan.GrantAmount || plan.TotalAmount || plan.totalAmount || plan.TotalPlanCost || 0
-          // Get unit price directly from API
-          const unitPrice = plan.UnitPrice || plan.unitPrice || plan.Rate || plan.rate || 0
+          // Get quantity - FinalQuantity is the actual production quantity from API
+          const planQuantity = plan.FinalQuantity || plan.FinalQuantityInPcs || plan.PlanContQty || plan.Quantity || 0
+          // Show the quantity user entered (from jobData) for display
+          const displayQuantity = Number(jobData.quantity) || planQuantity
+          // Get total amount - GrantAmount or TotalAmount from API
+          const totalAmount = plan.GrantAmount || plan.TotalAmount || plan.TotalPlanCost || 0
+          // Calculate unit price: if UnitPrice is 0 or not provided, calculate from GrantAmount / FinalQuantity
+          let unitPrice = plan.UnitPrice || 0
+          if (unitPrice === 0 && totalAmount > 0 && planQuantity > 0) {
+            unitPrice = totalAmount / planQuantity
+          }
           // Calculate per 1000 cost
           const per1000Cost = unitPrice * 1000
           const machineName = plan.MachineName || plan.MachineType || 'N/A'
           // Use TotalUps first (it's UpsL × UpsW), then fall back to NoOfSets or Ups
           const ups = plan.TotalUps || plan.NoOfSets || plan.Ups || 0
           const printingStyle = plan.PrintingStyle || 'N/A'
+
+          // Log the actual values being used for debugging
+          if (index === 0) {
+            clientLogger.log('🎯 Plan display values (first plan):', {
+              displayQuantity,
+              planQuantity,
+              totalAmount,
+              unitPrice,
+              per1000Cost,
+              calculation: `${totalAmount} / ${planQuantity} = ${unitPrice}`,
+              rawPlanFields: {
+                UnitPrice: plan.UnitPrice,
+                GrantAmount: plan.GrantAmount,
+                TotalAmount: plan.TotalAmount,
+                FinalQuantity: plan.FinalQuantity,
+                FinalQuantityInPcs: plan.FinalQuantityInPcs
+              }
+            })
+          }
 
           // Check if this plan is selected
           const isSelected = selectedPlan === plan
@@ -3778,11 +3802,28 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         clientLogger.log('🔍 Number of plans in response:', Array.isArray(shrinkJobRes) ? shrinkJobRes.length : 0)
         if (Array.isArray(shrinkJobRes)) {
           shrinkJobRes.forEach((plan: any, idx: number) => {
-            clientLogger.log(`🔍 Plan ${idx + 1} UPS values:`, {
+            clientLogger.log(`🔍 Plan ${idx + 1} ALL COST & QUANTITY values:`, {
+              // Cost fields
+              UnitPrice: plan.UnitPrice,
+              unitPrice: plan.unitPrice,
+              Rate: plan.Rate,
+              rate: plan.rate,
+              TotalPlanCost: plan.TotalPlanCost,
+              TotalCost: plan.TotalCost,
+              GrantAmount: plan.GrantAmount,
+              TotalAmount: plan.TotalAmount,
+              GrandTotal: plan.GrandTotal,
+              // Quantity fields
+              PlanContQty: plan.PlanContQty,
+              Quantity: plan.Quantity,
+              FinalQuantity: plan.FinalQuantity,
+              // UPS fields
               TotalUps: plan.TotalUps,
               Ups: plan.Ups,
               NoOfSets: plan.NoOfSets,
-              allKeys: Object.keys(plan)
+              // Machine
+              MachineName: plan.MachineName,
+              MachineType: plan.MachineType,
             })
           })
         }
