@@ -11,6 +11,150 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar, Building2, User, Package, FileText } from "lucide-react"
 import { saveForm, getProductionUnits, getClients } from "@/lib/api/projects"
 
+// Dropdown options data
+const SDO_DROPDOWN_OPTIONS = {
+  BoardType: [
+    "ONE SIDE POLY CTD BOARD",
+    "PET",
+    "PET COATED BOARD",
+    "PP",
+    "S.KAPPA SOLID BD",
+    "SANDWICH BOARD",
+    "SAPPI ALGRO DESIGN"
+  ],
+  BoardMill: [
+    "ITC",
+    "JK PAPER",
+    "SAPPI",
+    "WESTROCK"
+  ],
+  BoardBrand: [
+    "CYMK",
+    "FBB",
+    "IVORY",
+    "KRAFT"
+  ],
+  Fluting: [
+    "B-FLUTING",
+    "C-FLUTING",
+    "E-FLUTING",
+    "N-FLUTING",
+    "B & C-FLUTING",
+    "E & N-FLUTING"
+  ],
+  InkType: [
+    "WATER BASED",
+    "UV",
+    "SOLVENT",
+    "FOOD GRADE"
+  ],
+  Foiling: [
+    "GOLD FOIL",
+    "SILVER FOIL",
+    "HOLOGRAPHIC FOIL",
+    "MATTE FOIL"
+  ],
+  Window: [
+    "YES",
+    "NO"
+  ],
+  WindowLamination: [
+    "PET",
+    "BOPP",
+    "PVC"
+  ],
+  WindowPatching: [
+    "YES",
+    "NO"
+  ],
+  PostPrintLamination: [
+    "A PET",
+    "B PET",
+    "BOPP GLOSS FRONT SIDE",
+    "BOPP GLOSS BACK SIDE",
+    "BOPP MATT FRONT SIDE",
+    "BOPP MATT BACK SIDE",
+    "BOPP VELVET FRONT SIDE",
+    "BOPP VELVET BACK SIDE",
+    "PET FRONT SIDE",
+    "PET BACK SIDE"
+  ],
+  Varnish: [
+    "AQUEOUS",
+    "AQUEOUS MATT VARNISH",
+    "AQUEOUS SPOT MATT VARNISH",
+    "AQUEOUS WITH NVZ",
+    "FOOD GRADE VARNISH",
+    "FOOD GRADE SPOT VARNISH",
+    "HEAT RESISTANCE COATING",
+    "HEAT SEAL LACQUER COATING",
+    "HIGH RUB WB VARNISH WITH NVZ"
+  ],
+  LinerPasting: [
+    "YES",
+    "NO"
+  ],
+  Embossing: [
+    "EMBOSS",
+    "DEBOSS",
+    "REGISTERED EMBOSS"
+  ],
+  Punching: [
+    "YES",
+    "NO"
+  ],
+  Pasting: [
+    "SIDE PASTING",
+    "BOTTOM PASTING",
+    "FULL PASTING"
+  ],
+  BDtoBDLamination: [
+    "YES",
+    "NO"
+  ],
+  ScreenPrinting: [
+    "YES",
+    "NO"
+  ],
+  VariableDataPrinting: [
+    "YES",
+    "NO"
+  ],
+  BoardNomination: [
+    "CUSTOMER",
+    "PRINTER"
+  ],
+  PKD: [
+    "YES",
+    "NO"
+  ],
+  LogoPosition: [
+    "FRONT",
+    "BACK",
+    "SIDE",
+    "TOP"
+  ],
+  KraftShade: [
+    "BROWN",
+    "WHITE",
+    "NATURAL"
+  ],
+  KraftLinerShade: [
+    "BROWN",
+    "WHITE"
+  ],
+  YesNo: [
+    "YES",
+    "NO"
+  ],
+  SecurityFeatures: [
+    "HOLOGRAM",
+    "QR CODE",
+    "BARCODE",
+    "SERIAL NUMBER"
+  ]
+}
+
 interface NewSDOFormProps {
   onClose: () => void
   onSubmit?: (data: any) => void
@@ -47,20 +191,49 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
     boardType: "",
     boardMill: "",
     boardBrand: "",
-    boardNominated: "",
-    boardToBoardNominated: "",
-    boardToBoardLamination: "",
+    boardNomination: "",
+
+    // Board to Board
+    bdToBdLamination: "",
 
     // Fluting & Kraft
     flutingType: "",
     kraftPaperGSM: "",
     kraftPaperBF: "",
+    kraftShade: "",
     kraftLinerGSM: "",
     kraftLinerBF: "",
+    kraftLinerShade: "",
+
+    // Printing
+    inkType: "",
+    screenPrinting: "",
+    variableDataPrinting: "",
 
     // Foil Stamping
+    foiling: "",
     hotFoilStamping: "",
     coldFoilStamping: "",
+
+    // Window
+    window: "",
+    windowLamination: "",
+    windowPatching: "",
+
+    // Lamination & Varnish
+    postPrintLamination: "",
+    varnish: "",
+
+    // Finishing
+    embossing: "",
+    punching: "",
+    pasting: "",
+    linerPasting: "",
+
+    // Others
+    pkd: "",
+    logoPosition: "",
+    securityFeatures: "",
 
     // Additional
     specialInstructions: ""
@@ -179,6 +352,40 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
     }
   }
 
+  // Reusable dropdown component
+  const DropdownField = ({
+    label,
+    field,
+    options,
+    placeholder = "Select option"
+  }: {
+    label: string
+    field: string
+    options: string[]
+    placeholder?: string
+  }) => (
+    <div>
+      <Label htmlFor={field} className="text-sm font-medium">
+        {label}
+      </Label>
+      <Select
+        value={formData[field as keyof typeof formData] as string}
+        onValueChange={(value) => handleChange(field, value)}
+      >
+        <SelectTrigger className="mt-1.5">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+
   return (
     <div className="w-full max-w-5xl mx-auto p-6">
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -194,7 +401,10 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
 
         {/* Basic Information */}
         <Card>
-          <CardContent className="pt-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Basic Information</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label htmlFor="productionPlantID" className="text-sm font-medium">
@@ -293,233 +503,345 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
           </CardContent>
         </Card>
 
-        {/* Carton Specification */}
+        {/* Board Specification */}
         <Card>
-          <CardContent className="pt-6 space-y-6">
-            {/* Board Section */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Board</h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="boardGSM" className="text-sm font-medium">
-                    GSM
-                  </Label>
-                  <Input
-                    id="boardGSM"
-                    value={formData.boardGSM}
-                    onChange={(e) => handleChange("boardGSM", e.target.value)}
-                    placeholder="Enter GSM"
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="boardType" className="text-sm font-medium">
-                    Board Type
-                  </Label>
-                  <Input
-                    id="boardType"
-                    value={formData.boardType}
-                    onChange={(e) => handleChange("boardType", e.target.value)}
-                    placeholder="Enter board type"
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="boardMill" className="text-sm font-medium">
-                    MILL
-                  </Label>
-                  <Input
-                    id="boardMill"
-                    value={formData.boardMill}
-                    onChange={(e) => handleChange("boardMill", e.target.value)}
-                    placeholder="Enter mill"
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="boardBrand" className="text-sm font-medium">
-                    Board Brand
-                  </Label>
-                  <Input
-                    id="boardBrand"
-                    value={formData.boardBrand}
-                    onChange={(e) => handleChange("boardBrand", e.target.value)}
-                    placeholder="Enter board brand"
-                    className="mt-1.5"
-                  />
-                </div>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Board Specification</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label htmlFor="boardGSM" className="text-sm font-medium">
+                  Board GSM
+                </Label>
+                <Input
+                  id="boardGSM"
+                  value={formData.boardGSM}
+                  onChange={(e) => handleChange("boardGSM", e.target.value)}
+                  placeholder="Enter GSM"
+                  className="mt-1.5"
+                />
               </div>
+
+              <DropdownField
+                label="Board Type"
+                field="boardType"
+                options={SDO_DROPDOWN_OPTIONS.BoardType}
+                placeholder="Select board type"
+              />
+
+              <DropdownField
+                label="Board Mill"
+                field="boardMill"
+                options={SDO_DROPDOWN_OPTIONS.BoardMill}
+                placeholder="Select mill"
+              />
+
+              <DropdownField
+                label="Board Brand"
+                field="boardBrand"
+                options={SDO_DROPDOWN_OPTIONS.BoardBrand}
+                placeholder="Select brand"
+              />
             </div>
 
-            <Separator />
-
-            {/* Board Nominated Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="boardNominated" className="text-sm font-medium">
-                  Board Nominated?
-                </Label>
-                <Select
-                  value={formData.boardNominated}
-                  onValueChange={(value) => handleChange("boardNominated", value)}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Yes">Yes</SelectItem>
-                    <SelectItem value="No">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <DropdownField
+                label="Board Nomination"
+                field="boardNomination"
+                options={SDO_DROPDOWN_OPTIONS.BoardNomination}
+                placeholder="Select nomination"
+              />
 
-              <div>
-                <Label htmlFor="boardToBoardNominated" className="text-sm font-medium">
-                  Board to Board Nominated?
-                </Label>
-                <Select
-                  value={formData.boardToBoardNominated}
-                  onValueChange={(value) => handleChange("boardToBoardNominated", value)}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Yes">Yes</SelectItem>
-                    <SelectItem value="No">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="boardToBoardLamination" className="text-sm font-medium">
-                  Board to Board Lamination
-                </Label>
-                <Input
-                  id="boardToBoardLamination"
-                  value={formData.boardToBoardLamination}
-                  onChange={(e) => handleChange("boardToBoardLamination", e.target.value)}
-                  placeholder="N/A or specify"
-                  className="mt-1.5"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="flutingType" className="text-sm font-medium">
-                  Fluting Type
-                </Label>
-                <Input
-                  id="flutingType"
-                  value={formData.flutingType}
-                  onChange={(e) => handleChange("flutingType", e.target.value)}
-                  placeholder="e.g., PLY"
-                  className="mt-1.5"
-                />
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Kraft Paper Section */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Kraft Paper (Fluting Details)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="kraftPaperGSM" className="text-sm font-medium">
-                    GSM
-                  </Label>
-                  <Input
-                    id="kraftPaperGSM"
-                    value={formData.kraftPaperGSM}
-                    onChange={(e) => handleChange("kraftPaperGSM", e.target.value)}
-                    placeholder="Enter GSM"
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="kraftPaperBF" className="text-sm font-medium">
-                    BF
-                  </Label>
-                  <Input
-                    id="kraftPaperBF"
-                    value={formData.kraftPaperBF}
-                    onChange={(e) => handleChange("kraftPaperBF", e.target.value)}
-                    placeholder="Enter BF"
-                    className="mt-1.5"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Kraft Liner Section */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Kraft Liner Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="kraftLinerGSM" className="text-sm font-medium">
-                    GSM
-                  </Label>
-                  <Input
-                    id="kraftLinerGSM"
-                    value={formData.kraftLinerGSM}
-                    onChange={(e) => handleChange("kraftLinerGSM", e.target.value)}
-                    placeholder="Enter GSM"
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="kraftLinerBF" className="text-sm font-medium">
-                    BF
-                  </Label>
-                  <Input
-                    id="kraftLinerBF"
-                    value={formData.kraftLinerBF}
-                    onChange={(e) => handleChange("kraftLinerBF", e.target.value)}
-                    placeholder="Enter BF"
-                    className="mt-1.5"
-                  />
-                </div>
-              </div>
+              <DropdownField
+                label="BD to BD Lamination"
+                field="bdToBdLamination"
+                options={SDO_DROPDOWN_OPTIONS.BDtoBDLamination}
+                placeholder="Select Yes/No"
+              />
             </div>
           </CardContent>
         </Card>
 
-        {/* Foil Stamping & Instructions */}
+        {/* Fluting & Kraft Details */}
         <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Fluting & Kraft Details</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <DropdownField
+                label="Fluting Type"
+                field="flutingType"
+                options={SDO_DROPDOWN_OPTIONS.Fluting}
+                placeholder="Select fluting"
+              />
+
+              <div>
+                <Label htmlFor="kraftPaperGSM" className="text-sm font-medium">
+                  Kraft Paper GSM
+                </Label>
+                <Input
+                  id="kraftPaperGSM"
+                  value={formData.kraftPaperGSM}
+                  onChange={(e) => handleChange("kraftPaperGSM", e.target.value)}
+                  placeholder="Enter GSM"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="kraftPaperBF" className="text-sm font-medium">
+                  Kraft Paper BF
+                </Label>
+                <Input
+                  id="kraftPaperBF"
+                  value={formData.kraftPaperBF}
+                  onChange={(e) => handleChange("kraftPaperBF", e.target.value)}
+                  placeholder="Enter BF"
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <DropdownField
+                label="Kraft Shade"
+                field="kraftShade"
+                options={SDO_DROPDOWN_OPTIONS.KraftShade}
+                placeholder="Select shade"
+              />
+
+              <div>
+                <Label htmlFor="kraftLinerGSM" className="text-sm font-medium">
+                  Kraft Liner GSM
+                </Label>
+                <Input
+                  id="kraftLinerGSM"
+                  value={formData.kraftLinerGSM}
+                  onChange={(e) => handleChange("kraftLinerGSM", e.target.value)}
+                  placeholder="Enter GSM"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="kraftLinerBF" className="text-sm font-medium">
+                  Kraft Liner BF
+                </Label>
+                <Input
+                  id="kraftLinerBF"
+                  value={formData.kraftLinerBF}
+                  onChange={(e) => handleChange("kraftLinerBF", e.target.value)}
+                  placeholder="Enter BF"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <DropdownField
+                label="Kraft Liner Shade"
+                field="kraftLinerShade"
+                options={SDO_DROPDOWN_OPTIONS.KraftLinerShade}
+                placeholder="Select shade"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Printing Options */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Printing Options</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <DropdownField
+                label="Ink Type"
+                field="inkType"
+                options={SDO_DROPDOWN_OPTIONS.InkType}
+                placeholder="Select ink type"
+              />
+
+              <DropdownField
+                label="Screen Printing"
+                field="screenPrinting"
+                options={SDO_DROPDOWN_OPTIONS.ScreenPrinting}
+                placeholder="Select Yes/No"
+              />
+
+              <DropdownField
+                label="Variable Data Printing"
+                field="variableDataPrinting"
+                options={SDO_DROPDOWN_OPTIONS.VariableDataPrinting}
+                placeholder="Select Yes/No"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Foil Stamping */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Foil Stamping</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <DropdownField
+                label="Foiling Type"
+                field="foiling"
+                options={SDO_DROPDOWN_OPTIONS.Foiling}
+                placeholder="Select foiling"
+              />
+
               <div>
                 <Label htmlFor="hotFoilStamping" className="text-sm font-medium">
-                  HOT Foil Stamping Layout (Yes/No | Details)
+                  Hot Foil Stamping Details
                 </Label>
                 <Input
                   id="hotFoilStamping"
                   value={formData.hotFoilStamping}
                   onChange={(e) => handleChange("hotFoilStamping", e.target.value)}
-                  placeholder="e.g., Yes - Gold foil on logo"
+                  placeholder="e.g., Gold foil on logo"
                   className="mt-1.5"
                 />
               </div>
 
               <div>
                 <Label htmlFor="coldFoilStamping" className="text-sm font-medium">
-                  COLD Foil Stamping Layout (Yes/No | Details)
+                  Cold Foil Stamping Details
                 </Label>
                 <Input
                   id="coldFoilStamping"
                   value={formData.coldFoilStamping}
                   onChange={(e) => handleChange("coldFoilStamping", e.target.value)}
-                  placeholder="e.g., No"
+                  placeholder="e.g., Silver foil strip"
                   className="mt-1.5"
                 />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Window Options */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Window Options</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <DropdownField
+                label="Window"
+                field="window"
+                options={SDO_DROPDOWN_OPTIONS.Window}
+                placeholder="Select Yes/No"
+              />
+
+              <DropdownField
+                label="Window Lamination"
+                field="windowLamination"
+                options={SDO_DROPDOWN_OPTIONS.WindowLamination}
+                placeholder="Select lamination"
+              />
+
+              <DropdownField
+                label="Window Patching"
+                field="windowPatching"
+                options={SDO_DROPDOWN_OPTIONS.WindowPatching}
+                placeholder="Select Yes/No"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Lamination & Varnish */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Lamination & Varnish</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DropdownField
+                label="Post Print Lamination"
+                field="postPrintLamination"
+                options={SDO_DROPDOWN_OPTIONS.PostPrintLamination}
+                placeholder="Select lamination"
+              />
+
+              <DropdownField
+                label="Varnish"
+                field="varnish"
+                options={SDO_DROPDOWN_OPTIONS.Varnish}
+                placeholder="Select varnish"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Finishing */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Finishing</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <DropdownField
+                label="Embossing"
+                field="embossing"
+                options={SDO_DROPDOWN_OPTIONS.Embossing}
+                placeholder="Select embossing"
+              />
+
+              <DropdownField
+                label="Punching"
+                field="punching"
+                options={SDO_DROPDOWN_OPTIONS.Punching}
+                placeholder="Select Yes/No"
+              />
+
+              <DropdownField
+                label="Pasting"
+                field="pasting"
+                options={SDO_DROPDOWN_OPTIONS.Pasting}
+                placeholder="Select pasting"
+              />
+
+              <DropdownField
+                label="Liner Pasting"
+                field="linerPasting"
+                options={SDO_DROPDOWN_OPTIONS.LinerPasting}
+                placeholder="Select Yes/No"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Additional Options */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Additional Options</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <DropdownField
+                label="PKD"
+                field="pkd"
+                options={SDO_DROPDOWN_OPTIONS.PKD}
+                placeholder="Select Yes/No"
+              />
+
+              <DropdownField
+                label="Logo Position"
+                field="logoPosition"
+                options={SDO_DROPDOWN_OPTIONS.LogoPosition}
+                placeholder="Select position"
+              />
+
+              <DropdownField
+                label="Security Features"
+                field="securityFeatures"
+                options={SDO_DROPDOWN_OPTIONS.SecurityFeatures}
+                placeholder="Select features"
+              />
             </div>
 
             <div>

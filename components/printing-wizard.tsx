@@ -2458,10 +2458,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       )}
 
       <div className={`space-y-4 ${isReadOnly ? 'pointer-events-none opacity-75' : ''}`}>
-        {/* Paper Quality and GSM in first row */}
+        {/* Paper Board and GSM in first row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-lg p-3 border border-slate-200">
-            <Label className="text-sm font-medium text-slate-700 mb-2 block">Quality <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
+            <Label className="text-sm font-medium text-slate-700 mb-2 block">Board <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
             <Select
               value={String(jobData.paperDetails.qualityId ?? jobData.paperDetails.quality)}
               onValueChange={(value) => {
@@ -2478,12 +2478,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               }}
             >
               <SelectTrigger className="h-8 w-full">
-                <SelectValue placeholder="Select quality" />
+                <SelectValue placeholder="Select board" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-hidden">
                 <div className="p-2 bg-white border-b">
                   <Input
-                    placeholder="Search quality..."
+                    placeholder="Search board..."
                     value={qualitySearch}
                     onChange={(e) => setQualitySearch(e.target.value)}
                     className="h-8"

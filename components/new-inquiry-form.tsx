@@ -892,13 +892,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       errors.annualQuantity = true
     }
 
-    // Quality and GSM are mandatory for detailed form when content is selected
+    // Board and GSM are mandatory for detailed form when content is selected
     if (formType === 'detailed' && selectedContentIds.length > 0) {
       if (!planDetails.ItemPlanQuality) {
         toast({
           variant: "destructive",
-          title: "Quality Required",
-          description: "Please select paper quality",
+          title: "Board Required",
+          description: "Please select board",
         })
         return
       }
@@ -2139,7 +2139,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
                   <Label htmlFor="itemPlanQuality" className="text-sm">
-                    Quality <span className="text-red-500">*</span>
+                    Board <span className="text-red-500">*</span>
                   </Label>
                   <Select
                     value={planDetails.ItemPlanQuality || ''}
@@ -2153,12 +2153,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     required
                   >
                     <SelectTrigger id="itemPlanQuality" className="text-sm h-10 w-full">
-                      <SelectValue className="truncate block overflow-hidden text-ellipsis" />
+                      <SelectValue className="truncate block overflow-hidden text-ellipsis" placeholder="Select board" />
                     </SelectTrigger>
                     <SelectContent>
                       <div className="px-2 pb-2 sticky top-0 bg-white z-10">
                         <Input
-                          placeholder="Search quality..."
+                          placeholder="Search board..."
                           value={qualitySearch}
                           onChange={(e) => setQualitySearch(e.target.value)}
                           className="h-8 text-sm"
@@ -2240,7 +2240,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                           })
                       ) : (
                         <SelectItem value="loading" disabled>
-                          {planDetails.ItemPlanQuality ? 'Loading GSM...' : 'Select quality first'}
+                          {planDetails.ItemPlanQuality ? 'Loading GSM...' : 'Select board first'}
                         </SelectItem>
                       )}
                     </SelectContent>
