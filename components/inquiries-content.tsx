@@ -397,36 +397,55 @@ export function InquiriesContent() {
     try {
       setLoadingEnquiryDetails(true)
 
-      clientLogger.log('📝 Opening edit for inquiry:', inquiry.id, 'EnquiryID:', inquiry.enquiryId)
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📝 EDIT ENQUIRY - Starting')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📋 Inquiry ID:', inquiry.id)
+      console.log('📋 EnquiryID:', inquiry.enquiryId)
+      console.log('📋 Full Inquiry Object:', JSON.stringify(inquiry, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
 
       // Fetch detailed enquiry data including dimensions and processes
       if (inquiry.enquiryId) {
         const response = await (EnquiryAPI as any).getEnquiryDetails(inquiry.enquiryId, null)
 
-        if (response.success && response.data) {
-          clientLogger.log('✅ Fetched detailed enquiry data:', response.data)
+        console.log('═══════════════════════════════════════════════════════════════')
+        console.log('📥 EDIT ENQUIRY - API Response')
+        console.log('─────────────────────────────────────────────────────────────')
+        console.log('📋 Success:', response.success)
+        console.log('📋 Data:', JSON.stringify(response.data, null, 2))
+        console.log('📋 Error:', response.error)
+        console.log('═══════════════════════════════════════════════════════════════')
 
+        if (response.success && response.data) {
           // Merge the detailed data with the inquiry
           const detailedInquiry = {
             ...inquiry,
             detailedData: response.data,
           }
 
+          console.log('═══════════════════════════════════════════════════════════════')
+          console.log('📤 EDIT ENQUIRY - Data to Form')
+          console.log('─────────────────────────────────────────────────────────────')
+          console.log('📋 Merged Data for Form:', JSON.stringify(detailedInquiry, null, 2))
+          console.log('═══════════════════════════════════════════════════════════════')
+
           setEditingInquiry(detailedInquiry)
           setEditDialogOpen(true)
         } else {
-          clientLogger.error('❌ Failed to fetch enquiry details:', response.error)
+          console.log('❌ Failed to fetch enquiry details:', response.error)
           // Open with basic data if detailed fetch fails
           setEditingInquiry(inquiry)
           setEditDialogOpen(true)
         }
       } else {
+        console.log('⚠️ No enquiryId found, opening with basic data')
         // No enquiryId, open with basic data
         setEditingInquiry(inquiry)
         setEditDialogOpen(true)
       }
     } catch (error) {
-      clientLogger.error('❌ Error fetching enquiry details:', error)
+      console.log('❌ Error fetching enquiry details:', error)
       // Open with basic data on error
       setEditingInquiry(inquiry)
       setEditDialogOpen(true)

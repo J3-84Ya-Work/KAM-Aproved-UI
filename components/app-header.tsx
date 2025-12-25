@@ -1,7 +1,7 @@
 "use client"
 import { NotificationsPanel } from "@/components/notifications-panel"
 import Image from "next/image"
-import { ArrowLeft, MessageSquarePlus } from "lucide-react"
+import { ArrowLeft, MessageSquarePlus, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -46,6 +46,10 @@ export function AppHeader({ pageName, showBackButton = false, showNewChatButton 
     }
   }
 
+  const handleReload = () => {
+    window.location.reload()
+  }
+
   return (
     <header className="sticky top-0 z-50 flex h-14 md:h-16 items-center justify-between border-b border-border bg-white px-3 md:px-6 shadow-sm">
       <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
@@ -75,15 +79,28 @@ export function AppHeader({ pageName, showBackButton = false, showNewChatButton 
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleNewChat}
-          className="h-8 w-8 md:h-9 md:w-9 hover:bg-gray-100"
-          title="New Chat"
-        >
-          <MessageSquarePlus className="h-4 w-4 md:h-5 md:w-5" />
-        </Button>
+        {/* Show New Chat button only when showNewChatButton is true (on chat pages) */}
+        {showNewChatButton ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleNewChat}
+            className="h-8 w-8 md:h-9 md:w-9 hover:bg-gray-100"
+            title="New Chat"
+          >
+            <MessageSquarePlus className="h-4 w-4 md:h-5 md:w-5" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleReload}
+            className="h-8 w-8 md:h-9 md:w-9 hover:bg-gray-100"
+            title="Refresh page"
+          >
+            <RefreshCw className="h-4 w-4 md:h-5 md:w-5" />
+          </Button>
+        )}
         <NotificationsPanel />
       </div>
     </header>

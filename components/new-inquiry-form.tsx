@@ -377,30 +377,45 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Populate form with initial data when in edit mode
   useEffect(() => {
     if (editMode && initialData && categories.length > 0) {
-      clientLogger.log('[Edit Mode] Populating form with initial data:', initialData)
-      clientLogger.log('[Edit Mode] Available categories:', categories.length)
-      clientLogger.log('[Edit Mode] Available clients:', clients.length)
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📝 EDIT MODE - Form Population Starting')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📋 Initial Data Received:', JSON.stringify(initialData, null, 2))
+      console.log('📋 Available categories:', categories.length)
+      console.log('📋 Available clients:', clients.length)
+      console.log('═══════════════════════════════════════════════════════════════')
 
       // Find the category to verify it exists
       const category = categories.find(c => c.CategoryId === initialData.categoryId)
-      clientLogger.log('[Edit Mode] Found category:', category)
+      console.log('📋 Found category:', category)
 
       // Populate basic form data
-      setFormData(prev => ({
-        ...prev,
-        enquiryNo: initialData.id || '',
-        enquiryDate: initialData.date || new Date().toISOString().split("T")[0],
-        clientName: initialData.ledgerId?.toString() || '',
-        jobName: initialData.job || '',
-        productCode: initialData.sku || '',
-        quantity: initialData.quantityRange?.toString() || '',
+      const newFormData = {
+        enquiryNo: initialData.id || initialData.enquiryNo || '',
+        enquiryDate: initialData.date || initialData.enquiryDate || new Date().toISOString().split("T")[0],
+        clientName: initialData.ledgerId?.toString() || initialData.clientId?.toString() || '',
+        jobName: initialData.job || initialData.jobName || '',
+        productCode: initialData.sku || initialData.productCode || '',
+        quantity: initialData.quantityRange?.toString() || initialData.quantity?.toString() || '',
         unit: initialData.unit || 'PCS',
         categoryName: initialData.categoryId?.toString() || '',
         salesPerson: initialData.salesEmployeeId?.toString() || '',
         plant: initialData.productionUnitId?.toString() || '',
-        remark: initialData.notes || '',
+        remark: initialData.notes || initialData.remark || '',
         expectCompletion: initialData.expectCompletion || '',
-        typeOfPrinting: initialData.jobType || '',
+        typeOfPrinting: initialData.jobType || initialData.typeOfPrinting || '',
+        annualQuantity: initialData.annualQuantity?.toString() || '',
+      }
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📝 EDIT MODE - Mapped Form Data')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📋 New Form Data:', JSON.stringify(newFormData, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      setFormData(prev => ({
+        ...prev,
+        ...newFormData,
       }))
 
       clientLogger.log('[Edit Mode] Form data populated with basic fields')
@@ -767,7 +782,62 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     fetchEnquiryNumber()
   }, [])
 
+  // Helper function to get date constraints (current date and previous 2 days)
+  const getDateConstraints = () => {
+    const today = new Date()
+    const twoDaysAgo = new Date()
+    twoDaysAgo.setDate(today.getDate() - 2)
+
+    return {
+      min: twoDaysAgo.toISOString().split('T')[0],
+      max: today.toISOString().split('T')[0]
+    }
+  }
+
+  // Mobile number validation helper
+  const validateMobileNumber = (value: string): boolean => {
+    // Allow only digits, max 10 characters
+    const digitsOnly = value.replace(/\D/g, '')
+    return digitsOnly.length <= 10
+  }
+
   const handleInputChange = (field: string, value: string) => {
+    // Special validation for mobile number
+    if (field === 'concernPersonMobile') {
+      // Only allow digits and max 10 characters
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 10)
+      setFormData((prev) => ({ ...prev, [field]: digitsOnly }))
+
+      // Set validation error if not exactly 10 digits (but allow empty)
+      if (digitsOnly.length > 0 && digitsOnly.length !== 10) {
+        setValidationErrors((prev) => ({ ...prev, [field]: true }))
+      } else {
+        setValidationErrors((prev) => {
+          const newErrors = { ...prev }
+          delete newErrors[field]
+          return newErrors
+        })
+      }
+      return
+    }
+
+    // Special validation for enquiry date
+    if (field === 'enquiryDate') {
+      const { min, max } = getDateConstraints()
+      const selectedDate = new Date(value)
+      const minDate = new Date(min)
+      const maxDate = new Date(max)
+
+      if (selectedDate < minDate || selectedDate > maxDate) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Date",
+          description: "Enquiry date must be within the last 2 days",
+        })
+        return
+      }
+    }
+
     setFormData((prev) => ({ ...prev, [field]: value }))
     // Clear validation error
     if (validationErrors[field]) {
@@ -1297,8 +1367,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   type="date"
                   value={formData.enquiryDate}
                   onChange={(e) => handleInputChange("enquiryDate", e.target.value)}
+                  min={getDateConstraints().min}
+                  max={getDateConstraints().max}
                   className="text-sm h-10"
                 />
+                <p className="text-xs text-gray-500 mt-1">Only current date and up to 2 days prior allowed</p>
               </div>
             </div>
 
@@ -1392,10 +1465,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   <Input
                     id="concernPersonMobile"
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
                     value={formData.concernPersonMobile}
                     onChange={(e) => handleInputChange("concernPersonMobile", e.target.value)}
-                    className="h-10"
+                    placeholder="10 digit mobile number"
+                    className={`h-10 ${validationErrors.concernPersonMobile ? "border-red-500" : ""}`}
                   />
+                  {validationErrors.concernPersonMobile && (
+                    <p className="text-xs text-red-500 mt-1">Please enter a valid 10-digit mobile number</p>
+                  )}
                 </div>
               </>
             )}

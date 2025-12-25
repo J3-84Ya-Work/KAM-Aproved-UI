@@ -409,28 +409,39 @@ export class EnquiryAPI {
    */
   static async saveDetailedEnquiry(enquiryData: DetailedEnquiryData, session: any) {
     try {
-      logger.log('API Call: saveDetailedEnquiry')
-      logger.log('URL:', `${API_BASE_URL}/api/enquiry/SaveMultipleEnquiry`)
-      logger.log('Headers:', getHeaders(session))
-      logger.log('Request Body (Full):', JSON.stringify(enquiryData, null, 2))
-      logger.log('MainData:', enquiryData.MainData)
-      logger.log('DetailsData:', enquiryData.DetailsData)
-      logger.log('ProcessData:', enquiryData.ProcessData)
-      logger.log('Quantity:', (enquiryData as any).Quantity)
-      logger.log('Prefix:', (enquiryData as any).Prefix)
-      logger.log('IsEdit:', (enquiryData as any).IsEdit)
+      const url = `${API_BASE_URL}/api/enquiry/SaveMultipleEnquiry`
 
-      const response = await fetch(`${API_BASE_URL}/api/enquiry/SaveMultipleEnquiry`, {
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: SaveMultipleEnquiry (saveDetailedEnquiry)')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: POST')
+      console.log('📦 Request Body:')
+      console.log(JSON.stringify(enquiryData, null, 2))
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📋 MainData:', enquiryData.MainData)
+      console.log('📋 DetailsData:', enquiryData.DetailsData)
+      console.log('📋 ProcessData:', enquiryData.ProcessData)
+      console.log('📋 Quantity:', (enquiryData as any).Quantity)
+      console.log('📋 Prefix:', (enquiryData as any).Prefix)
+      console.log('📋 IsEdit:', (enquiryData as any).IsEdit)
+      console.log('📋 EnquiryID:', (enquiryData as any).EnquiryID)
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: getHeaders(session),
         body: JSON.stringify(enquiryData),
       })
 
-      logger.log('Response Status:', response.status, response.statusText)
-      logger.log('Response OK:', response.ok)
-
       const data = await response.json()
-      logger.log('Response Data:', data)
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('✅ API RESPONSE: SaveMultipleEnquiry')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📊 Status:', response.status, response.statusText)
+      console.log('📦 Response Data:', JSON.stringify(data, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
 
       return {
         success: response.ok,
@@ -438,7 +449,7 @@ export class EnquiryAPI {
         error: response.ok ? null : (data.error || 'Failed to save enquiry'),
       }
     } catch (error: any) {
-      logger.error('API Error:', error)
+      console.log('❌ API Exception:', error.message)
       return {
         success: false,
         data: null,
@@ -1248,13 +1259,23 @@ export class QuotationsAPI {
    */
   static async getEnquiryDetails(enquiryId: number, session: any) {
     try {
+      const url = `${API_BASE_URL}/api/enquiry/getenquirydetails?enquiryId=${enquiryId}`
 
-      const response = await fetch(`${API_BASE_URL}/api/enquiry/getenquirydetails?enquiryId=${enquiryId}`, {
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: getEnquiryDetails')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: GET')
+      console.log('📦 Parameters: { enquiryId:', enquiryId, '}')
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: getHeaders(session),
       })
 
       if (!response.ok) {
+        console.log('❌ API Response Error:', response.status, response.statusText)
         return {
           success: false,
           data: null,
@@ -1264,6 +1285,11 @@ export class QuotationsAPI {
 
       const data = await response.json()
 
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('✅ API RESPONSE: getEnquiryDetails')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📦 Response Data:', JSON.stringify(data, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
 
       return {
         success: true,
@@ -1271,6 +1297,7 @@ export class QuotationsAPI {
         error: null,
       }
     } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
       return {
         success: false,
         data: null,
