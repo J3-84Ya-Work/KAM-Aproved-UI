@@ -44,13 +44,13 @@ function NewProjectContent() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader
           pageName={getPageName()}
           showBackButton={true}
           onBackClick={handleBack}
         />
-        <div className="flex flex-1 flex-col p-4 md:p-6">
+        <div className="flex flex-1 flex-col p-4 md:p-6 overflow-auto">
           <div className="w-full">
             {type === 'SDO' ? (
               <NewSDOForm

@@ -34,9 +34,9 @@ export default function SettingsPage() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName="Settings" showBackButton onMenuClick={handleMenuClick} />
-        <div className="flex flex-1 flex-col gap-4 p-3 pb-20 md:p-6 md:pb-6">
+        <div className="flex flex-1 flex-col gap-4 p-3 pb-20 md:p-6 md:pb-6 overflow-auto">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">

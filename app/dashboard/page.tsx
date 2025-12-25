@@ -38,9 +38,9 @@ export default function Page() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName="Analytics" onMenuClick={handleMenuClick} />
-        <div className="flex flex-1 flex-col pb-20 md:pb-6">
+        <div className="flex flex-1 flex-col pb-20 md:pb-6 overflow-auto">
           <DashboardContent />
         </div>
         <FloatingActionButton actions={dashboardActions} />

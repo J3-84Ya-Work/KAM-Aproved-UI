@@ -39,9 +39,9 @@ export default function ApprovalsPage() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName={showHistory ? "Approval History" : "Approvals & Escalations"} onMenuClick={handleMenuClick} />
-        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6">
+        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 overflow-auto">
           <ApprovalsContent showHistory={showHistory} />
         </div>
         <FloatingActionButton actions={actions} />

@@ -260,9 +260,9 @@ export default function AskRatePage() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName="Ask Rate" showBackButton={false} />
-        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 max-w-full overflow-x-hidden">
+        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 max-w-full overflow-auto">
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>

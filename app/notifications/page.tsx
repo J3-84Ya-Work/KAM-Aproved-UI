@@ -25,9 +25,9 @@ export default function NotificationsPage() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName="Notifications" onMenuClick={handleMenuClick} showBackButton={true} />
-        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 max-w-full overflow-x-hidden">
+        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 max-w-full overflow-auto">
           <Card className="border border-border/60">
             <CardHeader className="space-y-1">
               <CardTitle className="text-xl font-semibold">Inbox</CardTitle>

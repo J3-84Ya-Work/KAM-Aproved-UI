@@ -9,8 +9,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
-        <div className="pb-16 md:pb-0">
+      <SidebarInset className="overflow-hidden">
+        <div className="pb-16 md:pb-0 overflow-auto">
           <AICostingChat chatId={params.id} />
         </div>
         <MobileBottomNav />

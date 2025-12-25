@@ -128,9 +128,9 @@ export default function ProjectsPage() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName="Projects" onMenuClick={handleMenuClick} />
-        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6">
+        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 overflow-auto">
           <ProjectsContent activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
         <FloatingActionButton actions={actions} />

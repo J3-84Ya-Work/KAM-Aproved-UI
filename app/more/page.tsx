@@ -88,9 +88,9 @@ export default function MorePage() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName="More" />
-        <div className="flex flex-1 flex-col p-4 pb-24 md:p-6 md:pb-6 bg-neutral-gray-50 overflow-y-auto">
+        <div className="flex flex-1 flex-col p-4 pb-24 md:p-6 md:pb-6 bg-neutral-gray-50 overflow-auto">
           <div className="grid grid-cols-2 gap-2.5 md:gap-4">
             {moreItems.map((item, index) => (
               <Link key={item.title} href={item.url}>

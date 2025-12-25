@@ -139,13 +139,13 @@ export default function ConversationPage() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader
           pageName={`Conversation #${conversationId}`}
           showBackButton={true}
           onBackClick={() => router.push('/chats')}
         />
-        <div className="flex flex-1 flex-col h-[calc(100vh-64px)]">
+        <div className="flex flex-1 flex-col h-[calc(100vh-64px)] overflow-auto">
           <Card className="flex-1 m-4 flex flex-col">
             <CardContent className="flex-1 p-0 flex flex-col">
               {loading ? (

@@ -51,7 +51,7 @@ export function AppHeader({ pageName, showBackButton = false, showNewChatButton 
   }
 
   return (
-    <header className="sticky top-0 z-50 flex h-14 md:h-16 items-center justify-between border-b border-border bg-white px-3 md:px-6 shadow-sm">
+    <header className="sticky top-0 z-50 flex h-14 md:h-16 items-center justify-between border-b border-border bg-white px-3 md:px-6 shadow-sm shrink-0">
       <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
         {/* Hamburger Menu - Mobile Only - Top Left */}
         <SidebarTrigger className="h-8 w-8 md:hidden shrink-0" />

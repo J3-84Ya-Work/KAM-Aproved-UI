@@ -88,9 +88,9 @@ export default function ChatsPage() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName="Conversations" />
-        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6">
+        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 overflow-auto">
           <Card className="surface-elevated overflow-hidden relative">
             <CardContent className="p-0">
               {loading ? (

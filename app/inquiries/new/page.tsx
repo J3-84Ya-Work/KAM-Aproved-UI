@@ -28,13 +28,13 @@ function NewInquiryContent() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader
           pageName={getPageName()}
           showBackButton={true}
           onBackClick={handleBack}
         />
-        <div className="flex flex-1 flex-col gap-4 p-2 md:p-3">
+        <div className="flex flex-1 flex-col gap-4 p-2 md:p-3 overflow-auto">
           {mode === 'ai' && (
             <div className="max-w-4xl mx-auto w-full">
               <div className="bg-white rounded-lg border border-[#005180]/20 p-8">

@@ -154,7 +154,7 @@ export default function Page() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader
           showNewChatButton={chatStarted}
           onNewChatClick={handleBackToWelcome}

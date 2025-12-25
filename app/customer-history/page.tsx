@@ -140,9 +140,9 @@ export default function CustomerHistoryPage() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader pageName="Customer Creation Queue" showBackButton={true} onBackClick={handleBack} onMenuClick={handleMenuClick} />
-        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6">
+        <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 overflow-auto">
           {/* Search Bar */}
           <div className="relative w-full flex gap-2 items-center">
             <div className="relative flex-1">

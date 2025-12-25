@@ -34,13 +34,13 @@ export default function NewChatPage() {
       <div className="hidden md:block">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <AppHeader
           showBackButton={!showChat}
           showNewChatButton={showChat}
           onNewChatClick={handleNewChat}
         />
-        <div className={`${showChat ? "pb-16 md:pb-0" : "h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)]"}`}>
+        <div className={`${showChat ? "pb-16 md:pb-0" : "h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)]"} overflow-auto`}>
           {showChat ? <AICostingChat initialMessage={initialMessage} /> : <NewChatWelcome />}
         </div>
         <MobileBottomNav />
