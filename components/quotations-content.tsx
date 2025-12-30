@@ -1640,13 +1640,14 @@ export function QuotationsContent() {
                                     size="sm"
                                     variant="outline"
                                     className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
+                                    disabled={isSendingForApproval}
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      alert(`Sending ${quotation.id} to Vertical Head`)
+                                      handleSendForApproval(quotation.bookingId, 'VerticalHead')
                                     }}
                                   >
                                     <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                    Send to VH
+                                    {isSendingForApproval ? 'Sending...' : 'Send to VH'}
                                   </Button>
                                 )}
                                 {/* Margin 5% to 10%: Send to HOD */}
@@ -1655,13 +1656,14 @@ export function QuotationsContent() {
                                     size="sm"
                                     variant="outline"
                                     className="text-xs bg-[#B92221]/10 text-[#B92221] border-[#B92221]/30 hover:bg-[#B92221]/20"
+                                    disabled={isSendingForApproval}
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      alert(`Sending ${quotation.id} to HOD`)
+                                      handleSendForApproval(quotation.bookingId, 'HOD')
                                     }}
                                   >
                                     <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                    Send to HOD
+                                    {isSendingForApproval ? 'Sending...' : 'Send to HOD'}
                                   </Button>
                                 )}
                               </div>
