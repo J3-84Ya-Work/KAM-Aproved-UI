@@ -35,6 +35,31 @@ import { TruncatedText } from "@/components/truncated-text"
 import { isHOD, isVerticalHead, isKAM, getViewableKAMs } from "@/lib/permissions"
 import { QuotationsAPI } from "@/lib/api/enquiry"
 
+// Parksons Logo - Will be loaded from public folder
+const PARKSONS_LOGO_PATH = '/parksons-logo.png'
+
+// Helper function to load image as base64 for PDF
+const loadImageAsBase64 = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      } else {
+        reject(new Error('Could not get canvas context'))
+      }
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 // REMOVED: Static data - using API now
 /*
 const quotations = [
@@ -381,12 +406,12 @@ export function QuotationsContent() {
       const detailsDataArray = data.Datails || data.Details || data.detailsData || data.DetailsData || []
       const priceDataArray = data.Price || data.priceData || data.PriceData || []
 
-      // Get first item from arrays
+      // Get all items from arrays for multiple columns
+      const allDetailsData = detailsDataArray.length > 0 ? detailsDataArray : [{}]
       const mainData = mainDataArray[0] || {}
-      const detailsData = detailsDataArray[0] || {}
       const priceData = priceDataArray[0] || {}
 
-      // Generate PDF with VERTICAL format
+      // Generate PDF with VERTICAL format - A4 Portrait
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -394,73 +419,224 @@ export function QuotationsContent() {
       })
 
       const quotationNumber = mainData.BookingNo || bookingId
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
 
-      let yPos = 10
+      let yPos = 8
 
-      // Product Details - Vertical layout
+      // ========== HEADER SECTION ==========
+      // Company Logo - Parksons
+      try {
+        // Load logo from public folder
+        const logoBase64 = await loadImageAsBase64(PARKSONS_LOGO_PATH)
+        // Logo dimensions - maintain aspect ratio (original: 995 x 222)
+        const logoWidth = 60  // Width in mm
+        const logoHeight = logoWidth * (222 / 995)  // Maintain aspect ratio
+        pdf.addImage(logoBase64, 'PNG', 10, yPos, logoWidth, logoHeight)
+        yPos += logoHeight + 5
+      } catch (logoError) {
+        // Fallback if logo fails to load
+        console.error('Failed to load logo:', logoError)
+        pdf.setDrawColor(200, 200, 200)
+        pdf.setFillColor(245, 245, 245)
+        pdf.rect(10, yPos, pageWidth - 20, 15, 'FD')
+        pdf.setFontSize(8)
+        pdf.setTextColor(150, 150, 150)
+        pdf.text('PARKSONS PACKAGING LTD', pageWidth / 2, yPos + 9, { align: 'center' })
+        yPos += 20
+      }
+
+      // QUOTATION Title - Bold, Underlined, Centered
+      pdf.setFontSize(14)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(0, 0, 0)
+      const titleText = 'QUOTATION'
+      const titleWidth = pdf.getTextWidth(titleText)
+      const titleX = (pageWidth - titleWidth) / 2
+      pdf.text(titleText, titleX, yPos)
+      // Underline
+      pdf.setLineWidth(0.4)
+      pdf.line(titleX, yPos + 1, titleX + titleWidth, yPos + 1)
+
+      yPos += 8
+
+      // Client Information Section
+      pdf.setFontSize(8)
+      pdf.setFont('helvetica', 'normal')
+
+      // Client Name
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Client Name', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`: ${mainData.ClientName || mainData.LedgerName || ''}`, 38, yPos)
+
+      yPos += 5
+
+      // To (Mailing Name)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('To', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`: ${mainData.MailingName || mainData.ClientName || ''}`, 38, yPos)
+
+      yPos += 5
+
+      // Address
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Address', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      const address = mainData.Address || ''
+      // Handle long addresses - wrap text
+      const addressLines = pdf.splitTextToSize(`: ${address}`, pageWidth - 48)
+      pdf.text(addressLines, 38, yPos)
+      yPos += (addressLines.length * 4)
+
+      yPos += 1
+
+      // Subject
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Subject', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`: ${mainData.EmailSubject || mainData.JobName || ''}`, 38, yPos)
+
+      yPos += 5
+
+      // Kind Attention
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Kind Attention', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`: ${mainData.ConcernPerson || mainData.ContactPerson || ''}`, 38, yPos)
+
+      yPos += 8
+      // ========== END HEADER SECTION ==========
+
+      // Build column headers: S.N., then 1, 2, 3, 4... based on number of items
+      const numItems = Math.max(allDetailsData.length, 4) // At least 4 columns
+      const colHeaders = ['S.N.']
+      for (let i = 1; i <= numItems; i++) {
+        colHeaders.push(String(i))
+      }
+
+      // Build rows with data for each column
+      const jobNameRow = ['Job name']
+      const sizeRow = ['Size (MM)']
+      const boardSpecsRow = ['Board Specs']
+      const printingRow = ['Printing & Value Addition']
+      const moqRow = ['MOQ']
+      const annualQtyRow = ['Annual Quantity']
+
+      for (let i = 0; i < numItems; i++) {
+        const detail = allDetailsData[i] || {}
+        jobNameRow.push(mainData.JobName || detail.Content_Name || '')
+        sizeRow.push(detail.Job_Size || detail.Job_Size_In_Inches || '')
+        boardSpecsRow.push(detail.Paper || '')
+        printingRow.push(detail.Printing || '')
+        moqRow.push('')
+        annualQtyRow.push(i === 0 ? (priceData.PlanContQty || '') : '')
+      }
+
+      // Calculate column width for A4 (210mm - 20mm margins = 190mm available)
+      const availableWidth = pageWidth - 20
+      const labelColWidth = 45
+      const dataColWidth = (availableWidth - labelColWidth) / numItems
+
+      // Product Details Table - Vertical layout with multiple columns
       autoTable(pdf, {
         startY: yPos,
+        head: [colHeaders],
         body: [
-          ['S.N.', '1'],
-          ['Job name', mainData.JobName || detailsData.Content_Name || ''],
-          ['Size (MM)', detailsData.Job_Size || detailsData.Job_Size_In_Inches || ''],
-          ['Board Specs', detailsData.Paper || ''],
-          ['Printing & Value Addition', detailsData.Printing || ''],
-          ['MOQ', ''],
-          ['Annual Quantity', priceData.PlanContQty || ''],
-        ],
-        theme: 'grid',
-        bodyStyles: {
-          fontSize: 9,
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
-        },
-        columnStyles: {
-          0: { cellWidth: 70, fontStyle: 'bold', fillColor: [240, 240, 240] },
-          1: { cellWidth: 120 }
-        }
-      })
-
-      yPos = (pdf as any).lastAutoTable.finalY + 5
-
-      // Quote Section - Vertical
-      autoTable(pdf, {
-        startY: yPos,
-        head: [['Quote (INR / 1000)', '']],
-        body: [
-          ['1L', ''],
-          ['2L', ''],
-          ['5L', ''],
-          ['10L', ''],
+          jobNameRow,
+          sizeRow,
+          boardSpecsRow,
+          printingRow,
+          moqRow,
+          annualQtyRow,
         ],
         theme: 'grid',
         headStyles: {
           fillColor: [255, 255, 255],
           textColor: [0, 0, 0],
-          fontSize: 9,
+          fontSize: 7,
           fontStyle: 'bold',
-          halign: 'left',
-          lineWidth: 0.5,
+          halign: 'center',
+          lineWidth: 0.2,
           lineColor: [0, 0, 0]
         },
         bodyStyles: {
-          fontSize: 9,
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
+          fontSize: 6,
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+          minCellHeight: 6
         },
         columnStyles: {
-          0: { cellWidth: 70, fontStyle: 'bold', fillColor: [240, 240, 240] },
-          1: { cellWidth: 120 }
-        }
+          0: { cellWidth: labelColWidth, fontStyle: 'bold', halign: 'left' },
+          1: { cellWidth: dataColWidth },
+          2: { cellWidth: dataColWidth },
+          3: { cellWidth: dataColWidth },
+          4: { cellWidth: dataColWidth }
+        },
+        margin: { left: 10, right: 10 }
       })
 
-      yPos = (pdf as any).lastAutoTable.finalY + 10
+      yPos = (pdf as any).lastAutoTable.finalY
 
-      // Packing Spec Section
+      // Quote Section - "Quote (INR / 1000)" as row label on the left with 1L, 2L, 5L, 10L as sub-row labels
+      // Build rows with empty cells for each product column
+      const quoteLabelWidth = 30
+      const quoteSubLabelWidth = 15
+      const quoteDataColWidth = (availableWidth - quoteLabelWidth - quoteSubLabelWidth) / numItems
+
+      const quote1LRow: any[] = [{ content: 'Quote\n(INR/1000)', rowSpan: 4, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, { content: '1L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
+      const quote2LRow: any[] = [{ content: '2L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
+      const quote5LRow: any[] = [{ content: '5L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
+      const quote10LRow: any[] = [{ content: '10L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
+
+      // Add empty cells for each product column
+      for (let i = 0; i < numItems; i++) {
+        quote1LRow.push('')
+        quote2LRow.push('')
+        quote5LRow.push('')
+        quote10LRow.push('')
+      }
+
       autoTable(pdf, {
         startY: yPos,
-        head: [['Packing Spec', 'Tentative Packing Spec']],
         body: [
+          quote1LRow,
+          quote2LRow,
+          quote5LRow,
+          quote10LRow,
+        ],
+        theme: 'grid',
+        bodyStyles: {
+          fontSize: 6,
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+          minCellHeight: 5
+        },
+        columnStyles: {
+          0: { cellWidth: quoteLabelWidth },
+          1: { cellWidth: quoteSubLabelWidth, halign: 'center' },
+          2: { cellWidth: quoteDataColWidth },
+          3: { cellWidth: quoteDataColWidth },
+          4: { cellWidth: quoteDataColWidth },
+          5: { cellWidth: quoteDataColWidth }
+        },
+        margin: { left: 10, right: 10 }
+      })
+
+      yPos = (pdf as any).lastAutoTable.finalY + 8
+
+      // Packing Spec Section - Vertical Format (A4 adjusted)
+      // Column 0: "Packing Spec" label (rowSpan)
+      // Column 1: "Tentative Packing Spec" header spans col 1-2, then field labels
+      // Column 2: Values (empty)
+      autoTable(pdf, {
+        startY: yPos,
+        body: [
+          [
+            { content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
+            { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }
+          ],
           ['Shipper box size in MM', ''],
           ['Quantity per shipper box: Packs', ''],
           ['Shipper box Weight: Gross in KG', ''],
@@ -474,60 +650,120 @@ export function QuotationsContent() {
           ['Quantity per 40 FT FCL: Packs', ''],
         ],
         theme: 'grid',
-        headStyles: {
-          fillColor: [255, 255, 255],
-          textColor: [0, 0, 0],
-          fontSize: 9,
-          fontStyle: 'bold',
-          halign: 'left',
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
-        },
         bodyStyles: {
-          fontSize: 8,
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
+          fontSize: 6,
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+          minCellHeight: 5,
+          fontStyle: 'bold' as const
         },
         columnStyles: {
-          0: { cellWidth: 90 },
-          1: { cellWidth: 100 }
-        }
+          0: { cellWidth: 25 },
+          1: { cellWidth: 80, halign: 'left' as const },
+          2: { cellWidth: 40 }
+        },
+        margin: { left: 10 }
+      })
+
+      yPos = (pdf as any).lastAutoTable.finalY + 5
+
+      // Terms & Conditions Section - Vertical Format (A4 adjusted)
+      // Column 0: "Terms & Conditions" label (rowSpan)
+      // Column 1: Field labels
+      // Column 2: Values
+      autoTable(pdf, {
+        startY: yPos,
+        body: [
+          [
+            { content: 'Terms &\nConditions', rowSpan: 6, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
+            'Delivery Terms',
+            '45Days'
+          ],
+          ['Payment Terms', '30Days'],
+          ['Taxes', ''],
+          ['Currency', priceData.CurrencySymbol || ''],
+          ['Lead Time', ''],
+          ['Quote Validity', ''],
+        ],
+        theme: 'grid',
+        bodyStyles: {
+          fontSize: 6,
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+          minCellHeight: 5,
+          fontStyle: 'bold' as const
+        },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 80, halign: 'left' as const },
+          2: { cellWidth: 40 }
+        },
+        margin: { left: 10 }
       })
 
       yPos = (pdf as any).lastAutoTable.finalY + 8
 
-      // Terms & Conditions Section
-      autoTable(pdf, {
-        startY: yPos,
-        head: [['Terms & Conditions', '']],
-        body: [
-          ['Delivery Terms', '45Days'],
-          ['Payment Terms', '30Days'],
-          ['Taxes', ''],
-          ['Currency', priceData.CurrencySymbol || 'INR'],
-          ['Lead Time', '30 days'],
-          ['Quote Validity', ''],
-        ],
-        theme: 'grid',
-        headStyles: {
-          fillColor: [255, 255, 255],
-          textColor: [0, 0, 0],
-          fontSize: 9,
-          fontStyle: 'bold',
-          halign: 'left',
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
-        },
-        bodyStyles: {
-          fontSize: 8,
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
-        },
-        columnStyles: {
-          0: { cellWidth: 70, fontStyle: 'bold' },
-          1: { cellWidth: 120 }
-        }
-      })
+      // ========== FOOTER SECTION ==========
+      // Check if we need a new page for footer
+      if (yPos > pageHeight - 35) {
+        pdf.addPage()
+        yPos = 15
+      }
+
+      // Footer Text (from API or default)
+      pdf.setFontSize(7)
+      pdf.setFont('helvetica', 'normal')
+      pdf.setTextColor(80, 80, 80)
+      const footerText = mainData.FooterText || 'This quotation is valid for 10 days from the date of issue. All prices are exclusive of applicable taxes unless otherwise stated.'
+      const footerLines = pdf.splitTextToSize(footerText, pageWidth - 20)
+      pdf.text(footerLines, 10, yPos)
+
+      yPos += (footerLines.length * 3) + 5
+
+      // Prepared By section
+      pdf.setFontSize(7)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(0, 0, 0)
+      pdf.text('Prepared By:', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(mainData.UserName || mainData.SalesEmployeeName || '', 32, yPos)
+
+      // Designation
+      if (mainData.Designation) {
+        pdf.text(`(${mainData.Designation})`, 32 + pdf.getTextWidth(mainData.UserName || mainData.SalesEmployeeName || '') + 3, yPos)
+      }
+
+      yPos += 4
+
+      // Contact
+      if (mainData.UserContactNo) {
+        pdf.text(`Contact: ${mainData.UserContactNo}`, 10, yPos)
+        yPos += 4
+      }
+
+      yPos += 5
+
+      // Company Name at bottom
+      pdf.setFontSize(8)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(0, 81, 128) // #005180
+      const companyName = mainData.CompanyName || 'INDAS Packaging Pvt. Ltd.'
+      pdf.text(companyName, pageWidth / 2, yPos, { align: 'center' })
+
+      yPos += 4
+
+      // GSTIN and CIN
+      pdf.setFontSize(6)
+      pdf.setFont('helvetica', 'normal')
+      pdf.setTextColor(100, 100, 100)
+      if (mainData.GSTIN) {
+        pdf.text(`GSTIN: ${mainData.GSTIN}`, pageWidth / 2, yPos, { align: 'center' })
+        yPos += 3
+      }
+      if (mainData.CINNo) {
+        pdf.text(`CIN: ${mainData.CINNo}`, pageWidth / 2, yPos, { align: 'center' })
+      }
+      // ========== END FOOTER SECTION ==========
 
       // Save PDF
       pdf.save(`Quotation-${quotationNumber}-Vertical.pdf`)
@@ -556,155 +792,310 @@ export function QuotationsContent() {
       const detailsDataArray = data.Datails || data.Details || data.detailsData || data.DetailsData || []
       const priceDataArray = data.Price || data.priceData || data.PriceData || []
 
-      // Get first item from arrays
+      // Get all items from arrays for multiple rows
+      const allDetailsData = detailsDataArray.length > 0 ? detailsDataArray : [{}]
       const mainData = mainDataArray[0] || {}
-      const detailsData = detailsDataArray[0] || {}
       const priceData = priceDataArray[0] || {}
 
-      // Generate PDF with HORIZONTAL format
+      // Generate PDF with HORIZONTAL format - A4 Portrait (same as vertical)
       const pdf = new jsPDF({
-        orientation: 'landscape',
+        orientation: 'portrait',
         unit: 'mm',
-        format: 'a3',
+        format: 'a4',
       })
 
       const quotationNumber = mainData.BookingNo || bookingId
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
 
-      let yPos = 10
+      let yPos = 8
 
-      // Product Table - Main section (Horizontal)
+      // ========== HEADER SECTION ==========
+      // Company Logo - Parksons
+      try {
+        // Load logo from public folder
+        const logoBase64 = await loadImageAsBase64(PARKSONS_LOGO_PATH)
+        // Logo dimensions - maintain aspect ratio (original: 995 x 222)
+        const logoWidth = 60  // Width in mm
+        const logoHeight = logoWidth * (222 / 995)  // Maintain aspect ratio
+        pdf.addImage(logoBase64, 'PNG', 10, yPos, logoWidth, logoHeight)
+        yPos += logoHeight + 5
+      } catch (logoError) {
+        // Fallback if logo fails to load
+        console.error('Failed to load logo:', logoError)
+        pdf.setDrawColor(200, 200, 200)
+        pdf.setFillColor(245, 245, 245)
+        pdf.rect(10, yPos, pageWidth - 20, 15, 'FD')
+        pdf.setFontSize(8)
+        pdf.setTextColor(150, 150, 150)
+        pdf.text('PARKSONS PACKAGING LTD', pageWidth / 2, yPos + 9, { align: 'center' })
+        yPos += 20
+      }
+
+      // QUOTATION Title - Bold, Underlined, Centered
+      pdf.setFontSize(14)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(0, 0, 0)
+      const titleTextH = 'QUOTATION'
+      const titleWidthH = pdf.getTextWidth(titleTextH)
+      const titleXH = (pageWidth - titleWidthH) / 2
+      pdf.text(titleTextH, titleXH, yPos)
+      // Underline
+      pdf.setLineWidth(0.4)
+      pdf.line(titleXH, yPos + 1, titleXH + titleWidthH, yPos + 1)
+
+      yPos += 8
+
+      // Client Information Section
+      pdf.setFontSize(8)
+      pdf.setFont('helvetica', 'normal')
+
+      // Client Name
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Client Name', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`: ${mainData.ClientName || mainData.LedgerName || ''}`, 38, yPos)
+
+      yPos += 5
+
+      // To (Mailing Name)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('To', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`: ${mainData.MailingName || mainData.ClientName || ''}`, 38, yPos)
+
+      yPos += 5
+
+      // Address
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Address', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      const addressH = mainData.Address || ''
+      const addressLinesH = pdf.splitTextToSize(`: ${addressH}`, pageWidth - 48)
+      pdf.text(addressLinesH, 38, yPos)
+      yPos += (addressLinesH.length * 4)
+
+      yPos += 1
+
+      // Subject
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Subject', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`: ${mainData.EmailSubject || mainData.JobName || ''}`, 38, yPos)
+
+      yPos += 5
+
+      // Kind Attention
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Kind Attention', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`: ${mainData.ConcernPerson || mainData.ContactPerson || ''}`, 38, yPos)
+
+      yPos += 8
+      // ========== END HEADER SECTION ==========
+
+      // Main Product Table - A4 Portrait (210mm - 20mm margins = 190mm available)
+      // Column widths adjusted for portrait: total ~190mm
       autoTable(pdf, {
         startY: yPos,
-        head: [[
-          'S.N.',
-          'Job name',
-          'Size (MM)',
-          'Board Specs',
-          'Printing & Value Addition',
-          'MOQ',
-          'Annual Quantity',
-          'Quote (INR / 1000)',
-          '',
-          ''
-        ]],
-        body: [[
-          '1',
+        head: [
+          [
+            { content: 'S.N.', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+            { content: 'Job name', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+            { content: 'Size', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+            { content: 'Board Specs', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+            { content: 'Printing & Value Add', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+            { content: 'MOQ', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+            { content: 'Ann. Qty', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+            { content: 'Quote (INR/1000)', colSpan: 4, styles: { halign: 'center' } },
+          ],
+          [
+            { content: '1L', styles: { halign: 'center' } },
+            { content: '2L', styles: { halign: 'center' } },
+            { content: '5L', styles: { halign: 'center' } },
+            { content: '10L', styles: { halign: 'center' } },
+          ]
+        ],
+        body: allDetailsData.map((detailsData: any, index: number) => [
+          String(index + 1),
           mainData.JobName || detailsData.Content_Name || '',
           detailsData.Job_Size || detailsData.Job_Size_In_Inches || '',
           detailsData.Paper || '',
           detailsData.Printing || '',
           '',
           priceData.PlanContQty || '',
-          '1L',
-          '2L',
-          '5L'
-        ]],
+          '', // 1L value
+          '', // 2L value
+          '', // 5L value
+          '', // 10L value
+        ]),
         theme: 'grid',
         headStyles: {
           fillColor: [255, 255, 255],
           textColor: [0, 0, 0],
-          fontSize: 8,
+          fontSize: 5,
           fontStyle: 'bold',
-          halign: 'center',
-          valign: 'middle',
-          lineWidth: 0.5,
+          lineWidth: 0.2,
           lineColor: [0, 0, 0]
         },
         bodyStyles: {
-          fontSize: 7,
+          fontSize: 5,
           valign: 'middle',
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+          minCellHeight: 6
         },
         columnStyles: {
-          0: { cellWidth: 15, halign: 'center' },
-          1: { cellWidth: 50 },
-          2: { cellWidth: 30 },
-          3: { cellWidth: 60 },
-          4: { cellWidth: 60 },
-          5: { cellWidth: 20 },
-          6: { cellWidth: 30 },
-          7: { cellWidth: 25 },
-          8: { cellWidth: 25 },
-          9: { cellWidth: 25 }
-        }
-      })
-
-      yPos = (pdf as any).lastAutoTable.finalY + 10
-
-      // Packing Spec Section
-      autoTable(pdf, {
-        startY: yPos,
-        head: [['Packing Spec', 'Tentative Packing Spec']],
-        body: [
-          ['', 'Shipper box size in MM'],
-          ['', 'Quantity per shipper box: Packs'],
-          ['', 'Shipper box Weight: Gross in KG'],
-          ['', 'Pallet size in MM'],
-          ['', 'Number of Shipper per pallets: Shippers'],
-          ['', 'Quantity per pallet: Packs'],
-          ['', 'Pallet Weight: Gross in Kg'],
-          ['', 'Pallets per 20 FT FCL'],
-          ['', 'Quantity per 20 FT FCL: Packs'],
-          ['', 'Pallets per 40 FT FCL'],
-          ['', 'Quantity per 40 FT FCL: Packs'],
-        ],
-        theme: 'grid',
-        headStyles: {
-          fillColor: [255, 255, 255],
-          textColor: [0, 0, 0],
-          fontSize: 9,
-          fontStyle: 'bold',
-          halign: 'left',
-          valign: 'middle',
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
+          0: { cellWidth: 8, halign: 'center' },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 14 },
+          3: { cellWidth: 32 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 10, halign: 'center' },
+          6: { cellWidth: 14, halign: 'center' },
+          7: { cellWidth: 12, halign: 'center' },
+          8: { cellWidth: 12, halign: 'center' },
+          9: { cellWidth: 12, halign: 'center' },
+          10: { cellWidth: 12, halign: 'center' }
         },
-        bodyStyles: {
-          fontSize: 8,
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
-        },
-        columnStyles: {
-          0: { cellWidth: 50 },
-          1: { cellWidth: 120 }
-        }
+        margin: { left: 10, right: 10 },
+        tableWidth: 'auto'
       })
 
       yPos = (pdf as any).lastAutoTable.finalY + 8
 
-      // Terms & Conditions Section
+      // Packing Spec Section - A4 Portrait
       autoTable(pdf, {
         startY: yPos,
-        head: [['Terms & Conditions', '']],
         body: [
-          ['Delivery Terms', '45Days'],
+          [
+            { content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
+            { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }
+          ],
+          ['Shipper box size in MM', ''],
+          ['Quantity per shipper box: Packs', ''],
+          ['Shipper box Weight: Gross in KG', ''],
+          ['Pallet size in MM', ''],
+          ['Number of Shipper per pallets: Shippers', ''],
+          ['Quantity per pallet: Packs', ''],
+          ['Pallet Weight: Gross in Kg', ''],
+          ['Pallets per 20 FT FCL', ''],
+          ['Quantity per 20 FT FCL: Packs', ''],
+          ['Pallets per 40 FT FCL', ''],
+          ['Quantity per 40 FT FCL: Packs', ''],
+        ],
+        theme: 'grid',
+        bodyStyles: {
+          fontSize: 6,
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+          minCellHeight: 5,
+          fontStyle: 'bold' as const
+        },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 80, halign: 'left' as const },
+          2: { cellWidth: 40 }
+        },
+        margin: { left: 10 }
+      })
+
+      yPos = (pdf as any).lastAutoTable.finalY + 5
+
+      // Terms & Conditions Section - A4 Portrait
+      autoTable(pdf, {
+        startY: yPos,
+        body: [
+          [
+            { content: 'Terms &\nConditions', rowSpan: 6, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
+            'Delivery Terms',
+            '45Days'
+          ],
           ['Payment Terms', '30Days'],
           ['Taxes', ''],
-          ['Currency', priceData.CurrencySymbol || 'INR'],
-          ['Lead Time', '30 days'],
+          ['Currency', priceData.CurrencySymbol || ''],
+          ['Lead Time', ''],
           ['Quote Validity', ''],
         ],
         theme: 'grid',
-        headStyles: {
-          fillColor: [255, 255, 255],
-          textColor: [0, 0, 0],
-          fontSize: 9,
-          fontStyle: 'bold',
-          halign: 'left',
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
-        },
         bodyStyles: {
-          fontSize: 8,
-          lineWidth: 0.5,
-          lineColor: [0, 0, 0]
+          fontSize: 6,
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+          minCellHeight: 5,
+          fontStyle: 'bold' as const
         },
         columnStyles: {
-          0: { cellWidth: 50, fontStyle: 'bold' },
-          1: { cellWidth: 120 }
-        }
+          0: { cellWidth: 25 },
+          1: { cellWidth: 80, halign: 'left' as const },
+          2: { cellWidth: 40 }
+        },
+        margin: { left: 10 }
       })
+
+      yPos = (pdf as any).lastAutoTable.finalY + 8
+
+      // ========== FOOTER SECTION ==========
+      // Check if we need a new page for footer
+      if (yPos > pageHeight - 35) {
+        pdf.addPage()
+        yPos = 15
+      }
+
+      // Footer Text (from API or default)
+      pdf.setFontSize(7)
+      pdf.setFont('helvetica', 'normal')
+      pdf.setTextColor(80, 80, 80)
+      const footerTextH = mainData.FooterText || 'This quotation is valid for 10 days from the date of issue. All prices are exclusive of applicable taxes unless otherwise stated.'
+      const footerLinesH = pdf.splitTextToSize(footerTextH, pageWidth - 20)
+      pdf.text(footerLinesH, 10, yPos)
+
+      yPos += (footerLinesH.length * 3) + 5
+
+      // Prepared By section
+      pdf.setFontSize(7)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(0, 0, 0)
+      pdf.text('Prepared By:', 10, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(mainData.UserName || mainData.SalesEmployeeName || '', 32, yPos)
+
+      // Designation
+      if (mainData.Designation) {
+        pdf.text(`(${mainData.Designation})`, 32 + pdf.getTextWidth(mainData.UserName || mainData.SalesEmployeeName || '') + 3, yPos)
+      }
+
+      yPos += 4
+
+      // Contact
+      if (mainData.UserContactNo) {
+        pdf.text(`Contact: ${mainData.UserContactNo}`, 10, yPos)
+        yPos += 4
+      }
+
+      yPos += 5
+
+      // Company Name at bottom
+      pdf.setFontSize(8)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(0, 81, 128) // #005180
+      const companyNameH = mainData.CompanyName || 'INDAS Packaging Pvt. Ltd.'
+      pdf.text(companyNameH, pageWidth / 2, yPos, { align: 'center' })
+
+      yPos += 4
+
+      // GSTIN and CIN
+      pdf.setFontSize(6)
+      pdf.setFont('helvetica', 'normal')
+      pdf.setTextColor(100, 100, 100)
+      if (mainData.GSTIN) {
+        pdf.text(`GSTIN: ${mainData.GSTIN}`, pageWidth / 2, yPos, { align: 'center' })
+        yPos += 3
+      }
+      if (mainData.CINNo) {
+        pdf.text(`CIN: ${mainData.CINNo}`, pageWidth / 2, yPos, { align: 'center' })
+      }
+      // ========== END FOOTER SECTION ==========
 
       // Save PDF
       pdf.save(`Quotation-${quotationNumber}-Horizontal.pdf`)

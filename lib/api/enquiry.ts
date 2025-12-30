@@ -7,15 +7,32 @@ import { logger } from "@/lib/logger"
 // API Base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.indusanalytics.co.in'
 
-// Helper function to get headers
-const getHeaders = (session?: any) => {
-  // Use default values if no session
-  const companyId = session?.CompanyID?.toString() || '2'
-  const userId = session?.UserID?.toString() || '2'
-  const fyear = session?.Fyear || '2025-2026'
-  const productionUnitId = session?.ProductionUnitID?.toString() || '1'
+// Helper function to get user auth data from localStorage
+const getUserAuthData = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    const authData = localStorage.getItem('userAuth')
+    if (authData) {
+      return JSON.parse(authData)
+    }
+  } catch (error) {
+    console.error('Error reading user auth data:', error)
+  }
+  return null
+}
 
-  return {
+// Helper function to get headers - all values are dynamic from localStorage
+const getHeaders = (session?: any) => {
+  // Get user auth data from localStorage
+  const authData = getUserAuthData()
+
+  // Use localStorage values first, then session, then defaults
+  const companyId = authData?.companyId?.toString() || session?.CompanyID?.toString() || '2'
+  const userId = authData?.userId?.toString() || session?.UserID?.toString() || '2'
+  const fyear = authData?.fyear || session?.Fyear || '2025-2026'
+  const productionUnitId = authData?.productionUnitId?.toString() || session?.ProductionUnitID?.toString() || '1'
+
+  const headers = {
     'CompanyID': companyId,
     'UserID': userId,
     'Fyear': fyear,
@@ -23,6 +40,10 @@ const getHeaders = (session?: any) => {
     'Authorization': `Basic ${btoa('parksonsnew:parksonsnew')}`,
     'Content-Type': 'application/json',
   }
+
+  console.log('📋 API Headers:', headers)
+
+  return headers
 }
 
 // Date formatting helpers
@@ -68,6 +89,7 @@ export interface EnquiryItem {
   ProductionUnitID: number
   ProductionUnitName: string
   EmployeeID: number
+  SalesEmployeeID?: number
   SalesRepresentative: string
   UserName: string
   Status: string
@@ -82,6 +104,13 @@ export interface EnquiryItem {
   Remark: string
   Mobile: string
   ConcernPersonID: number
+  ConcernPerson?: string
+  ConcernPersonName?: string
+  ContactPerson?: string
+  AnnualQuantity?: number
+  DivisionName?: string
+  SupplyLocation?: string
+  PaymentTerms?: string
   FileName: string
 }
 
@@ -546,6 +575,38 @@ export class EnquiryAPI {
         success: false,
         data: [],
         error: `Failed to fetch processes: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Update Enquiry Status
+   * Endpoint: POST /api/enquiry/updatestatus
+   * Used to update enquiry status (e.g., to "Quoted" when quotation is created)
+   */
+  static async updateEnquiryStatus(enquiryId: number, status: string, session: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/enquiry/updatestatus`, {
+        method: 'POST',
+        headers: getHeaders(session),
+        body: JSON.stringify({
+          EnquiryID: enquiryId,
+          Status: status
+        }),
+      })
+
+      const result = await response.json()
+
+      return {
+        success: response.ok && result === "Updated",
+        data: result,
+        error: response.ok ? null : `Failed to update enquiry status: ${response.status}`,
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        data: null,
+        error: `Failed to update enquiry status: ${error.message}`,
       }
     }
   }
@@ -1255,14 +1316,14 @@ export class QuotationsAPI {
   /**
    * Get Detailed Enquiry Data
    * Fetches complete enquiry details including dimensions and processes
-   * Endpoint: GET /api/enquiry/getenquirydetails?enquiryId={enquiryId}
+   * Endpoint: GET /api/planwindow/GetEnquiryContentData/{EnquiryID}
    */
   static async getEnquiryDetails(enquiryId: number, session: any) {
     try {
-      const url = `${API_BASE_URL}/api/enquiry/getenquirydetails?enquiryId=${enquiryId}`
+      const url = `${API_BASE_URL}/api/planwindow/GetEnquiryContentData/${enquiryId}`
 
       console.log('═══════════════════════════════════════════════════════════════')
-      console.log('📡 API CALL: getEnquiryDetails')
+      console.log('📡 API CALL: getEnquiryDetails (GetEnquiryContentData)')
       console.log('─────────────────────────────────────────────────────────────')
       console.log('🔗 URL:', url)
       console.log('📋 Method: GET')
@@ -1283,11 +1344,36 @@ export class QuotationsAPI {
         }
       }
 
-      const data = await response.json()
+      let data = await response.json()
+      console.log('📦 Raw response type:', typeof data)
+      console.log('📦 Raw response (first 200 chars):', typeof data === 'string' ? data.substring(0, 200) : 'not a string')
+
+      // Handle multiple levels of JSON encoding (API returns triple-encoded JSON)
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          console.log(`📦 Parse attempt ${parseAttempts + 1}, current type: ${typeof data}`)
+          data = JSON.parse(data)
+          parseAttempts++
+          console.log(`📦 After parse ${parseAttempts}, type: ${typeof data}`)
+        } catch (e) {
+          console.log(`📦 Parse failed at attempt ${parseAttempts + 1}:`, e)
+          break
+        }
+      }
 
       console.log('═══════════════════════════════════════════════════════════════')
-      console.log('✅ API RESPONSE: getEnquiryDetails')
+      console.log('✅ API RESPONSE: getEnquiryDetails (GetEnquiryContentData)')
       console.log('─────────────────────────────────────────────────────────────')
+      console.log('📦 Final parsed data type:', typeof data)
+      console.log('📦 Parse attempts:', parseAttempts)
+      if (data && typeof data === 'object') {
+        console.log('📦 TblBookingContents:', data.TblBookingContents?.length || 0, 'items')
+        console.log('📦 TblBookingProcess:', data.TblBookingProcess?.length || 0, 'items')
+        if (data.TblBookingProcess?.length > 0) {
+          console.log('📦 First process:', data.TblBookingProcess[0])
+        }
+      }
       console.log('📦 Response Data:', JSON.stringify(data, null, 2))
       console.log('═══════════════════════════════════════════════════════════════')
 
@@ -1327,6 +1413,8 @@ export class QuotationsAPI {
       TypeOfPrinting: string | null
       EnquiryType: string
       SalesType: string
+      ProductionUnitID?: number
+      PlantID: number
     }>
     DetailsData: Array<{
       PlanContName: string
@@ -1367,20 +1455,66 @@ export class QuotationsAPI {
     }>
   }, session: any) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/enquiry/updatmultipleenquiry`, {
+      const url = `${API_BASE_URL}/api/enquiry/updatmultipleenquiry`
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: updateMultipleEnquiry')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: POST')
+      console.log('📦 Request Body:')
+      console.log(JSON.stringify(data, null, 2))
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📋 MainData:', data.MainData)
+      console.log('📋 DetailsData:', data.DetailsData)
+      console.log('📋 ProcessData:', data.ProcessData)
+      console.log('📋 Quantity:', data.Quantity)
+      console.log('📋 IsEdit:', data.IsEdit)
+      console.log('📋 EnquiryID:', data.EnquiryID)
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: getHeaders(session),
         body: JSON.stringify(data),
       })
 
-      const result = await response.json()
+      console.log('📡 Response status:', response.status, response.statusText)
+
+      const rawText = await response.text()
+      console.log('📡 Raw response text:', rawText)
+
+      let result
+      try {
+        result = JSON.parse(rawText)
+      } catch {
+        // Response might be plain text like "Success"
+        result = rawText
+      }
+
+      console.log('📡 Parsed result:', result)
+
+      // "Success" means updated successfully - check both response.ok and the result text
+      // Also accept if response is OK even if result is different
+      const isSuccess = (result === "Success" || result === "Exist" || result === '"Success"' || result === '"Exist"') ||
+                        (response.ok && typeof result === 'string' && result.toLowerCase().includes('success'))
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('✅ API RESPONSE: updateMultipleEnquiry')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📊 Status:', response.status, response.statusText)
+      console.log('📊 Response OK:', response.ok)
+      console.log('📊 Is Success:', isSuccess)
+      console.log('📦 Result:', result)
+      console.log('═══════════════════════════════════════════════════════════════')
 
       return {
-        success: response.ok && result === "Success",
+        success: isSuccess,
         data: result,
-        error: response.ok ? null : `Failed to update enquiry: ${response.status}`,
+        error: isSuccess ? null : `Failed to update enquiry: ${result || response.status}`,
       }
     } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
       return {
         success: false,
         data: null,

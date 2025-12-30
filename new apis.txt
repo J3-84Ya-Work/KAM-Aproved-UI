@@ -1,0 +1,134 @@
+For Update Detailed Enquiry
+
+httpmethod - Post
+endpoint - /api/enquiry/updatmultipleenquiry
+Request Body (JSON) -
+{
+  "MainData": [
+    {
+      "ProductCode": "123121",
+      "LedgerID": 21916,
+      "SalesEmployeeID": 45809,
+      "CategoryID": 25,
+      "ConcernPersonID": null,
+      "JobName": "Test by Abhinav Update",
+      "FileName": "",
+      "EnquiryDate": "29 Oct 2025",
+      "EstimationUnit": "PCS",
+      "ExpectCompletion": "10",
+      "Remark": "Test enquiry",
+      "TypeOfJob": null,
+      "TypeOfPrinting": null,
+      "EnquiryType": "Bid",
+      "SalesType": "Export"
+	  "ProductionUnitID":1,
+	  "PlantID":1,
+    }
+  ],
+  "DetailsData": [
+    {
+      "PlanContName": "Reverse Tuck In",
+      "Size": "H=200, L=100, W=100, OF=10, PF=10 (MM); H=20.00, L=10.00, W=10.00, OF=1.00, PF=1.00 (CM)",
+      "PlanContentType": "ReverseTuckIn",
+      "ContentSizeValues": "SizeHeight=200AndOrSizeLength=100AndOrSizeWidth=100AndOrSizeOpenflap=10AndOrSizePastingflap=10AndOrPlanFColor=4AndOrPlanBColor=0AndOrPlanSpeFColor=0AndOrPlanSpeBColor=0AndOrItemPlanQuality=Art CardAndOrItemPlanGsm=100AndOrItemPlanMill=Stock lotAndOrItemPlanFinish=AndOrPlanWastageType=Machine Default",
+      "valuesString": "200,100,100,10,10,4,Art Card,100,Stock lot,,Machine Default, undefined",
+      "JobSizeInCM": "H=200, L=100, W=100, OF=10, PF=10 (MM); H=20.00, L=10.00, W=10.00, OF=1.00, PF=1.00 (CM)"
+    }
+  ],
+  "ProcessData": [
+    {
+      "ProcessID": 74,
+      "ProcessName": "Plate Making",
+      "PlanContName": "Reverse Tuck In",
+      "PlanContentType": "ReverseTuckIn"
+    },
+    {
+      "ProcessID": 15,
+      "ProcessName": "Cutting Pre",
+      "PlanContName": "Reverse Tuck In",
+      "PlanContentType": "ReverseTuckIn"
+    },
+    {
+      "ProcessID": 10379,
+      "ProcessName": "Front Side Printing",
+      "PlanContName": "Reverse Tuck In",
+      "PlanContentType": "ReverseTuckIn"
+    },
+    {
+      "ProcessID": 10440,
+      "ProcessName": "Die Cutting (J)",
+      "PlanContName": "Reverse Tuck In",
+      "PlanContentType": "ReverseTuckIn"
+    }
+  ],
+  "Quantity": 10000,
+  "IsEdit": "True",
+  "EnquiryID": 614,
+  "LayerDetailArr": [],
+  "JsonObjectsUserApprovalProcessArray": [
+    {
+      "ProductCode": "123121",
+      "LedgerID": 21916,
+      "LedgerName": "Adtek Printandmedia Pvt Ltd",
+      "SalesEmployeeID": 45809,
+      "CategoryName": "Mono Carton",
+      "ConcernPersonID": null,
+      "JobName": "Test by Abhinav",
+      "FileName": "",
+      "EnquiryDate": "29 Oct 2025",
+      "EstimationUnit": "PCS",
+      "ExpectCompletion": "10",
+      "Remark": "Test enquiry",
+      "TypeOfJob": null,
+      "TypeOfPrinting": null,
+      "EnquiryType": "Bid",
+      "SalesType": "Export",
+      "Quantity": "10000"
+    }
+  ]
+}
+respones format -
+"Success"
+
+
+
+For Update Status of Enquiry
+
+httpmethod - Posts
+endpoint - /api/enquiry/updatestatus
+request Json body -
+{
+	"EnquiryID":5458,
+	"Status":"Approve"
+}
+Response:
+"Updated"
+
+
+
+
+
+For load Enquiry
+
+httpmethod - Get
+endpoint - /api/planwindow/GetEnquiryContentData/{EnquiryID}
+
+Response:
+json Object
+
+For get User Detail
+
+auth type-  basic Authentication
+httpmethod - Get
+endpoint - /api/othermaster/getuserDetails
+Response:
+json Object
+***********************************************************************
+For Content wise process
+***********************************************************************
+auth type-  basic Authentication
+httpmethod - Get
+endpoint - /api/planwindow/GetCategoryContentWiseDefaultProcesses/{CategoryID}/{ContentType}
+Response:
+json Object
+***********************************************************************

@@ -15,7 +15,7 @@ interface Client {
 
 interface ClientDropdownProps {
   value?: string
-  onValueChange?: (value: string) => void
+  onValueChange?: (value: string, clientData?: { clientId: number; clientName: string }) => void
   placeholder?: string
   disabled?: boolean
 }
@@ -81,8 +81,24 @@ export function ClientDropdown({
   }
 
 
+  const handleValueChange = (selectedValue: string) => {
+    const selectedClient = clients.find(c => c.ClientName === selectedValue)
+    console.log('=== ClientDropdown: handleValueChange ===')
+    console.log('selectedValue:', selectedValue)
+    console.log('selectedClient:', selectedClient)
+    console.log('ClientID from selectedClient:', selectedClient?.ClientID, 'type:', typeof selectedClient?.ClientID)
+    if (selectedClient && onValueChange) {
+      onValueChange(selectedValue, {
+        clientId: selectedClient.ClientID,
+        clientName: selectedClient.ClientName
+      })
+    } else if (onValueChange) {
+      onValueChange(selectedValue)
+    }
+  }
+
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+    <Select value={value} onValueChange={handleValueChange} disabled={disabled}>
       <SelectTrigger className="h-10">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

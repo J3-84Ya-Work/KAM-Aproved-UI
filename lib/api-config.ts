@@ -404,8 +404,6 @@ export async function getMachineProductionUnitListAPI() {
 export async function postShirinJob(payload: any) {
   // payload expected to be a plain object following API spec
   const endpoint = 'api/planwindow/Shirin_Job'
-  logger.log(`=== Calling endpoint: ${endpoint} ===`)
-  logger.log('=== ShirinJob Payload ===', JSON.stringify(payload, null, 2))
 
   try {
     const res = await apiClient.post(endpoint, payload)
@@ -548,6 +546,7 @@ export async function deleteJob(jobId: number | string) {
 export async function saveMultipleEnquiry(enquiryData: {
   clientName?: string
   clientId?: number
+  ledgerId?: number
   jobName?: string
   quantity?: string | number
   cartonType?: string
@@ -555,16 +554,33 @@ export async function saveMultipleEnquiry(enquiryData: {
   paperDetails?: any
   processes?: any[]
   selectedPlan?: any
+  salesEmployeeId?: number
+  categoryId?: number
+  categoryName?: string
+  plantId?: number
   [key: string]: any
 }) {
+  // Use the values passed from the caller - they should already have the correct data
+  const ledgerId = enquiryData.ledgerId || enquiryData.clientId || 0
+  const salesEmployeeId = enquiryData.salesEmployeeId || 0
+  const categoryId = enquiryData.categoryId || 25 // Default to 25 (Mono Carton)
+
+  // Debug: Log exact values received and computed
+  console.log('=== SaveMultipleEnquiry DEBUG ===')
+  console.log('enquiryData.ledgerId:', enquiryData.ledgerId, 'type:', typeof enquiryData.ledgerId)
+  console.log('enquiryData.clientId:', enquiryData.clientId, 'type:', typeof enquiryData.clientId)
+  console.log('Computed ledgerId:', ledgerId, 'type:', typeof ledgerId)
+  console.log('salesEmployeeId:', salesEmployeeId)
+  console.log('categoryId:', categoryId)
+
   // Build the payload matching the API structure
   const payload = {
     MainData: [
       {
         ProductCode: enquiryData.productCode || '',
-        LedgerID: enquiryData.clientId || 4,
-        SalesEmployeeID: enquiryData.salesEmployeeId || 52,
-        CategoryID: enquiryData.categoryId || 2,
+        LedgerID: ledgerId,
+        SalesEmployeeID: salesEmployeeId,
+        CategoryID: categoryId,
         ConcernPersonID: null,
         JobName: enquiryData.jobName || '',
         FileName: enquiryData.fileName || '',
@@ -577,6 +593,7 @@ export async function saveMultipleEnquiry(enquiryData: {
         EnquiryType: 'Bid',
         SalesType: 'Export',
         Quantity: Number(enquiryData.quantity) || 0,
+        PlantID: enquiryData.plantId || 1,
       },
     ],
     DetailsData: [
@@ -591,43 +608,12 @@ export async function saveMultipleEnquiry(enquiryData: {
     ],
     ProcessData: (enquiryData.processes && enquiryData.processes.length > 0)
       ? enquiryData.processes.map((process: any) => ({
-          ProcessID: process.ProcessID || process.id || 0,
-          ProcessName: process.ProcessName || process.name || '',
+          ProcessID: Number(process.operID) || Number(process.ProcessID) || Number(process.id) || 0,
+          ProcessName: process.processName || process.ProcessName || process.name || '',
           PlanContName: enquiryData.cartonType || '',
           PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
         }))
-      : [
-          {
-            ProcessID: 74,
-            ProcessName: 'Plate Making',
-            PlanContName: enquiryData.cartonType || '',
-            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
-          },
-          {
-            ProcessID: 15,
-            ProcessName: 'Cutting Pre',
-            PlanContName: enquiryData.cartonType || '',
-            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
-          },
-          {
-            ProcessID: 10379,
-            ProcessName: 'Front Side Printing',
-            PlanContName: enquiryData.cartonType || '',
-            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
-          },
-          {
-            ProcessID: 10440,
-            ProcessName: 'Die Cutting (J)',
-            PlanContName: enquiryData.cartonType || '',
-            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
-          },
-          {
-            ProcessID: 10429,
-            ProcessName: 'Side Pasting',
-            PlanContName: enquiryData.cartonType || '',
-            PlanContentType: getInternalContentName(enquiryData.cartonType || ''),
-          },
-        ],
+      : [],
     Prefix: 'EQ',
     Quantity: Number(enquiryData.quantity) || 0,
     IsEdit: 'false',
@@ -635,9 +621,9 @@ export async function saveMultipleEnquiry(enquiryData: {
     JsonObjectsUserApprovalProcessArray: [
       {
         ProductCode: enquiryData.productCode || '',
-        LedgerID: enquiryData.clientId || 4,
+        LedgerID: ledgerId,
         LedgerName: enquiryData.clientName || '',
-        SalesEmployeeID: enquiryData.salesEmployeeId || 52,
+        SalesEmployeeID: salesEmployeeId,
         CategoryName: enquiryData.categoryName || '',
         ConcernPersonID: null,
         JobName: enquiryData.jobName || '',
@@ -655,7 +641,8 @@ export async function saveMultipleEnquiry(enquiryData: {
     ],
   }
 
-  logger.log('SaveMultipleEnquiry Payload:', JSON.stringify(payload, null, 2))
+  console.log('=== SaveMultipleEnquiry Payload ===')
+  console.log(JSON.stringify(payload, null, 2))
 
   const endpoint = 'api/enquiry/SaveMultipleEnquiry'
   return apiClient.post(endpoint, payload)
@@ -772,75 +759,6 @@ export async function postDirectCosting(costingParams: any, enquiryData: any) {
   logger.log('=== DirectCosting Payload ===', JSON.stringify(payload, null, 2))
 
   const endpoint = 'api/parksons/directcosting'
-  return apiClient.post(endpoint, payload)
-}
-
-// ============================================================================
-// ASK RATE APIs
-// ============================================================================
-
-// Helper: Fetch items list for Ask Rate (Your Question section)
-// groupId is optional - if provided, fetches items for that group
-export async function fetchItemsList(groupId?: string | number) {
-  const endpoint = groupId
-    ? `api/planwindow/getitemslist/${groupId}`
-    : 'api/planwindow/getitemslist'
-  return apiClient.get(endpoint)
-}
-
-// Stable wrapper: getItemsListAPI
-// Returns normalized array of items
-// groupId is optional - if provided, fetches items for that group
-export async function getItemsListAPI(groupId?: string | number) {
-  const res = await fetchItemsList(groupId)
-
-  let items: any[] = []
-  if (!res) return items
-  if (Array.isArray(res)) items = res
-  else if (res?.data && Array.isArray(res.data)) items = res.data
-  else if (res?.Data && Array.isArray(res.Data)) items = res.Data
-  else if (res?.d && Array.isArray(res.d)) items = res.d
-  else if (typeof res === 'object') {
-    const firstArray = Object.values(res).find((v) => Array.isArray(v))
-    if (Array.isArray(firstArray)) items = firstArray as any[]
-  }
-
-  return items
-}
-
-// Helper: Fetch item master list for Ask Rate (Select Group section)
-export async function fetchItemMasterList() {
-  const endpoint = 'api/itemmaster/itemmasterlist'
-  return apiClient.get(endpoint)
-}
-
-// Stable wrapper: getItemMasterListAPI
-// Returns normalized array of groups
-export async function getItemMasterListAPI() {
-  const res = await fetchItemMasterList()
-
-  let groups: any[] = []
-  if (!res) return groups
-  if (Array.isArray(res)) groups = res
-  else if (res?.data && Array.isArray(res.data)) groups = res.data
-  else if (res?.Data && Array.isArray(res.Data)) groups = res.Data
-  else if (res?.d && Array.isArray(res.d)) groups = res.d
-  else if (typeof res === 'object') {
-    const firstArray = Object.values(res).find((v) => Array.isArray(v))
-    if (Array.isArray(firstArray)) groups = firstArray as any[]
-  }
-
-  return groups
-}
-
-// Helper: Update item rate
-export async function updateItemRate(payload: {
-  ItemCode: string
-  ItemID: string
-  PlantID: string
-  Rate: string
-}) {
-  const endpoint = 'api/othermaster/update-itemrate'
   return apiClient.post(endpoint, payload)
 }
 

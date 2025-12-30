@@ -21,7 +21,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
 import { getViewableKAMs, isHOD, isKAM } from "@/lib/permissions"
-import { EnquiryAPI, type EnquiryItem, formatDateForAPI, formatDateForDisplay } from "@/lib/api/enquiry"
+import { EnquiryAPI, QuotationsAPI, type EnquiryItem, formatDateForAPI, formatDateForDisplay } from "@/lib/api/enquiry"
 import { NewInquiryForm } from "@/components/new-inquiry-form"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
@@ -353,13 +353,26 @@ export function InquiriesContent() {
             clarificationStatus: 'Not Required', // API doesn't provide this
             notes: item.Remark || '',
             kamName: item.SalesRepresentative,
-            salesEmployeeId: item.SalesEmployeeID || null,
+            salesEmployeeId: item.SalesEmployeeID || item.EmployeeID || null,
             ledgerId: item.LedgerID || null,
             hodName: '', // API doesn't provide HOD name
             productionUnitName: item.ProductionUnitName || '',
             productionUnitId: item.ProductionUnitID || null,
             Source: item.Source || '', // Add Source field for Email Scraper detection
             EmailEnquiryId: item.EmailEnquiryId || null, // Add EmailEnquiryId for fetching raw email body
+            // Additional fields for edit form
+            enquiryType: item.EnquiryType || '',
+            salesType: item.SalesType || '',
+            annualQuantity: item.AnnualQuantity || '',
+            productCode: item.ProductCode || '',
+            typeOfPrinting: item.TypeOfPrinting || '',
+            concernPersonId: item.ConcernPersonID || null,
+            concernPerson: item.ConcernPerson || item.ConcernPersonName || item.ContactPerson || '',
+            concernPersonMobile: item.Mobile || '',
+            divisionName: item.DivisionName || 'Packaging',
+            supplyLocation: item.SupplyLocation || '',
+            paymentTerms: item.PaymentTerms || '',
+            typeOfJob: item.TypeOfJob || '',
             // Store the full raw item for detailed edit form
             rawData: item,
           }))
@@ -407,7 +420,7 @@ export function InquiriesContent() {
 
       // Fetch detailed enquiry data including dimensions and processes
       if (inquiry.enquiryId) {
-        const response = await (EnquiryAPI as any).getEnquiryDetails(inquiry.enquiryId, null)
+        const response = await QuotationsAPI.getEnquiryDetails(inquiry.enquiryId, null)
 
         console.log('═══════════════════════════════════════════════════════════════')
         console.log('📥 EDIT ENQUIRY - API Response')
@@ -1039,8 +1052,9 @@ export function InquiriesContent() {
                         </div>
                       </div>
 
-                      {/* Dialog Footer with Edit Button - Only show for unapproved inquiries */}
-                      {inquiry.status !== 'Approved' && inquiry.status !== 'approved' && (
+                      {/* Dialog Footer with Edit Button - Only show for unapproved and non-quoted inquiries */}
+                      {inquiry.status !== 'Approved' && inquiry.status !== 'approved' &&
+                       inquiry.status !== 'Quoted' && inquiry.status !== 'quoted' && (
                         <DialogFooter className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex-shrink-0">
                           <Button
                             onClick={() => handleEditInquiry(inquiry)}
@@ -1121,14 +1135,14 @@ export function InquiriesContent() {
 
       {/* Edit Inquiry Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] p-0 flex flex-col m-0">
-          <DialogHeader className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-slate-100 to-gray-100 flex-shrink-0">
-            <DialogTitle className="text-xl font-bold text-gray-900">Edit Enquiry</DialogTitle>
-            <DialogDescription className="text-sm font-semibold text-gray-600">
+        <DialogContent className="max-w-[95vw] w-[95vw] md:max-w-[90vw] md:w-[90vw] lg:max-w-[85vw] lg:w-[85vw] h-[90vh] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 bg-gradient-to-r from-slate-100 to-gray-100 flex-shrink-0">
+            <DialogTitle className="text-lg md:text-xl font-bold text-gray-900">Edit Enquiry</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm font-semibold text-gray-600 truncate">
               {editingInquiry?.id} - {editingInquiry?.job}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6">
             {editingInquiry && (
               <NewInquiryForm
                 editMode={true}

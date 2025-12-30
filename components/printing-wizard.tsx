@@ -37,6 +37,8 @@ import {
   Printer,
   Eraser,
   Trash2,
+  FileText,
+  Loader2,
 } from "lucide-react"
 
 type Costs = {
@@ -56,7 +58,9 @@ type Costs = {
 interface JobData {
   clientType: "existing" | "new"
   clientName: string
+  clientId: number
   jobName: string
+  productCode: string
   quantity: string
   annualQuantity: string
   cartonType: string
@@ -126,6 +130,31 @@ const steps = [
   "Best Plans",
   "Final Cost",
 ]
+
+// Parksons Logo path for PDF
+const PARKSONS_LOGO_PATH = '/parksons-logo.png'
+
+// Helper function to load image as base64 for PDF
+const loadImageAsBase64 = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      } else {
+        reject(new Error('Could not get canvas context'))
+      }
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
 
 // Helper function to get image path for content type
 function getContentImagePath(contentName: string): string {
@@ -215,7 +244,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const DEFAULT_JOB_DATA: JobData = {
     clientType: "existing",
     clientName: "",
+    clientId: 0,
     jobName: "",
+    productCode: "",
     quantity: "",
     annualQuantity: "",
     cartonType: "",
@@ -1157,6 +1188,30 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           clientLogger.log('=== Quotation Number ===', quotationNum)
           clientLogger.log('=== Quotation Data stored in state ===')
 
+          // Step 3: Update enquiry status to "Quoted"
+          if (enquiryNumber) {
+            clientLogger.log('\n' + '='.repeat(80))
+            clientLogger.log('STEP 3: Updating Enquiry Status to "Quoted"')
+            clientLogger.log('='.repeat(80))
+            clientLogger.log('EnquiryID:', enquiryNumber)
+
+            try {
+              const { EnquiryAPI } = await import('@/lib/api/enquiry')
+              const statusResponse = await EnquiryAPI.updateEnquiryStatus(Number(enquiryNumber), 'Quoted', null)
+
+              if (statusResponse.success) {
+                clientLogger.log('✅ Enquiry status updated to "Quoted" successfully')
+              } else {
+                clientLogger.warn('⚠️ Failed to update enquiry status:', statusResponse.error)
+              }
+            } catch (statusError) {
+              clientLogger.warn('⚠️ Error updating enquiry status:', statusError)
+              // Don't throw - quotation was created successfully, status update is secondary
+            }
+
+            clientLogger.log('='.repeat(80) + '\n')
+          }
+
           // Clear all form data and reset to defaults
           clientLogger.log('\n' + '='.repeat(80))
           clientLogger.log('🗑️ CLEARING ALL FORM DATA')
@@ -1613,8 +1668,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </Label>
           <ClientDropdown
             value={jobData.clientName}
-            onValueChange={(value) => {
-              if (!isReadOnly) setJobData({ ...jobData, clientName: value })
+            onValueChange={(value, clientData) => {
+              if (!isReadOnly) {
+                setJobData({
+                  ...jobData,
+                  clientName: value,
+                  clientId: clientData?.clientId || 0
+                })
+              }
             }}
             disabled={isReadOnly}
           />
@@ -2984,48 +3045,45 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
 
   const renderBestPlans = () => {
-    // Apply filters to planning results
-    clientLogger.log('=== renderBestPlans - Raw planningResults ===', planningResults)
-    clientLogger.log('=== renderBestPlans - Total plans received ===', planningResults?.length || 0)
+    // First, deduplicate plans based on unique combination of machine, paper size, UPS, and unit price
+    const deduplicatedPlans = planningResults ? (() => {
+      const seen = new Set<string>()
+      return planningResults.filter((plan: any) => {
+        // Create a unique key based on the plan's identifying characteristics
+        const key = JSON.stringify({
+          machine: plan.MachineID || plan.MachineName || '',
+          paperSize: plan.PaperSize || plan.SheetSize || '',
+          ups: plan.TotalUps || plan.NoOfSets || plan.Ups || 0,
+          unitPrice: (plan.UnitPrice || plan.TotalPlanCost || 0).toFixed(4),
+          printingStyle: plan.PrintingStyle || '',
+          cutSize: plan.CutSize || plan.JobSize || '',
+        })
+        if (seen.has(key)) {
+          return false // Skip duplicate
+        }
+        seen.add(key)
+        return true
+      })
+    })() : null
 
-    // Extract unique values for dropdowns
-    const uniqueMachines = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.MachineName || p.MachineType).filter(Boolean))) : []
+    // Extract unique values for dropdowns from deduplicated plans
+    const uniqueMachines = deduplicatedPlans ? Array.from(new Set(deduplicatedPlans.map((p: any) => p.MachineName || p.MachineType).filter(Boolean))) : []
     // Use TotalUps first (it's UpsL × UpsW), then fall back to NoOfSets or Ups
-    const uniqueUps = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.TotalUps || p.NoOfSets || p.Ups).filter(Boolean))).sort((a, b) => a - b) : []
-    const uniqueCosts = planningResults ? Array.from(new Set(planningResults.map((p: any) => p.UnitPrice || p.TotalPlanCost).filter(Boolean))).sort((a, b) => a - b) : []
+    const uniqueUps = deduplicatedPlans ? Array.from(new Set(deduplicatedPlans.map((p: any) => p.TotalUps || p.NoOfSets || p.Ups).filter(Boolean))).sort((a, b) => a - b) : []
+    const uniqueCosts = deduplicatedPlans ? Array.from(new Set(deduplicatedPlans.map((p: any) => p.UnitPrice || p.TotalPlanCost).filter(Boolean))).sort((a, b) => a - b) : []
 
-    const filteredResults = planningResults ? planningResults.filter((plan: any, index: number) => {
+    const filteredResults = deduplicatedPlans ? deduplicatedPlans.filter((plan: any) => {
       const unitCost = plan.UnitPrice || plan.TotalPlanCost || 0
       // Use TotalUps first (it's UpsL × UpsW), then fall back to NoOfSets or Ups
       const ups = plan.TotalUps || plan.NoOfSets || plan.Ups || 0
       const machineName = (plan.MachineName || plan.MachineID || '').toString().toLowerCase()
 
-      clientLogger.log(`=== Plan ${index + 1} - Filtering ===`, {
-        plan: plan,
-        unitCost,
-        ups,
-        machineName,
-        filterUnitCost,
-        filterUps,
-        filterMachine
-      })
-
       const matchesUnitCost = !filterUnitCost || filterUnitCost === "all" || unitCost <= parseFloat(filterUnitCost)
       const matchesUps = !filterUps || filterUps === "all" || ups === parseFloat(filterUps)
       const matchesMachine = !filterMachine || filterMachine === "all" || machineName.includes(filterMachine.toLowerCase())
 
-      clientLogger.log(`=== Plan ${index + 1} - Filter results ===`, {
-        matchesUnitCost,
-        matchesUps,
-        matchesMachine,
-        willShow: matchesUnitCost && matchesUps && matchesMachine
-      })
-
       return matchesUnitCost && matchesUps && matchesMachine
     }) : null
-
-    clientLogger.log('=== renderBestPlans - Filtered results count ===', filteredResults?.length || 0)
-    clientLogger.log('=== renderBestPlans - Filtered results ===', filteredResults)
 
     // Structured rendering to avoid nested ternaries and JSX parsing issues
     const header = (
@@ -3200,7 +3258,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           )
         })}
       </div>
-    ) : planningResults && planningResults.length > 0 ? (
+    ) : deduplicatedPlans && deduplicatedPlans.length > 0 ? (
       <div className="text-sm text-slate-500 text-center py-4">
         No plans match the current filters. Try adjusting the filter values.
       </div>
@@ -3221,7 +3279,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     )
 
     // Filter controls
-    const filterControls = planningResults && planningResults.length > 0 ? (
+    const filterControls = deduplicatedPlans && deduplicatedPlans.length > 0 ? (
       <Card className="p-2 md:p-3 bg-slate-50 border-slate-200">
         <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
           <Select value={filterMachine} onValueChange={setFilterMachine}>
@@ -3285,7 +3343,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     ) : null
 
     // Display actual plans with costings
-    const plansDisplay = planningResults && planningResults.length > 0 ? (
+    const plansDisplay = deduplicatedPlans && deduplicatedPlans.length > 0 ? (
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-green-600 mb-3">
           <CheckCircle2 className="w-5 h-5" />
@@ -3780,60 +3838,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         ShowPlanUptoWastePercent: 100
       }
 
-      clientLogger.log('=== Resolved OperIDs for Shirin Job ===', resolveOperIdFromProcesses(jobData))
-      clientLogger.log('=== Process Names ===', getProcessNames(jobData))
-
       // Call Shirin Job API FIRST to check if plans can be generated
-      clientLogger.log('\n' + '='.repeat(80))
-      clientLogger.log('GET PLAN BUTTON CLICKED - API CALL #1: ShirinJob (Check Plans)')
-      clientLogger.log('='.repeat(80))
-      clientLogger.log('Endpoint: POST /api/planwindow/Shirin_Job')
-      clientLogger.log('Request Body:', JSON.stringify(shrinkJobParams, null, 2))
-      clientLogger.log('='.repeat(80) + '\n')
-
       let shrinkJobRes: any
       try {
         shrinkJobRes = await postShirinJob(shrinkJobParams)
 
-        clientLogger.log('\n' + '='.repeat(80))
-        clientLogger.log('ShirinJob Response:')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log(JSON.stringify(shrinkJobRes, null, 2))
-        clientLogger.log('🔍 Number of plans in response:', Array.isArray(shrinkJobRes) ? shrinkJobRes.length : 0)
-        if (Array.isArray(shrinkJobRes)) {
-          shrinkJobRes.forEach((plan: any, idx: number) => {
-            clientLogger.log(`🔍 Plan ${idx + 1} ALL COST & QUANTITY values:`, {
-              // Cost fields
-              UnitPrice: plan.UnitPrice,
-              unitPrice: plan.unitPrice,
-              Rate: plan.Rate,
-              rate: plan.rate,
-              TotalPlanCost: plan.TotalPlanCost,
-              TotalCost: plan.TotalCost,
-              GrantAmount: plan.GrantAmount,
-              TotalAmount: plan.TotalAmount,
-              GrandTotal: plan.GrandTotal,
-              // Quantity fields
-              PlanContQty: plan.PlanContQty,
-              Quantity: plan.Quantity,
-              FinalQuantity: plan.FinalQuantity,
-              // UPS fields
-              TotalUps: plan.TotalUps,
-              Ups: plan.Ups,
-              NoOfSets: plan.NoOfSets,
-              // Machine
-              MachineName: plan.MachineName,
-              MachineType: plan.MachineType,
-            })
-          })
-        }
-        clientLogger.log('='.repeat(80) + '\n')
-
         // Check if response contains an error message (API might return error as array with message)
         if (Array.isArray(shrinkJobRes) && shrinkJobRes.length > 0 && shrinkJobRes[0] && typeof shrinkJobRes[0] === 'string') {
-          // API returned error message as string in array
           const errorMessage = shrinkJobRes[0]
-          clientLogger.error('=== ShirinJob returned error message ===', errorMessage)
           setPlanningError(errorMessage)
           showToast(errorMessage, 'error')
           return false
@@ -3841,7 +3853,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
         // Validate that we got valid plans from Shirin Job
         if (!shrinkJobRes || !Array.isArray(shrinkJobRes) || shrinkJobRes.length === 0) {
-          clientLogger.error('=== No plans returned from ShirinJob ===')
           setPlanningError('No plans could be generated for the given specifications')
           showToast('No plans available: Please check your specifications and try again', 'error')
           return false
@@ -3850,15 +3861,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         // Check if first item is an error object
         if (shrinkJobRes[0] && (shrinkJobRes[0].error || shrinkJobRes[0].Error || shrinkJobRes[0].message)) {
           const errorMessage = shrinkJobRes[0].error || shrinkJobRes[0].Error || shrinkJobRes[0].message
-          clientLogger.error('=== ShirinJob returned error object ===', errorMessage)
           setPlanningError(errorMessage)
           showToast(errorMessage, 'error')
           return false
         }
-
-        clientLogger.log('=== ✅ Plans found! Proceeding to save enquiry ===')
       } catch (shirinErr: any) {
-        clientLogger.error('=== ShirinJob API failed ===', shirinErr)
         const errorMsg = extractErrorMessage(shirinErr, 'ShirinJob API failed')
         setPlanningError(errorMsg)
         showToast(`ShirinJob Error: ${errorMsg}`, 'error')
@@ -3869,44 +3876,60 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       let currentEnquiryNumber = enquiryNumber
 
       if (!currentEnquiryNumber) {
-        clientLogger.log('=== No existing enquiry number, calling SaveMultipleEnquiry ===')
+        // Get auth data from localStorage for dynamic values
+        const authData = localStorage.getItem('userAuth')
+        const parsedAuth = authData ? JSON.parse(authData) : null
+        const userId = parsedAuth?.userId || 0
+        const plantId = parsedAuth?.productionUnitId || 1
 
-        // Build the enquiry data
+        // Get selected category info
+        const selectedCategory = categories.find((c: any) => String(c.id) === String(selectedCategoryId))
+        const categoryName = selectedCategory?.name || ''
+        const categoryId = selectedCategory?.id ? Number(selectedCategory.id) : 25 // Default to 25 (Mono Carton)
+
+        // Debug: Log the clientId from jobData
+        console.log('=== runPlanning: Building enquiryData ===')
+        console.log('jobData.clientId:', jobData.clientId, 'type:', typeof jobData.clientId)
+        console.log('jobData.clientName:', jobData.clientName)
+
+        // Build the enquiry data with correct dynamic values
         const enquiryData = {
           clientName: jobData.clientName,
-          clientId: 0, // Will use default value
+          clientId: jobData.clientId || 0,
+          ledgerId: jobData.clientId || 0,
           jobName: jobData.jobName,
           quantity: jobData.quantity,
           cartonType: jobData.cartonType,
-          dimensions: jobData.dimensions,
-          paperDetails: jobData.paperDetails,
-          processes: jobData.processes,
-          productCode: '',
-          salesEmployeeId: 0,
-          categoryId: 0,
-          categoryName: '',
+          dimensions: {
+            height: Number(jobData.dimensions?.height) || 0,
+            length: Number(jobData.dimensions?.length) || 0,
+            width: Number(jobData.dimensions?.width) || 0,
+            openFlap: Number(jobData.dimensions?.openFlap) || 0,
+            pastingFlap: Number(jobData.dimensions?.pastingFlap) || 0,
+          },
+          paperDetails: {
+            quality: jobData.paperDetails?.quality || '',
+            gsm: Number(jobData.paperDetails?.gsm) || 0,
+            frontColor: Number(jobData.paperDetails?.frontColor) || 0,
+            backColor: Number(jobData.paperDetails?.backColor) || 0,
+            mill: jobData.paperDetails?.mill || '',
+            finish: jobData.paperDetails?.finish || '',
+          },
+          processes: jobData.processes?.map((p: any) => ({
+            operID: p.operID,
+            processName: p.processName,
+          })) || [],
+          productCode: jobData.productCode || '',
+          salesEmployeeId: userId,
+          categoryId: categoryId,
+          categoryName: categoryName,
+          plantId: plantId,
           fileName: '',
           remark: '',
         }
 
-        clientLogger.log('\n' + '='.repeat(80))
-        clientLogger.log('API CALL #2: SaveMultipleEnquiry (After Plans Confirmed)')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('Endpoint: POST /api/parksons/SaveMultipleEnquiry')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('\n📤 REQUEST BODY:')
-        clientLogger.log(JSON.stringify(enquiryData, null, 2))
-        clientLogger.log('='.repeat(80) + '\n')
-
         try {
           const res = await saveMultipleEnquiry(enquiryData)
-
-          clientLogger.log('\n' + '='.repeat(80))
-          clientLogger.log('📥 SaveMultipleEnquiry RESPONSE:')
-          clientLogger.log('='.repeat(80))
-          clientLogger.log('Response Type:', typeof res)
-          clientLogger.log('Response Data:')
-          clientLogger.log(JSON.stringify(res, null, 2))
 
           // The API returns either:
           // 1. A plain number: 10326
@@ -3918,55 +3941,38 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             extractedId = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
           }
 
-          clientLogger.log('\n🔑 Extracted Enquiry ID:', extractedId || 'NOT FOUND')
-          clientLogger.log('='.repeat(80) + '\n')
-
           // Store the enquiry ID (number) from response
           currentEnquiryNumber = extractedId
           if (currentEnquiryNumber) {
             setEnquiryNumber(currentEnquiryNumber)
             setCreatedEnquiryId(typeof currentEnquiryNumber === 'string' ? parseInt(currentEnquiryNumber, 10) : currentEnquiryNumber)
             setShowEnquiryCreatedDialog(true)
-            clientLogger.log('=== Stored Enquiry ID:', currentEnquiryNumber, '===')
           }
         } catch (saveErr: any) {
-          clientLogger.error('=== SaveMultipleEnquiry failed ===', saveErr)
           const errorMsg = extractErrorMessage(saveErr, 'Failed to save enquiry')
           setPlanningError(errorMsg)
           showToast(`API Error: ${errorMsg}`, 'error')
           return false
         }
-      } else {
-        clientLogger.log('\n' + '='.repeat(80))
-        clientLogger.log('✅ ENQUIRY ALREADY EXISTS - SKIPPING API CALL')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('Existing Enquiry ID:', currentEnquiryNumber)
-        clientLogger.log('Action: Skipping SaveMultipleEnquiry API call')
-        clientLogger.log('Reason: Enquiry already created for this session')
-        clientLogger.log('='.repeat(80) + '\n')
       }
 
       // STEP 3: Set the planning results (we already validated they exist)
-      clientLogger.log('=== Setting planning results from ShirinJob ===')
       setPlanningResults(shrinkJobRes)
 
       return true
     } catch (err: any) {
-      clientLogger.error('=== Planning failed ===', err)
       const errorMsg = extractErrorMessage(err, 'Planning failed')
       setPlanningError(errorMsg)
       showToast(`API Error: ${errorMsg}`, 'error')
       return false
     } finally {
       setPlanningLoading(false)
-      clientLogger.log('=== runPlanning completed ===')
     }
   }
 
   // Call costing API for a specific quantity with the selected machine
   const getCostingForQuantity = async (quantity: number) => {
     if (!selectedPlan) {
-      clientLogger.error('No plan selected')
       return null
     }
 
@@ -3990,7 +3996,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       // Return the first result (since we're requesting for a specific machine)
       return res && res.length > 0 ? res[0] : null
     } catch (err: any) {
-      clientLogger.error('Costing failed for quantity', quantity, err)
       return null
     }
   }
@@ -4088,31 +4093,71 @@ Generated with KAM Printing Wizard
 
       const { saveMultipleEnquiry } = await import('@/lib/api-config')
 
-      // Prepare enquiry data
+      // Get selected category info
+      const selectedCategory = categories.find((c: any) => String(c.id) === String(selectedCategoryId))
+      const categoryName = selectedCategory?.name || ''
+      const categoryId = selectedCategory?.id ? Number(selectedCategory.id) : 0
+
+      // Get paper details with proper number parsing
+      const paperDetails = jobData.paperDetails || {}
+
+      // Get auth data from localStorage for dynamic values
+      const authData = localStorage.getItem('userAuth')
+      const parsedAuth = authData ? JSON.parse(authData) : null
+      const userId = parsedAuth?.userId || 0
+      const plantId = parsedAuth?.productionUnitId || 1
+
+      // Prepare enquiry data with all dynamic fields
       const enquiryData = {
+        // Client info
         clientName: jobData.clientName,
-        clientId: 0, // Default - would need to get from client selection
+        clientId: jobData.clientId || 0,
+        ledgerId: jobData.clientId || 0,
+        // Job info
         jobName: jobData.jobName,
+        productCode: jobData.productCode || '',
         quantity: jobData.quantity,
+        annualQuantity: jobData.annualQuantity || jobData.quantity,
+        // Category info
+        categoryId: categoryId,
+        categoryName: categoryName,
+        // Carton/Content info
         cartonType: jobData.cartonType,
-        dimensions: jobData.dimensions,
-        paperDetails: jobData.paperDetails,
-        processes: jobData.processes,
-        productCode: '',
-        salesEmployeeId: 0,
-        categoryId: 0,
-        categoryName: '',
-        fileName: '',
-        remark: '',
+        contentType: jobData.cartonType,
+        // Dimensions
+        dimensions: {
+          height: Number(jobData.dimensions?.height) || 0,
+          length: Number(jobData.dimensions?.length) || 0,
+          width: Number(jobData.dimensions?.width) || 0,
+          openFlap: Number(jobData.dimensions?.openFlap) || 0,
+          pastingFlap: Number(jobData.dimensions?.pastingFlap) || 0,
+        },
+        // Paper details
+        paperDetails: {
+          quality: paperDetails.quality || '',
+          gsm: Number(paperDetails.gsm) || 0,
+          frontColor: Number(paperDetails.frontColor) || 0,
+          backColor: Number(paperDetails.backColor) || 0,
+          mill: paperDetails.mill || '',
+          finish: paperDetails.finish || '',
+        },
+        // Processes - map operID to ProcessID
+        processes: jobData.processes?.map((p: any) => ({
+          ProcessID: Number(p.operID) || Number(p.ProcessID) || Number(p.id) || 0,
+          ProcessName: p.processName || p.ProcessName || p.name || '',
+        })) || [],
+        // Employee info from auth
+        salesEmployeeId: userId,
+        // Other fields
+        enquiryType: 'General',
+        salesType: 'Export',
+        plantId: plantId,
+        remark: jobData.remark || '',
+        expectCompletion: '',
+        fileName: jobData.fileName || '',
       }
 
-      clientLogger.log('=== SAVE ENQUIRY DATA ===')
-      clientLogger.log('enquiryData:', JSON.stringify(enquiryData, null, 2))
-
       const response = await saveMultipleEnquiry(enquiryData)
-
-      clientLogger.log('=== SAVE ENQUIRY RESPONSE ===')
-      clientLogger.log('response:', JSON.stringify(response, null, 2))
 
       setSaveEnquirySuccess(true)
       showToast('Enquiry saved successfully!', 'success')
@@ -4376,6 +4421,394 @@ Generated with KAM Printing Wizard
         }
       }
 
+      // Download PDF - VERTICAL FORMAT (same as quotations page)
+      const handleDownloadPDFVertical = async () => {
+        try {
+          const allDetailsData = quotationData?.Datails || quotationData?.Details || [{}]
+
+          const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+          const bookingNo = mainData.BookingNo || quotationNumber
+          const pageWidth = pdf.internal.pageSize.getWidth()
+          const pageHeight = pdf.internal.pageSize.getHeight()
+
+          let yPos = 8
+
+          // Header with logo
+          try {
+            const logoBase64 = await loadImageAsBase64(PARKSONS_LOGO_PATH)
+            const logoWidth = 60
+            const logoHeight = logoWidth * (222 / 995)
+            pdf.addImage(logoBase64, 'PNG', 10, yPos, logoWidth, logoHeight)
+            yPos += logoHeight + 5
+          } catch {
+            pdf.setFontSize(8)
+            pdf.setTextColor(150, 150, 150)
+            pdf.text('PARKSONS PACKAGING LTD', pageWidth / 2, yPos + 9, { align: 'center' })
+            yPos += 20
+          }
+
+          // QUOTATION Title
+          pdf.setFontSize(14)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(0, 0, 0)
+          const titleText = 'QUOTATION'
+          const titleWidth = pdf.getTextWidth(titleText)
+          const titleX = (pageWidth - titleWidth) / 2
+          pdf.text(titleText, titleX, yPos)
+          pdf.setLineWidth(0.4)
+          pdf.line(titleX, yPos + 1, titleX + titleWidth, yPos + 1)
+          yPos += 8
+
+          // Client info
+          pdf.setFontSize(8)
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Client Name', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`: ${mainData.ClientName || mainData.LedgerName || ''}`, 38, yPos)
+          yPos += 5
+
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('To', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`: ${mainData.MailingName || mainData.LedgerName || ''}`, 38, yPos)
+          yPos += 5
+
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Address', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          const address = mainData.Address || mainData.Address1 || ''
+          const addressLines = pdf.splitTextToSize(`: ${address}`, pageWidth - 48)
+          pdf.text(addressLines, 38, yPos)
+          yPos += (addressLines.length * 4) + 1
+
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Subject', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`: ${mainData.EmailSubject || mainData.JobName || ''}`, 38, yPos)
+          yPos += 5
+
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Kind Attention', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`: ${mainData.ConcernPerson || mainData.ContactPerson || ''}`, 38, yPos)
+          yPos += 8
+
+          // Build table data
+          const numItems = Math.max(allDetailsData.length, 4)
+          const colHeaders = ['S.N.']
+          for (let i = 1; i <= numItems; i++) colHeaders.push(String(i))
+
+          const jobNameRow = ['Job name']
+          const sizeRow = ['Size (MM)']
+          const boardSpecsRow = ['Board Specs']
+          const printingRow = ['Printing & Value Addition']
+          const moqRow = ['MOQ']
+          const annualQtyRow = ['Annual Quantity']
+
+          for (let i = 0; i < numItems; i++) {
+            const detail = allDetailsData[i] || {}
+            jobNameRow.push(mainData.JobName || detail.Content_Name || '')
+            sizeRow.push(detail.Job_Size || detail.Job_Size_In_Inches || '')
+            boardSpecsRow.push(detail.Paper || '')
+            printingRow.push(detail.Printing || '')
+            moqRow.push('')
+            annualQtyRow.push(i === 0 ? (priceData.PlanContQty || '') : '')
+          }
+
+          const availableWidth = pageWidth - 20
+          const labelColWidth = 45
+          const dataColWidth = (availableWidth - labelColWidth) / numItems
+
+          autoTable(pdf, {
+            startY: yPos,
+            head: [colHeaders],
+            body: [jobNameRow, sizeRow, boardSpecsRow, printingRow, moqRow, annualQtyRow],
+            theme: 'grid',
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 7, fontStyle: 'bold', halign: 'center', lineWidth: 0.2, lineColor: [0, 0, 0] },
+            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 6 },
+            columnStyles: { 0: { cellWidth: labelColWidth, fontStyle: 'bold', halign: 'left' }, 1: { cellWidth: dataColWidth }, 2: { cellWidth: dataColWidth }, 3: { cellWidth: dataColWidth }, 4: { cellWidth: dataColWidth } },
+            margin: { left: 10, right: 10 }
+          })
+
+          yPos = (pdf as any).lastAutoTable.finalY
+
+          // Quote section
+          const quoteLabelWidth = 30
+          const quoteSubLabelWidth = 15
+          const quoteDataColWidth = (availableWidth - quoteLabelWidth - quoteSubLabelWidth) / numItems
+
+          const quote1LRow: any[] = [{ content: 'Quote\n(INR/1000)', rowSpan: 4, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, { content: '1L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
+          const quote2LRow: any[] = [{ content: '2L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
+          const quote5LRow: any[] = [{ content: '5L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
+          const quote10LRow: any[] = [{ content: '10L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
+
+          for (let i = 0; i < numItems; i++) {
+            quote1LRow.push('')
+            quote2LRow.push('')
+            quote5LRow.push('')
+            quote10LRow.push('')
+          }
+
+          autoTable(pdf, {
+            startY: yPos,
+            body: [quote1LRow, quote2LRow, quote5LRow, quote10LRow],
+            theme: 'grid',
+            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5 },
+            columnStyles: { 0: { cellWidth: quoteLabelWidth }, 1: { cellWidth: quoteSubLabelWidth, halign: 'center' }, 2: { cellWidth: quoteDataColWidth }, 3: { cellWidth: quoteDataColWidth }, 4: { cellWidth: quoteDataColWidth }, 5: { cellWidth: quoteDataColWidth } },
+            margin: { left: 10, right: 10 }
+          })
+
+          yPos = (pdf as any).lastAutoTable.finalY + 8
+
+          // Packing Spec
+          autoTable(pdf, {
+            startY: yPos,
+            body: [
+              [{ content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }],
+              ['Shipper box size in MM', ''], ['Quantity per shipper box: Packs', ''], ['Shipper box Weight: Gross in KG', ''],
+              ['Pallet size in MM', ''], ['Number of Shipper per pallets: Shippers', ''], ['Quantity per pallet: Packs', ''],
+              ['Pallet Weight: Gross in Kg', ''], ['Pallets per 20 FT FCL', ''], ['Quantity per 20 FT FCL: Packs', ''],
+              ['Pallets per 40 FT FCL', ''], ['Quantity per 40 FT FCL: Packs', ''],
+            ],
+            theme: 'grid',
+            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5, fontStyle: 'bold' as const },
+            columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 80, halign: 'left' as const }, 2: { cellWidth: 40 } },
+            margin: { left: 10 }
+          })
+
+          yPos = (pdf as any).lastAutoTable.finalY + 5
+
+          // Terms
+          autoTable(pdf, {
+            startY: yPos,
+            body: [
+              [{ content: 'Terms &\nConditions', rowSpan: 6, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, 'Delivery Terms', '45Days'],
+              ['Payment Terms', '30Days'], ['Taxes', ''], ['Currency', priceData.CurrencySymbol || ''], ['Lead Time', ''], ['Quote Validity', ''],
+            ],
+            theme: 'grid',
+            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5, fontStyle: 'bold' as const },
+            columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 80, halign: 'left' as const }, 2: { cellWidth: 40 } },
+            margin: { left: 10 }
+          })
+
+          yPos = (pdf as any).lastAutoTable.finalY + 8
+
+          // Footer
+          if (yPos > pageHeight - 35) { pdf.addPage(); yPos = 15 }
+
+          pdf.setFontSize(7)
+          pdf.setFont('helvetica', 'normal')
+          pdf.setTextColor(80, 80, 80)
+          const footerText = mainData.FooterText || 'This quotation is valid for 10 days from the date of issue.'
+          const footerLines = pdf.splitTextToSize(footerText, pageWidth - 20)
+          pdf.text(footerLines, 10, yPos)
+          yPos += (footerLines.length * 3) + 5
+
+          pdf.setFontSize(7)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(0, 0, 0)
+          pdf.text('Prepared By:', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(mainData.UserName || mainData.SalesEmployeeName || mainData.CreatedByName || '', 32, yPos)
+          yPos += 4
+
+          if (mainData.UserContactNo || mainData.ContactNO) { pdf.text(`Contact: ${mainData.UserContactNo || mainData.ContactNO}`, 10, yPos); yPos += 4 }
+          yPos += 5
+
+          pdf.setFontSize(8)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(0, 81, 128)
+          pdf.text(mainData.CompanyName || 'Parksons Packaging Ltd.', pageWidth / 2, yPos, { align: 'center' })
+
+          pdf.save(`Quotation-${bookingNo}-Vertical.pdf`)
+          showToast('PDF (Vertical) downloaded successfully', 'success')
+        } catch (error) {
+          clientLogger.error('Failed to generate Vertical PDF:', error)
+          showToast(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
+        }
+      }
+
+      // Download PDF - HORIZONTAL FORMAT (same as quotations page)
+      const handleDownloadPDFHorizontal = async () => {
+        try {
+          const allDetailsData = quotationData?.Datails || quotationData?.Details || [{}]
+
+          const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+          const bookingNo = mainData.BookingNo || quotationNumber
+          const pageWidth = pdf.internal.pageSize.getWidth()
+          const pageHeight = pdf.internal.pageSize.getHeight()
+
+          let yPos = 8
+
+          // Header with logo
+          try {
+            const logoBase64 = await loadImageAsBase64(PARKSONS_LOGO_PATH)
+            const logoWidth = 60
+            const logoHeight = logoWidth * (222 / 995)
+            pdf.addImage(logoBase64, 'PNG', 10, yPos, logoWidth, logoHeight)
+            yPos += logoHeight + 5
+          } catch {
+            pdf.setFontSize(8)
+            pdf.setTextColor(150, 150, 150)
+            pdf.text('PARKSONS PACKAGING LTD', pageWidth / 2, yPos + 9, { align: 'center' })
+            yPos += 20
+          }
+
+          // QUOTATION Title
+          pdf.setFontSize(14)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(0, 0, 0)
+          const titleText = 'QUOTATION'
+          const titleWidth = pdf.getTextWidth(titleText)
+          const titleX = (pageWidth - titleWidth) / 2
+          pdf.text(titleText, titleX, yPos)
+          pdf.setLineWidth(0.4)
+          pdf.line(titleX, yPos + 1, titleX + titleWidth, yPos + 1)
+          yPos += 8
+
+          // Client info
+          pdf.setFontSize(8)
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Client Name', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`: ${mainData.ClientName || mainData.LedgerName || ''}`, 38, yPos)
+          yPos += 5
+
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('To', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`: ${mainData.MailingName || mainData.LedgerName || ''}`, 38, yPos)
+          yPos += 5
+
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Address', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          const addressH = mainData.Address || mainData.Address1 || ''
+          const addressLinesH = pdf.splitTextToSize(`: ${addressH}`, pageWidth - 48)
+          pdf.text(addressLinesH, 38, yPos)
+          yPos += (addressLinesH.length * 4) + 1
+
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Subject', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`: ${mainData.EmailSubject || mainData.JobName || ''}`, 38, yPos)
+          yPos += 5
+
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Kind Attention', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`: ${mainData.ConcernPerson || mainData.ContactPerson || ''}`, 38, yPos)
+          yPos += 8
+
+          // Main table - Horizontal format
+          autoTable(pdf, {
+            startY: yPos,
+            head: [
+              [
+                { content: 'S.N.', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+                { content: 'Job name', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+                { content: 'Size', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+                { content: 'Board Specs', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+                { content: 'Printing & Value Add', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+                { content: 'MOQ', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+                { content: 'Ann. Qty', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
+                { content: 'Quote (INR/1000)', colSpan: 4, styles: { halign: 'center' } },
+              ],
+              [
+                { content: '1L', styles: { halign: 'center' } },
+                { content: '2L', styles: { halign: 'center' } },
+                { content: '5L', styles: { halign: 'center' } },
+                { content: '10L', styles: { halign: 'center' } },
+              ]
+            ],
+            body: allDetailsData.map((detail: any, index: number) => [
+              String(index + 1),
+              mainData.JobName || detail.Content_Name || '',
+              detail.Job_Size || detail.Job_Size_In_Inches || '',
+              detail.Paper || '',
+              detail.Printing || '',
+              '',
+              priceData.PlanContQty || '',
+              '', '', '', ''
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 5, fontStyle: 'bold', lineWidth: 0.2, lineColor: [0, 0, 0] },
+            bodyStyles: { fontSize: 5, valign: 'middle', lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 6 },
+            columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 22 }, 2: { cellWidth: 14 }, 3: { cellWidth: 32 }, 4: { cellWidth: 30 }, 5: { cellWidth: 10, halign: 'center' }, 6: { cellWidth: 14, halign: 'center' }, 7: { cellWidth: 12, halign: 'center' }, 8: { cellWidth: 12, halign: 'center' }, 9: { cellWidth: 12, halign: 'center' }, 10: { cellWidth: 12, halign: 'center' } },
+            margin: { left: 10, right: 10 },
+            tableWidth: 'auto'
+          })
+
+          yPos = (pdf as any).lastAutoTable.finalY + 8
+
+          // Packing Spec
+          autoTable(pdf, {
+            startY: yPos,
+            body: [
+              [{ content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }],
+              ['Shipper box size in MM', ''], ['Quantity per shipper box: Packs', ''], ['Shipper box Weight: Gross in KG', ''],
+              ['Pallet size in MM', ''], ['Number of Shipper per pallets: Shippers', ''], ['Quantity per pallet: Packs', ''],
+              ['Pallet Weight: Gross in Kg', ''], ['Pallets per 20 FT FCL', ''], ['Quantity per 20 FT FCL: Packs', ''],
+              ['Pallets per 40 FT FCL', ''], ['Quantity per 40 FT FCL: Packs', ''],
+            ],
+            theme: 'grid',
+            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5, fontStyle: 'bold' as const },
+            columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 80, halign: 'left' as const }, 2: { cellWidth: 40 } },
+            margin: { left: 10 }
+          })
+
+          yPos = (pdf as any).lastAutoTable.finalY + 5
+
+          // Terms
+          autoTable(pdf, {
+            startY: yPos,
+            body: [
+              [{ content: 'Terms &\nConditions', rowSpan: 6, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, 'Delivery Terms', '45Days'],
+              ['Payment Terms', '30Days'], ['Taxes', ''], ['Currency', priceData.CurrencySymbol || ''], ['Lead Time', ''], ['Quote Validity', ''],
+            ],
+            theme: 'grid',
+            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5, fontStyle: 'bold' as const },
+            columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 80, halign: 'left' as const }, 2: { cellWidth: 40 } },
+            margin: { left: 10 }
+          })
+
+          yPos = (pdf as any).lastAutoTable.finalY + 8
+
+          // Footer
+          if (yPos > pageHeight - 35) { pdf.addPage(); yPos = 15 }
+
+          pdf.setFontSize(7)
+          pdf.setFont('helvetica', 'normal')
+          pdf.setTextColor(80, 80, 80)
+          const footerText = mainData.FooterText || 'This quotation is valid for 10 days from the date of issue.'
+          const footerLines = pdf.splitTextToSize(footerText, pageWidth - 20)
+          pdf.text(footerLines, 10, yPos)
+          yPos += (footerLines.length * 3) + 5
+
+          pdf.setFontSize(7)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(0, 0, 0)
+          pdf.text('Prepared By:', 10, yPos)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(mainData.UserName || mainData.SalesEmployeeName || mainData.CreatedByName || '', 32, yPos)
+          yPos += 4
+
+          if (mainData.UserContactNo || mainData.ContactNO) { pdf.text(`Contact: ${mainData.UserContactNo || mainData.ContactNO}`, 10, yPos); yPos += 4 }
+          yPos += 5
+
+          pdf.setFontSize(8)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(0, 81, 128)
+          pdf.text(mainData.CompanyName || 'Parksons Packaging Ltd.', pageWidth / 2, yPos, { align: 'center' })
+
+          pdf.save(`Quotation-${bookingNo}-Horizontal.pdf`)
+          showToast('PDF (Horizontal) downloaded successfully', 'success')
+        } catch (error) {
+          clientLogger.error('Failed to generate Horizontal PDF:', error)
+          showToast(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
+        }
+      }
+
       return (
         <div className="p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
           {renderStepHeader("Quotation Details")}
@@ -4492,233 +4925,47 @@ Generated with KAM Printing Wizard
           </div>
 
           {/* Actions - Not printed */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-4 no-print">
+          <div className="flex flex-col gap-3 pt-4 no-print">
             <Button
-              className="flex-1 bg-[#005180] hover:bg-[#004875] text-white"
+              className="w-full bg-[#005180] hover:bg-[#004875] text-white py-3 text-base font-medium"
               onClick={() => {
-                // Reset wizard to start
+                // Reset wizard to start - treat as completely new enquiry
                 setCurrentStep(0)
                 setQuotationNumber(null)
                 setQuotationData(null)
                 setJobData(DEFAULT_JOB_DATA)
                 setPlanningResults(null)
+                setCreatedEnquiryId(null)
+                setEnquiryNumber(null)
                 onStepChange?.(steps[0])
               }}
             >
               Create New Inquiry
             </Button>
-            <Button
-              variant="outline"
-              className="flex-1 border-[#005180] text-[#005180] hover:bg-[#005180]/10"
-              onClick={() => {
-                try {
-                  const pdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'mm',
-                    format: 'a4',
-                  })
-
-                  let yPos = 15
-
-                  // Title
-                  pdf.setFontSize(16)
-                  pdf.setFont('helvetica', 'bold')
-                  pdf.text('QUOTATION', 105, yPos, { align: 'center' })
-                  yPos += 10
-
-                  // Client Information Table
-                  autoTable(pdf, {
-                    startY: yPos,
-                    head: [],
-                    body: [
-                      ['Customer Name', mainData.LedgerName || 'N/A'],
-                      ['To,', mainData.LedgerName || 'N/A'],
-                      ['', `${mainData.Address1 || ''}${mainData.CityName ? ', ' + mainData.CityName : ''}${mainData.PinCode ? ' - ' + mainData.PinCode : ''}`],
-                      ['Subject', `Quotation For: ${mainData.JobName || 'N/A'}`],
-                      ['Kind Attention', mainData.ContactPerson || ''],
-                      ['Email', mainData.LedgerEmail || ''],
-                      ['Phone', mainData.LedgerContactNo || '']
-                    ].filter(row => row[1] !== ''),
-                    theme: 'plain',
-                    styles: { fontSize: 9, cellPadding: 1 },
-                    tableWidth: 180,
-                    columnStyles: {
-                      0: { cellWidth: 35, fontStyle: 'bold' },
-                      1: { cellWidth: 145 }
-                    }
-                  })
-
-                  yPos = (pdf as any).lastAutoTable.finalY + 5
-
-                  // Intro Text
-                  pdf.setFontSize(9)
-                  pdf.setFont('helvetica', 'normal')
-                  pdf.text('Dear Sir / Madam,', 15, yPos)
-                  yPos += 5
-                  pdf.text('This has reference of your inquiry regarding your printing job.', 15, yPos)
-                  yPos += 5
-                  pdf.text('Please find below details and our most competitive rates as under.', 15, yPos)
-                  yPos += 8
-
-                  // Product Description Header
-                  autoTable(pdf, {
-                    startY: yPos,
-                    head: [['Product Description', 'Quotation No', 'Date', 'Quantity Wise Rate', 'Tax', 'Tax%']],
-                    body: [[
-                      '',
-                      quotationNumber || '',
-                      mainData.Job_Date || mainData.EnquiryDate || '',
-                      priceData.CurrencySymbol || 'INR',
-                      priceData.TaxInorExClusive || 'Exclusive',
-                      (priceData.TaxPercentage || 0).toString()
-                    ]],
-                    theme: 'grid',
-                    styles: { fontSize: 9, cellPadding: 2 },
-                    headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.5, lineColor: [0, 0, 0] },
-                    tableWidth: 180,
-                    columnStyles: {
-                      0: { cellWidth: 45 },
-                      1: { cellWidth: 30 },
-                      2: { cellWidth: 30 },
-                      3: { cellWidth: 35 },
-                      4: { cellWidth: 22 },
-                      5: { cellWidth: 18 }
-                    }
-                  })
-
-                  yPos = (pdf as any).lastAutoTable.finalY + 2
-
-                  // Product Details Table
-                  const unitCost2 = priceData.UnitCost || 0
-                  const per1000Cost2 = unitCost2 * 1000
-                  autoTable(pdf, {
-                    startY: yPos,
-                    head: [['Product Name', mainData.JobName || 'N/A', 'Quantity', (priceData.PlanContQty || 0).toLocaleString()]],
-                    body: [
-                      ['Product Code', detailsData.ProductCode || 'N/A', 'Unit Cost', `₹ ${unitCost2.toFixed(4)}`],
-                      ['Category', detailsData.CategoryName || mainData.CategoryName || 'N/A', 'Per 1000 Cost', `₹ ${per1000Cost2.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`],
-                      ['Carton Type', detailsData.CartonTypeName || 'N/A', 'Sub Total', `₹ ${(priceData.TotalCost || priceData.GrandTotalCost || 0).toLocaleString()}`],
-                      ['Domain', mainData.DomainName || detailsData.DomainName || 'N/A', 'Tax Amount', `₹ ${(priceData.TaxAmount || 0).toLocaleString()}`],
-                      ['', '', 'Grand Total', `₹ ${(priceData.GrandTotalCost || 0).toLocaleString()}`]
-                    ],
-                    theme: 'grid',
-                    styles: { fontSize: 9, cellPadding: 3 },
-                    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
-                    tableWidth: 180,
-                    columnStyles: {
-                      0: { fontStyle: 'bold', cellWidth: 30 },
-                      1: { cellWidth: 60 },
-                      2: { fontStyle: 'bold', cellWidth: 30 },
-                      3: { cellWidth: 60, halign: 'right' }
-                    }
-                  })
-
-                  yPos = (pdf as any).lastAutoTable.finalY + 5
-
-                  // Content Details and Job Size Details
-                  pdf.setFontSize(10)
-                  pdf.setFont('helvetica', 'bold')
-                  pdf.text('Technical Specifications', 15, yPos)
-                  yPos += 5
-
-                  autoTable(pdf, {
-                    startY: yPos,
-                    body: [
-                      ['Content Name', detailsData.ContentName || 'N/A', 'Job Size (mm)', `${detailsData.JobSizeH || 0} x ${detailsData.JobSizeL || 0}`],
-                      ['Color Details', `Front: ${detailsData.PlanFColor || 0} + ${detailsData.PlanFSpColor || 0} | Back: ${detailsData.PlanBColor || 0} + ${detailsData.PlanBSpColor || 0}`, 'Job Size (Inch)', `H: ${detailsData.SizeHeight || 0}" L: ${detailsData.SizeLength || 0}"`],
-                      ['Quality', detailsData.QualityName || 'N/A', 'Paper GSM', detailsData.PaperGSM || 'N/A'],
-                      ['Mill', detailsData.MillName || 'N/A', 'Finish', detailsData.FinishName || 'N/A'],
-                      ['Grain Direction', detailsData.GrainDirection || 'N/A', 'Box Weight (Kg)', (detailsData.BoxWeight || 0).toFixed(2)],
-                      ['Material Details', detailsData.MaterialDetails || `${detailsData.QualityName || ''} ${detailsData.PaperGSM || ''}GSM`, 'Supplied By', mainData.CompanyName || 'Client'],
-                      ['Operations', detailsData.Operations || 'N/A', 'Printing Type', detailsData.PrintingType || 'N/A'],
-                      ['Ups (Per Sheet)', detailsData.TotalUps || detailsData.Ups || 'N/A', 'Plan Type', detailsData.PlanType || 'N/A']
-                    ],
-                    theme: 'grid',
-                    styles: { fontSize: 8, cellPadding: 3 },
-                    tableWidth: 180,
-                    columnStyles: {
-                      0: { fontStyle: 'bold', cellWidth: 30 },
-                      1: { cellWidth: 60 },
-                      2: { fontStyle: 'bold', cellWidth: 30 },
-                      3: { cellWidth: 60 }
-                    }
-                  })
-
-                  yPos = (pdf as any).lastAutoTable.finalY + 5
-
-                  // Ply Details Table (if available)
-                  if (detailsData.PlyDetails && Array.isArray(detailsData.PlyDetails)) {
-                    const plyData = detailsData.PlyDetails.map((ply: any) => [
-                      ply.PlyNo || '',
-                      ply.FluteName || 'None',
-                      ply.ItemDetails || ''
-                    ])
-
-                    autoTable(pdf, {
-                      startY: yPos,
-                      head: [['PlyNo', 'Flute', 'Item Details']],
-                      body: plyData,
-                      theme: 'grid',
-                      styles: { fontSize: 9, cellPadding: 2 },
-                      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
-                      tableWidth: 180,
-                      columnStyles: {
-                        0: { cellWidth: 30 },
-                        1: { cellWidth: 50 },
-                        2: { cellWidth: 100 }
-                      }
-                    })
-
-                    yPos = (pdf as any).lastAutoTable.finalY + 5
-                  }
-
-                  // Remark Section
-                  pdf.setFontSize(10)
-                  pdf.setFont('helvetica', 'bold')
-                  pdf.text('Remark', 15, yPos)
-                  pdf.text(':', 50, yPos)
-                  yPos += 5
-
-                  pdf.setFontSize(9)
-                  pdf.setFont('helvetica', 'normal')
-
-                  const remarks = mainData.Remark || 'Minimum Quantity: 1,00,000 boxes per product. The rates shall vary with a change in ordered quantity\n\nPacking: Corrugated boxes - stretch wrapped.\n\nDelivery charges: Extra at actual\n\nGST: 12% Extra.\n\nPayment Terms: 50% advance 50% before delivery'
-                  const remarkLines = pdf.splitTextToSize(remarks, 180)
-                  pdf.text(remarkLines, 15, yPos)
-                  yPos += remarkLines.length * 5 + 5
-
-                  // Footer
-                  pdf.setFontSize(9)
-                  pdf.setFont('helvetica', 'normal')
-                  pdf.text(mainData.CompanyName || 'ABC company pvt ltd', 15, yPos)
-                  yPos += 5
-                  pdf.text(mainData.CreatedByName || 'Admin', 15, yPos)
-                  yPos += 5
-                  pdf.text(mainData.ContactNO || '', 15, yPos)
-
-                  // Open print dialog
-                  pdf.autoPrint()
-                  window.open(pdf.output('bloburl'), '_blank')
-                } catch (error) {
-                  clientLogger.error('Failed to print:', error)
-                  showToast(`Failed to print: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
-                }
-              }}
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print Quotation
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 border-green-600 text-green-600 hover:bg-green-50"
-              onClick={() => {
-                clientLogger.log('Download PDF button clicked!')
-                handleDownloadPDF()
-              }}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 border-green-600 text-green-600 hover:bg-green-50"
+                onClick={() => {
+                  clientLogger.log('Download PDF (Vertical) button clicked!')
+                  handleDownloadPDFVertical()
+                }}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                PDF (V)
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 border-blue-600 text-blue-600 hover:bg-blue-50"
+                onClick={() => {
+                  clientLogger.log('Download PDF (Horizontal) button clicked!')
+                  handleDownloadPDFHorizontal()
+                }}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                PDF (H)
+              </Button>
+            </div>
           </div>
         </div>
       )

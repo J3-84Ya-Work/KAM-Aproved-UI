@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Save, X, Edit, Trash2, Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { EnquiryAPI, MasterDataAPI, formatDateForAPI, formatDateForDisplay, type BasicEnquiryData, type DetailedEnquiryData } from "@/lib/api/enquiry"
+import { EnquiryAPI, MasterDataAPI, QuotationsAPI, formatDateForAPI, formatDateForDisplay, type BasicEnquiryData, type DetailedEnquiryData } from "@/lib/api/enquiry"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { useAutoSaveDraft, type FormType } from "@/hooks/use-auto-save-draft"
@@ -142,6 +142,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   const [formType, setFormType] = useState<InquiryFormType>('detailed') // Default to detailed for edit
   const [isLoading, setIsLoading] = useState(false)
   const [isFetchingEnquiryNo, setIsFetchingEnquiryNo] = useState(!editMode) // Don't fetch if editing
+  const [isMasterDataLoaded, setIsMasterDataLoaded] = useState(false)
 
   // Track loaded draft ID for updates
   const [loadedDraftId, setLoadedDraftId] = useState<number | null>(null)
@@ -204,6 +205,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Size inputs state (for selected content type)
   const [sizeInputs, setSizeInputs] = useState<Record<string, string>>({})
   const [selectedContent, setSelectedContent] = useState<any>(null)
+  const [pendingContentTypeToSelect, setPendingContentTypeToSelect] = useState<string | null>(null)
 
   // Dropdown data for material properties
   const [qualities, setQualities] = useState<any[]>([])
@@ -376,35 +378,60 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
   // Populate form with initial data when in edit mode
   useEffect(() => {
-    if (editMode && initialData && categories.length > 0) {
+    // Wait for all master data to be loaded before populating edit form
+    if (editMode && initialData && categories.length > 0 && clients.length > 0 && salesPersons.length > 0 && productionUnits.length > 0) {
       console.log('═══════════════════════════════════════════════════════════════')
       console.log('📝 EDIT MODE - Form Population Starting')
       console.log('─────────────────────────────────────────────────────────────')
       console.log('📋 Initial Data Received:', JSON.stringify(initialData, null, 2))
       console.log('📋 Available categories:', categories.length)
       console.log('📋 Available clients:', clients.length)
+      console.log('📋 Available sales persons:', salesPersons.length)
+      console.log('📋 Available production units:', productionUnits.length)
       console.log('═══════════════════════════════════════════════════════════════')
 
       // Find the category to verify it exists
       const category = categories.find(c => c.CategoryId === initialData.categoryId)
       console.log('📋 Found category:', category)
 
+      // Helper function to parse and format date
+      const formatDateForInput = (dateStr: string | undefined): string => {
+        if (!dateStr) return new Date().toISOString().split("T")[0]
+        try {
+          // Try parsing the date string
+          const date = new Date(dateStr)
+          if (isNaN(date.getTime())) return new Date().toISOString().split("T")[0]
+          return date.toISOString().split("T")[0]
+        } catch {
+          return new Date().toISOString().split("T")[0]
+        }
+      }
+
       // Populate basic form data
       const newFormData = {
         enquiryNo: initialData.id || initialData.enquiryNo || '',
-        enquiryDate: initialData.date || initialData.enquiryDate || new Date().toISOString().split("T")[0],
-        clientName: initialData.ledgerId?.toString() || initialData.clientId?.toString() || '',
+        enquiryDate: formatDateForInput(initialData.date || initialData.enquiryDate),
+        clientName: initialData.ledgerId?.toString() || initialData.rawData?.LedgerID?.toString() || '',
         jobName: initialData.job || initialData.jobName || '',
         productCode: initialData.sku || initialData.productCode || '',
         quantity: initialData.quantityRange?.toString() || initialData.quantity?.toString() || '',
         unit: initialData.unit || 'PCS',
-        categoryName: initialData.categoryId?.toString() || '',
-        salesPerson: initialData.salesEmployeeId?.toString() || '',
-        plant: initialData.productionUnitId?.toString() || '',
-        remark: initialData.notes || initialData.remark || '',
-        expectCompletion: initialData.expectCompletion || '',
-        typeOfPrinting: initialData.jobType || initialData.typeOfPrinting || '',
-        annualQuantity: initialData.annualQuantity?.toString() || '',
+        categoryName: initialData.categoryId?.toString() || initialData.rawData?.CategoryID?.toString() || '',
+        salesPerson: initialData.salesEmployeeId?.toString() || initialData.rawData?.EmployeeID?.toString() || initialData.rawData?.SalesEmployeeID?.toString() || '',
+        plant: initialData.productionUnitId?.toString() || initialData.rawData?.ProductionUnitID?.toString() || '',
+        remark: initialData.notes || initialData.remark || initialData.rawData?.Remark || '',
+        expectCompletion: initialData.expectCompletion?.toString() || initialData.rawData?.ExpectCompletion?.toString() || '',
+        typeOfPrinting: initialData.typeOfPrinting || initialData.jobType || initialData.rawData?.TypeOfPrinting || '',
+        annualQuantity: initialData.annualQuantity?.toString() || initialData.rawData?.AnnualQuantity?.toString() || '',
+        // Add enquiry type and sales type from rawData or direct fields
+        enquiryType: initialData.enquiryType || initialData.rawData?.EnquiryType || '',
+        salesType: initialData.salesType || initialData.rawData?.SalesType || '',
+        // Additional fields for edit
+        concernPerson: initialData.concernPerson || initialData.rawData?.ConcernPerson || initialData.rawData?.ConcernPersonName || initialData.rawData?.ContactPerson || '',
+        concernPersonMobile: initialData.concernPersonMobile || initialData.rawData?.Mobile || '',
+        divisionName: initialData.divisionName || initialData.rawData?.DivisionName || 'Packaging',
+        supplyLocation: initialData.supplyLocation || initialData.rawData?.SupplyLocation || '',
+        paymentTerms: initialData.paymentTerms || initialData.rawData?.PaymentTerms || '',
       }
 
       console.log('═══════════════════════════════════════════════════════════════')
@@ -429,6 +456,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       clientLogger.log('[Edit Mode] Category ID:', initialData.categoryId)
       clientLogger.log('[Edit Mode] Sales Person ID:', initialData.salesEmployeeId)
       clientLogger.log('[Edit Mode] Production Unit ID:', initialData.productionUnitId)
+      clientLogger.log('[Edit Mode] Enquiry Type:', initialData.enquiryType)
+      clientLogger.log('[Edit Mode] Sales Type:', initialData.salesType)
+      clientLogger.log('[Edit Mode] Type of Printing:', initialData.typeOfPrinting)
+      clientLogger.log('[Edit Mode] Concern Person:', initialData.concernPerson)
+      clientLogger.log('[Edit Mode] Concern Person Mobile:', initialData.concernPersonMobile)
+      clientLogger.log('[Edit Mode] Annual Quantity:', initialData.annualQuantity)
       clientLogger.log('[Edit Mode] Has Detailed Data:', !!initialData.detailedData)
       clientLogger.log('[Edit Mode] ═══════════════════════════════════════')
 
@@ -438,68 +471,253 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       }
 
       // If detailed data is available, populate dimensions and other fields
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('🔎 CHECKING DETAILED DATA')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📋 initialData.detailedData exists:', !!initialData.detailedData)
+      console.log('📋 initialData.detailedData type:', typeof initialData.detailedData)
+      console.log('📋 initialData.detailedData value:', initialData.detailedData)
+      console.log('═══════════════════════════════════════════════════════════════')
+
       if (initialData.detailedData) {
-        const detailedData = initialData.detailedData
-        clientLogger.log('[Edit Mode] Detailed data found:', detailedData)
+        let detailedData = initialData.detailedData
 
-        // Populate plan details (dimensions) if available
-        if (detailedData.DetailsData && detailedData.DetailsData.length > 0) {
-          const details = detailedData.DetailsData[0]
-          clientLogger.log('[Edit Mode] Details data:', details)
-
-          // Parse ContentSizeValues to extract dimensions
-          // Example: "SizeHeight=200AndOrSizeLength=100AndOrSizeWidth=100..."
-          if (details.ContentSizeValues) {
-            const sizeValues: Record<string, string> = {}
-            const pairs = details.ContentSizeValues.split('AndOr')
-            pairs.forEach((pair: string) => {
-              const [key, value] = pair.split('=')
-              if (key && value) {
-                sizeValues[key] = value
-              }
-            })
-
-            clientLogger.log('[Edit Mode] Raw ContentSizeValues:', details.ContentSizeValues)
-            clientLogger.log('[Edit Mode] Parsed size values:', sizeValues)
-            clientLogger.log('[Edit Mode] Number of parsed fields:', Object.keys(sizeValues).length)
-            setPlanDetails(prev => ({ ...prev, ...sizeValues }))
-          }
-
-          // Store content type to be selected after content types are loaded
-          if (details.PlanContentType || details.PlanContName) {
-            const contentTypeToSelect = details.PlanContentType || details.PlanContName
-            clientLogger.log('[Edit Mode] Content type to select:', contentTypeToSelect)
-            // Store in a temporary state to select after content types load
-            setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
+        // Handle case where detailedData might still be a JSON string (multi-encoded)
+        if (typeof detailedData === 'string') {
+          let parseAttempts = 0
+          while (typeof detailedData === 'string' && parseAttempts < 5) {
+            try {
+              detailedData = JSON.parse(detailedData)
+              parseAttempts++
+              clientLogger.log(`[Edit Mode] Parsed detailedData, attempt ${parseAttempts}`)
+            } catch (e) {
+              clientLogger.log(`[Edit Mode] Failed to parse detailedData at attempt ${parseAttempts + 1}`)
+              break
+            }
           }
         }
 
-        // Populate selected processes if available
-        if (detailedData.ProcessData && detailedData.ProcessData.length > 0) {
-          const processes = detailedData.ProcessData.map((p: any) => ({
-            ProcessID: p.ProcessID,
-            ProcessName: p.ProcessName
-          }))
-          clientLogger.log('[Edit Mode] Processes to select:', processes)
-          setSelectedProcesses(processes)
+        clientLogger.log('[Edit Mode] Detailed data found:', detailedData)
+        clientLogger.log('[Edit Mode] Detailed data type:', typeof detailedData)
+        clientLogger.log('[Edit Mode] TblBookingContents exists:', !!detailedData?.TblBookingContents)
+
+        // Check if it's the new API format (TblBookingContents) or old format (MainData)
+        const isNewFormat = detailedData?.TblBookingContents || detailedData?.TblBookingProcess
+
+        if (isNewFormat) {
+          clientLogger.log('[Edit Mode] Using NEW API format (TblBookingContents/TblBookingProcess)')
+
+          // Parse TblBookingContents for dimensions and content type
+          if (detailedData.TblBookingContents && detailedData.TblBookingContents.length > 0) {
+            const content = detailedData.TblBookingContents[0]
+            clientLogger.log('[Edit Mode] TblBookingContents:', content)
+            clientLogger.log('[Edit Mode] TblBookingContents keys:', Object.keys(content))
+
+            // Parse ContentSizeValues to extract dimensions and material properties
+            // Example: "SizeHeight=50AndOrSizeLength=120AndOrSizeWidth=50AndOrSizeOpenflap=10AndOrSizePastingflap=10AndOrPlanFColor=4AndOrItemPlanQuality=GREY BACKAndOrItemPlanGsm=235AndOrItemPlanMill=GAYATRIAndOrItemPlanFinish=-AndOrPlanWastageType=Machine Default"
+            if (content.ContentSizeValues) {
+              const sizeValues: Record<string, string> = {}
+              const pairs = content.ContentSizeValues.split('AndOr')
+              pairs.forEach((pair: string) => {
+                const [key, value] = pair.split('=')
+                if (key && value) {
+                  sizeValues[key] = value
+                }
+              })
+
+              clientLogger.log('[Edit Mode] Raw ContentSizeValues:', content.ContentSizeValues)
+              clientLogger.log('[Edit Mode] Parsed size values:', sizeValues)
+              clientLogger.log('[Edit Mode] Number of parsed fields:', Object.keys(sizeValues).length)
+              setPlanDetails(prev => ({ ...prev, ...sizeValues }))
+            }
+
+            // Store content type to be selected after content types are loaded
+            // Check multiple possible field names for content type (API returns various names)
+            // PlanContentType is the main field from load enquiry API (e.g., "ReverseTuckIn")
+            const contentTypeToSelect = content.PlanContentType || content.PlanContName || content.ContentName || content.ContentType || content.ContName || content.ContentDomainType || content.PlanContDomainType || content.DomainType
+            // Check multiple possible field names for content ID (NOT EnquiryContentsID - that's different)
+            const contentIdFromApi = content.ContentID || content.PlanContentID || content.ContID || content.ContentMasterID
+
+            console.log('═══════════════════════════════════════════════════════════════')
+            console.log('🎯 EDIT MODE - CONTENT TYPE EXTRACTION')
+            console.log('─────────────────────────────────────────────────────────────')
+            console.log('📋 content.PlanContentType:', content.PlanContentType)
+            console.log('📋 content.PlanContName:', content.PlanContName)
+            console.log('📋 contentTypeToSelect FINAL:', contentTypeToSelect)
+            console.log('📋 contentIdFromApi:', contentIdFromApi)
+            console.log('📋 All content fields:', Object.keys(content).join(', '))
+            console.log('═══════════════════════════════════════════════════════════════')
+
+            if (contentTypeToSelect) {
+              console.log('🚀 SETTING pendingContentTypeToSelect to:', contentTypeToSelect)
+              setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
+              setPendingContentTypeToSelect(contentTypeToSelect)
+            } else {
+              console.log('❌ No contentTypeToSelect found!')
+            }
+
+            // Only use direct ContentID if it's a real content master ID (not EnquiryContentsID)
+            // The name matching will handle selection if no ContentID is available
+            if (contentIdFromApi) {
+              clientLogger.log('[Edit Mode] Setting content ID directly:', contentIdFromApi)
+              setSelectedContentIds([Number(contentIdFromApi)])
+            } else {
+              clientLogger.log('[Edit Mode] No ContentID found, will use name matching via useEffect')
+            }
+          }
+
+          // Parse TblBookingProcess for processes
+          if (detailedData.TblBookingProcess && detailedData.TblBookingProcess.length > 0) {
+            const processes = detailedData.TblBookingProcess.map((p: any) => ({
+              ProcessID: Number(p.ProcessID),
+              ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
+            }))
+            clientLogger.log('[Edit Mode] Processes from TblBookingProcess:', processes)
+            clientLogger.log('[Edit Mode] Process IDs:', processes.map((p: any) => p.ProcessID))
+            setSelectedProcesses(processes)
+          }
+
+        } else {
+          // Old format handling (MainData, DetailsData, ProcessData)
+          clientLogger.log('[Edit Mode] Using OLD API format (MainData/DetailsData/ProcessData)')
+
+          // Populate additional fields from MainData if available
+          if (detailedData.MainData && detailedData.MainData.length > 0) {
+            const mainData = detailedData.MainData[0]
+            clientLogger.log('[Edit Mode] MainData:', mainData)
+
+            // Update form data with additional fields from MainData
+            setFormData(prev => ({
+              ...prev,
+              enquiryType: mainData.EnquiryType || prev.enquiryType || '',
+              salesType: mainData.SalesType || prev.salesType || '',
+              concernPerson: mainData.ConcernPerson || mainData.ConcernPersonName || prev.concernPerson || '',
+              concernPersonMobile: mainData.Mobile || mainData.ConcernPersonMobile || prev.concernPersonMobile || '',
+            }))
+          }
+
+          // Populate plan details (dimensions) if available
+          if (detailedData.DetailsData && detailedData.DetailsData.length > 0) {
+            const details = detailedData.DetailsData[0]
+            clientLogger.log('[Edit Mode] Details data:', details)
+
+            // Parse ContentSizeValues to extract dimensions
+            if (details.ContentSizeValues) {
+              const sizeValues: Record<string, string> = {}
+              const pairs = details.ContentSizeValues.split('AndOr')
+              pairs.forEach((pair: string) => {
+                const [key, value] = pair.split('=')
+                if (key && value) {
+                  sizeValues[key] = value
+                }
+              })
+
+              clientLogger.log('[Edit Mode] Raw ContentSizeValues:', details.ContentSizeValues)
+              clientLogger.log('[Edit Mode] Parsed size values:', sizeValues)
+              clientLogger.log('[Edit Mode] Number of parsed fields:', Object.keys(sizeValues).length)
+              setPlanDetails(prev => ({ ...prev, ...sizeValues }))
+            }
+
+            // Store content type to be selected after content types are loaded
+            const contentTypeToSelect = details.PlanContentType || details.PlanContName || details.ContentName || details.ContentType
+            const contentIdFromApi = details.ContentID || details.PlanContentID
+
+            clientLogger.log('[Edit Mode] Content type to select:', contentTypeToSelect)
+            clientLogger.log('[Edit Mode] Content ID from API:', contentIdFromApi)
+
+            if (contentTypeToSelect) {
+              setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
+              setPendingContentTypeToSelect(contentTypeToSelect)
+              clientLogger.log('[Edit Mode] Set formData.contentType and pendingContentTypeToSelect to:', contentTypeToSelect)
+            }
+
+            // If we have a direct ContentID, use it to select the content
+            if (contentIdFromApi) {
+              clientLogger.log('[Edit Mode] Setting content ID directly:', contentIdFromApi)
+              setSelectedContentIds([Number(contentIdFromApi)])
+            }
+          }
+
+          // Populate selected processes if available
+          if (detailedData.ProcessData && detailedData.ProcessData.length > 0) {
+            const processes = detailedData.ProcessData.map((p: any) => ({
+              ProcessID: Number(p.ProcessID),
+              ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
+            }))
+            clientLogger.log('[Edit Mode] Processes to select:', processes)
+            clientLogger.log('[Edit Mode] Process IDs:', processes.map((p: any) => p.ProcessID))
+            setSelectedProcesses(processes)
+          }
         }
       } else {
         clientLogger.log('[Edit Mode] No detailed data available')
       }
 
+      // If no content was found from detailedData, try to get it from rawData
+      // This handles the case where the enquiry was created without detailed content
+      if (selectedContentIds.length === 0 && initialData.rawData) {
+        clientLogger.log('[Edit Mode] Checking rawData for content info...')
+        const rawContentType = initialData.rawData.ContentType || initialData.rawData.ContentName || initialData.rawData.PlanContentType
+        const rawContentId = initialData.rawData.ContentID
+
+        clientLogger.log('[Edit Mode] rawData ContentType:', rawContentType)
+        clientLogger.log('[Edit Mode] rawData ContentID:', rawContentId)
+
+        if (rawContentType && !formData.contentType) {
+          setFormData(prev => ({ ...prev, contentType: rawContentType }))
+          setPendingContentTypeToSelect(rawContentType)
+          clientLogger.log('[Edit Mode] Set pendingContentTypeToSelect from rawData:', rawContentType)
+        }
+
+        if (rawContentId) {
+          setSelectedContentIds([Number(rawContentId)])
+        }
+      }
+
+      // Set form type to 'detailed' for edit mode if there is detailed data
+      if (initialData.detailedData || initialData.rawData) {
+        setFormType('detailed')
+        clientLogger.log('[Edit Mode] Set form type to detailed')
+      }
+
       setIsFetchingEnquiryNo(false)
     }
-  }, [editMode, initialData, categories])
+  }, [editMode, initialData, categories, clients, salesPersons, productionUnits])
 
   // Select content type after content types are loaded (for edit mode)
   useEffect(() => {
-    if (editMode && formData.contentType && contentTypes.length > 0 && selectedContentIds.length === 0) {
-      clientLogger.log('[Edit Mode] Attempting to select content type:', formData.contentType)
-      clientLogger.log('[Edit Mode] Available content types:', contentTypes.length)
+    console.log('═══════════════════════════════════════════════════════════════')
+    console.log('🔍 CONTENT SELECTION useEffect triggered')
+    console.log('─────────────────────────────────────────────────────────────')
+    console.log('📋 editMode:', editMode)
+    console.log('📋 pendingContentTypeToSelect:', pendingContentTypeToSelect)
+    console.log('📋 formData.contentType:', formData.contentType)
+    console.log('📋 contentTypes.length:', contentTypes.length)
+    console.log('📋 selectedContentIds.length:', selectedContentIds.length)
+    console.log('📋 selectedContent:', selectedContent?.ContentName)
+    console.log('═══════════════════════════════════════════════════════════════')
+
+    // Use pendingContentTypeToSelect as the primary source (set when edit mode data is loaded)
+    const contentTypeToMatch = pendingContentTypeToSelect || formData.contentType
+
+    // Run if in edit mode, have content type to match, content types are loaded
+    // Remove the !selectedContent check to allow re-selection if needed
+    if (editMode && contentTypeToMatch && contentTypes.length > 0) {
+      // Skip if content is already correctly selected
+      if (selectedContent?.ContentName) {
+        const normalizeString = (str: string) => str?.replace(/[\s\-_]+/g, '').toLowerCase() || ''
+        if (normalizeString(selectedContent.ContentName) === normalizeString(contentTypeToMatch)) {
+          console.log('[Edit Mode] ⏭️ Content already correctly selected:', selectedContent.ContentName)
+          return
+        }
+      }
+      console.log('[Edit Mode] ✅ All conditions met, attempting to select content type:', contentTypeToMatch)
+      console.log('[Edit Mode] Available content types:', contentTypes.map(c => ({ id: c.ContentID, name: c.ContentName, code: c.ContentCode, domain: c.ContentDomainType })))
 
       // Normalize the search term (remove spaces, dashes, underscores and convert to lowercase)
       const normalizeString = (str: string) => str?.replace(/[\s\-_]+/g, '').toLowerCase() || ''
-      const searchTerm = normalizeString(formData.contentType)
+      const searchTerm = normalizeString(contentTypeToMatch)
+      console.log('[Edit Mode] Normalized search term:', searchTerm)
 
       // Find content by PlanContentType or ContentCode or ContentName
       let matchingContent = contentTypes.find((c) => {
@@ -507,22 +725,27 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           normalizeString(c.ContentDomainType) === searchTerm ||
           normalizeString(c.ContentCode) === searchTerm ||
           normalizeString(c.ContentName) === searchTerm ||
-          c.ContentDomainType === formData.contentType ||
-          c.ContentCode === formData.contentType ||
-          c.ContentName === formData.contentType
+          c.ContentDomainType === contentTypeToMatch ||
+          c.ContentCode === contentTypeToMatch ||
+          c.ContentName === contentTypeToMatch
         )
+
+        if (matches) {
+          console.log('[Edit Mode] Found exact match:', c.ContentName)
+        }
 
         return matches
       })
 
       // If no exact match, try partial matching (contains)
       if (!matchingContent) {
+        console.log('[Edit Mode] No exact match, trying partial matching...')
         matchingContent = contentTypes.find((c) => {
           const contentNameNormalized = normalizeString(c.ContentName)
           const contentCodeNormalized = normalizeString(c.ContentCode)
           const domainTypeNormalized = normalizeString(c.ContentDomainType)
 
-          return (
+          const partialMatch = (
             contentNameNormalized.includes(searchTerm) ||
             searchTerm.includes(contentNameNormalized) ||
             contentCodeNormalized.includes(searchTerm) ||
@@ -530,18 +753,109 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             domainTypeNormalized.includes(searchTerm) ||
             searchTerm.includes(domainTypeNormalized)
           )
+
+          if (partialMatch) {
+            console.log('[Edit Mode] Found partial match:', c.ContentName, 'for search term:', searchTerm)
+          }
+
+          return partialMatch
         })
       }
 
       if (matchingContent) {
-        clientLogger.log('[Edit Mode] Found matching content:', matchingContent)
+        console.log('[Edit Mode] ✅ Found matching content:', matchingContent.ContentName, 'ID:', matchingContent.ContentID)
         setSelectedContentIds([matchingContent.ContentID])
         setSelectedContent(matchingContent)
+        // Clear the pending state after successful selection
+        setPendingContentTypeToSelect(null)
       } else {
-        clientLogger.log('[Edit Mode] No matching content found for:', formData.contentType)
+        console.log('[Edit Mode] ❌ No matching content found for:', contentTypeToMatch)
+        console.log('[Edit Mode] Available content names:', contentTypes.map(c => `${c.ContentName} (code: ${c.ContentCode}, domain: ${c.ContentDomainType})`))
+      }
+    } else {
+      console.log('[Edit Mode] ⚠️ Conditions not met, skipping content selection')
+      if (!editMode) console.log('  - Not in edit mode')
+      if (!contentTypeToMatch) console.log('  - No contentType to match')
+      if (contentTypes.length === 0) console.log('  - ContentTypes not loaded yet')
+    }
+  }, [editMode, pendingContentTypeToSelect, formData.contentType, contentTypes, selectedContent])
+
+  // Set selectedContent object when selectedContentIds is set directly (from API ContentID)
+  useEffect(() => {
+    if (editMode && selectedContentIds.length > 0 && contentTypes.length > 0 && !selectedContent) {
+      console.log('[Edit Mode] Trying to find content by ID:', selectedContentIds[0], 'Type:', typeof selectedContentIds[0])
+      console.log('[Edit Mode] Available ContentIDs:', contentTypes.map(c => ({ id: c.ContentID, type: typeof c.ContentID })))
+
+      // Try exact match first (same type)
+      let matchingContent = contentTypes.find((c) => c.ContentID === selectedContentIds[0])
+
+      // Try converting to same type if no match
+      if (!matchingContent) {
+        matchingContent = contentTypes.find((c) => Number(c.ContentID) === Number(selectedContentIds[0]))
+      }
+
+      // Try string comparison if still no match
+      if (!matchingContent) {
+        matchingContent = contentTypes.find((c) => String(c.ContentID) === String(selectedContentIds[0]))
+      }
+
+      if (matchingContent) {
+        console.log('[Edit Mode] ✅ Setting selectedContent from ContentID:', matchingContent.ContentName)
+        setSelectedContent(matchingContent)
+        // Also set formData.contentType if not already set
+        if (!formData.contentType) {
+          setFormData(prev => ({ ...prev, contentType: matchingContent.ContentName }))
+        }
+      } else if (formData.contentType) {
+        console.log('[Edit Mode] ❌ ContentID not found, trying to match by name:', formData.contentType)
+        // ContentID didn't match, try name matching immediately
+        const normalizeString = (str: string) => str?.replace(/[\s\-_]+/g, '').toLowerCase() || ''
+        const searchTerm = normalizeString(formData.contentType)
+
+        // Find content by name
+        let matchByName = contentTypes.find((c) => {
+          return (
+            normalizeString(c.ContentDomainType) === searchTerm ||
+            normalizeString(c.ContentCode) === searchTerm ||
+            normalizeString(c.ContentName) === searchTerm ||
+            c.ContentDomainType === formData.contentType ||
+            c.ContentCode === formData.contentType ||
+            c.ContentName === formData.contentType
+          )
+        })
+
+        // Try partial matching if no exact match
+        if (!matchByName) {
+          matchByName = contentTypes.find((c) => {
+            const contentNameNormalized = normalizeString(c.ContentName)
+            const contentCodeNormalized = normalizeString(c.ContentCode)
+            const domainTypeNormalized = normalizeString(c.ContentDomainType)
+            return (
+              contentNameNormalized.includes(searchTerm) ||
+              searchTerm.includes(contentNameNormalized) ||
+              contentCodeNormalized.includes(searchTerm) ||
+              searchTerm.includes(contentCodeNormalized) ||
+              domainTypeNormalized.includes(searchTerm) ||
+              searchTerm.includes(domainTypeNormalized)
+            )
+          })
+        }
+
+        if (matchByName) {
+          console.log('[Edit Mode] ✅ Found content by name matching:', matchByName.ContentName, 'ID:', matchByName.ContentID)
+          setSelectedContentIds([matchByName.ContentID])
+          setSelectedContent(matchByName)
+        } else {
+          console.log('[Edit Mode] ❌ No matching content found by ID or name')
+          // Clear selectedContentIds only if truly no match found
+          setSelectedContentIds([])
+        }
+      } else {
+        console.log('[Edit Mode] ❌ No ContentID match and no contentType name to match')
+        setSelectedContentIds([])
       }
     }
-  }, [editMode, formData.contentType, contentTypes, selectedContentIds])
+  }, [editMode, selectedContentIds, contentTypes, selectedContent, formData.contentType])
 
   // Fetch all master data on component mount
   useEffect(() => {
@@ -575,6 +889,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       if (processesResponse.success && processesResponse.data) {
         setAvailableProcesses(processesResponse.data)
       }
+
+      // Mark master data as loaded
+      setIsMasterDataLoaded(true)
     }
     fetchMasterData()
   }, [])
@@ -583,9 +900,16 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   useEffect(() => {
     const fetchContentTypes = async () => {
       if (selectedCategoryId) {
+        console.log('═══════════════════════════════════════════════════════════════')
+        console.log('📦 FETCHING CONTENT TYPES for category:', selectedCategoryId)
+        console.log('═══════════════════════════════════════════════════════════════')
         const response = await EnquiryAPI.getContentTypes(selectedCategoryId, null)
         if (response.success && response.data) {
+          console.log('✅ Content types loaded:', response.data.length, 'items')
+          console.log('📋 Content types:', response.data.map((c: any) => ({ id: c.ContentID, name: c.ContentName })))
           setContentTypes(response.data)
+        } else {
+          console.log('❌ Failed to fetch content types:', response.error)
         }
       }
     }
@@ -886,12 +1210,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   }
 
   const handleProcessToggle = (process: {ProcessID: number, ProcessName: string}) => {
+    const processId = Number(process.ProcessID)
     setSelectedProcesses((prev) => {
-      const isSelected = prev.some(p => p.ProcessID === process.ProcessID)
+      const isSelected = prev.some(p => Number(p.ProcessID) === processId)
       if (isSelected) {
-        return prev.filter((p) => p.ProcessID !== process.ProcessID)
+        return prev.filter((p) => Number(p.ProcessID) !== processId)
       }
-      return [...prev, process]
+      return [...prev, { ProcessID: processId, ProcessName: process.ProcessName }]
     })
   }
 
@@ -1143,11 +1468,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           Remark: formData.remark || '',
           TypeOfJob: null,
           TypeOfPrinting: null,
-          EnquiryType: formData.enquiryType || '',
-          SalesType: formData.salesType || '',
-          Quantity: parseInt(formData.quantity) || 0,
-          Source: "KAM APP",
+          EnquiryType: formData.enquiryType || 'General',
+          SalesType: formData.salesType || 'Export',
+          AnnualQuantity: parseInt(formData.annualQuantity) || parseInt(formData.quantity) || 0,
+          PlantID: getProductionUnitID(),
           IsDetailed: 1,
+          Quantity: String(parseInt(formData.quantity) || 0),
         }
 
         // Build ContentSizeValues string
@@ -1227,8 +1553,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           JsonObjectsUserApprovalProcessArray: [{
             ProductCode: mainData.ProductCode,
             LedgerID: mainData.LedgerID,
+            LedgerName: clients.find(c => c.LedgerId === getLedgerID())?.LedgerName || '',
             SalesEmployeeID: mainData.SalesEmployeeID,
-            CategoryID: mainData.CategoryID,
+            CategoryName: categories.find(c => c.CategoryId === getCategoryID())?.CategoryName || '',
             ConcernPersonID: mainData.ConcernPersonID,
             JobName: mainData.JobName,
             FileName: mainData.FileName,
@@ -1240,11 +1567,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             TypeOfPrinting: mainData.TypeOfPrinting,
             EnquiryType: mainData.EnquiryType,
             SalesType: mainData.SalesType,
-            Source: mainData.Source,
-            IsDetailed: mainData.IsDetailed,
-            LedgerName: clients.find(c => c.LedgerId === getLedgerID())?.LedgerName || '',
-            CategoryName: categories.find(c => c.CategoryId === getCategoryID())?.CategoryName || '',
-            Quantity: String(mainData.Quantity),
+            Quantity: String(parseInt(formData.quantity) || 0),
           }],
         }
 
@@ -1259,11 +1582,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         // Use update API if in edit mode, otherwise create new
         let response
         if (editMode && initialData) {
-          // Add EnquiryID and IsEdit flag for update
+          // Build update data without Prefix field (only for create)
+          // Match exact format from API spec: /api/enquiry/updatmultipleenquiry
           const updateData = {
-            ...detailedEnquiryData,
-            EnquiryID: initialData.enquiryId || initialData.EnquiryID || 0, // Get from initial data
+            MainData: detailedEnquiryData.MainData,
+            DetailsData: detailedEnquiryData.DetailsData,
+            ProcessData: detailedEnquiryData.ProcessData,
+            Quantity: detailedEnquiryData.Quantity,
             IsEdit: "True",
+            EnquiryID: initialData.enquiryId || initialData.EnquiryID || 0,
+            LayerDetailArr: [],
+            JsonObjectsUserApprovalProcessArray: detailedEnquiryData.JsonObjectsUserApprovalProcessArray,
           }
 
           clientLogger.log('📝 === UPDATE ENQUIRY MODE ===')
@@ -1272,7 +1601,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           clientLogger.log('🌐 Endpoint: POST /api/enquiry/updatmultipleenquiry')
           clientLogger.log('====================================')
 
-          response = await (EnquiryAPI as any).updateMultipleEnquiry(updateData, null)
+          response = await QuotationsAPI.updateMultipleEnquiry(updateData, null)
 
           clientLogger.log('📥 Update Response:', response)
         } else {
@@ -1339,9 +1668,21 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     return sizeFields.map((field: string) => fieldConfig[field]).filter(Boolean)
   })()
 
+  // Show loading state for edit mode while master data is loading
+  if (editMode && !isMasterDataLoaded) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005180] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading form data...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4 max-w-full overflow-x-hidden">
       {/* Section 1: Basic Information */}
       <Card>
         <CardHeader className="pb-3">
@@ -1758,11 +2099,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     disabled={!selectedCategoryId || contentTypes.length === 0}
                   >
                     <span className="truncate">
-                      {selectedContentIds.length > 0
-                        ? contentTypes.find(c => c.ContentID === selectedContentIds[0])?.ContentName || 'Select Content Type'
-                        : selectedCategoryId
-                          ? (contentTypes.length > 0 ? 'Select Content Type' : 'Loading content types...')
-                          : 'Please select a category first'
+                      {selectedContent?.ContentName
+                        ? selectedContent.ContentName
+                        : selectedContentIds.length > 0
+                          ? contentTypes.find(c => c.ContentID === selectedContentIds[0])?.ContentName || 'Select Content Type'
+                          : selectedCategoryId
+                            ? (contentTypes.length > 0 ? 'Select Content Type' : 'Loading content types...')
+                            : 'Please select a category first'
                       }
                     </span>
                   </Button>
@@ -2514,9 +2857,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                               className="flex items-center gap-2 px-3 py-2 hover:bg-muted rounded cursor-pointer text-sm"
                             >
                               <Checkbox
-                                checked={selectedProcesses.some(p => p.ProcessID === process.ProcessID)}
+                                checked={selectedProcesses.some(p => Number(p.ProcessID) === Number(process.ProcessID))}
                                 onCheckedChange={() => handleProcessToggle({
-                                  ProcessID: process.ProcessID,
+                                  ProcessID: Number(process.ProcessID),
                                   ProcessName: process.ProcessName
                                 })}
                               />
@@ -2662,12 +3005,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           {isLoading ? (
             <>
               <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-              Saving...
+              {editMode ? 'Updating...' : 'Saving...'}
             </>
           ) : (
             <>
               <Save className="h-4 w-4 mr-2" />
-              Create Enquiry
+              {editMode ? 'Update Enquiry' : 'Create Enquiry'}
             </>
           )}
         </Button>
