@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
-import { getApprovalLevel, getViewableKAMs, isHOD, isVerticalHead } from "@/lib/permissions"
+import { getViewableKAMs, isHOD, isVerticalHead } from "@/lib/permissions"
 import { QuotationsAPI } from "@/lib/api/enquiry"
 import { clientLogger } from "@/lib/logger"
 
@@ -303,7 +303,6 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   const [selectedApproval, setSelectedApproval] = useState<(typeof allPendingApprovals)[0] | null>(null)
   const [remark, setRemark] = useState("")
   const [page, setPage] = useState(1)
-  const [userLevel, setUserLevel] = useState<"L1" | "L2" | null>(null)
   const itemsPerPage = 20
 
   // API state for quotations
@@ -316,66 +315,39 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
       try {
         setIsLoadingQuotations(true)
 
-        // Get current date and calculate date range (last 1 year to next 1 year)
-        const today = new Date()
-        const fromDate = new Date(today)
-        fromDate.setFullYear(today.getFullYear() - 1)
-        const toDate = new Date(today)
-        toDate.setFullYear(today.getFullYear() + 1)
-
-        const formatDate = (date: Date) => {
-          const year = date.getFullYear()
-          const month = String(date.getMonth() + 1).padStart(2, '0')
-          const day = String(date.getDate()).padStart(2, '0')
-          return `${year}-${month}-${day} 00:00:00.000`
-        }
-
+        // Use wide date range to get all quotations
         const requestParams = {
           FilterSTR: 'All',
-          FromDate: formatDate(fromDate),
-          ToDate: formatDate(toDate),
+          FromDate: '2024-10-01',
+          ToDate: '2026-10-10',
         }
 
-        clientLogger.log('\n' + '='.repeat(80))
-        clientLogger.log('FETCHING QUOTATIONS FOR APPROVAL')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('API Endpoint: POST https://api.indusanalytics.co.in/api/planwindow/getallbookings')
-        clientLogger.log('='.repeat(80))
-        clientLogger.log('Request Parameters:')
-        clientLogger.log(JSON.stringify(requestParams, null, 2))
-        clientLogger.log('='.repeat(80))
-
-        const response = await QuotationsAPI.getQuotations(requestParams, null)
-
-        clientLogger.log('API Response:')
-        clientLogger.log('Total Quotations Received:', response.data?.length || 0)
-        clientLogger.log('='.repeat(80) + '\n')
+        const response = await QuotationsAPI.getAllQuotationsForApproval(requestParams, null)
 
         if (response.success && response.data) {
-          clientLogger.log('Sample quotation for debugging:', response.data[0])
+          // Log total quotations from API
+          console.log('📊 Total quotations from API:', response.data.length)
+          const uniqueStatuses = [...new Set(response.data.map((item: any) => item.Status))]
+          console.log('📊 Unique statuses:', uniqueStatuses)
 
-          // Log the approval status fields for debugging
-          const approvalStatusBreakdown = response.data.map((item: any) => ({
-            id: item.BookingNo,
-            Status: item.Status,
-            Margin: item.Margin,
-            IsSendForInternalApproval: item.IsSendForInternalApproval,
-            IsInternalApproved: item.IsInternalApproved,
-            JobApproved: item.JobApproved
-          }))
-          clientLogger.log('Approval status breakdown:', approvalStatusBreakdown)
+          // Show breakdown by status
+          uniqueStatuses.forEach((status: string) => {
+            const count = response.data.filter((item: any) => item.Status === status).length
+            const items = response.data.filter((item: any) => item.Status === status).map((item: any) => ({
+              BookingNo: item.BookingNo,
+              ClientName: item.ClientName,
+              Status: item.Status
+            }))
+            console.log(`📊 Status "${status || '(empty)'}": ${count} quotations`, items)
+          })
 
           // Filter quotations that need approval
           // Show quotations with Status = "Sent to HOD" or "Sent to Vertical Head"
-          // Exclude quotations with Status = "Approved" or "Disapproved"
           const pendingQuotations = response.data
             .filter((item: any) => {
-              // Show quotations that are sent for approval (not yet approved/disapproved)
               const isCorrectStatus = item.Status === 'Sent to HOD' || item.Status === 'Sent to Vertical Head'
               const notAlreadyProcessed = item.Status !== 'Approved' && item.Status !== 'Disapproved'
-              const notYetApproved = item.IsInternalApproved !== true
-              const shouldShow = isCorrectStatus && notAlreadyProcessed && notYetApproved
-              return shouldShow
+              return isCorrectStatus && notAlreadyProcessed
             })
             .map((item: any) => {
               // Extract numeric values from QuotedCost
@@ -445,22 +417,8 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
               }
             })
 
-          clientLogger.log('Quotations pending approval:', pendingQuotations.length)
-          clientLogger.log('First pending quotation:', pendingQuotations[0])
-
-          // Debug: Check if quotation 276 still exists and what its status is
-          const quote276 = response.data.find((item: any) => item.BookingNo === '276')
-          if (quote276) {
-            clientLogger.log('DEBUG: Quotation 276 found in response with Status:', quote276.Status)
-            clientLogger.log('DEBUG: BookingNo vs BookingID:', {
-              BookingNo: quote276.BookingNo,
-              BookingID: quote276.BookingID,
-              BookingId: quote276.BookingId
-            })
-            clientLogger.log('DEBUG: Full data for 276:', quote276)
-          } else {
-            clientLogger.log('DEBUG: Quotation 276 NOT found in response (correctly removed)')
-          }
+          console.log('📊 Pending approvals (Sent to HOD/VH):', pendingQuotations.length)
+          console.log('📊 Pending quotations:', pendingQuotations.map((q: any) => ({ id: q.id, status: q.status, customer: q.customer })))
 
           setQuotationsForApproval(pendingQuotations)
         }
@@ -472,10 +430,6 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
     }
 
   useEffect(() => {
-    // Get user's approval level (HOD = L1, Vertical Head = L2)
-    const level = getApprovalLevel()
-    clientLogger.log('Current user approval level:', level, '(L1 = HOD, L2 = Vertical Head)')
-    setUserLevel(level)
     fetchQuotationsForApproval()
   }, [])
 
@@ -504,38 +458,16 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
         IsInternalApproved: status === 'Approved' ? true : false
       }
 
-      clientLogger.log('\n' + '='.repeat(80))
-      clientLogger.log(`${status === 'Approved' ? 'APPROVING' : 'REJECTING'} QUOTATION`)
-      clientLogger.log('='.repeat(80))
-      clientLogger.log('API: POST https://api.indusanalytics.co.in/api/planwindow/updateqoutestatus')
-      clientLogger.log('Body:', JSON.stringify(requestBody, null, 2))
-      clientLogger.log('Remark:', remark || 'None')
-      clientLogger.log('User Level:', userLevel)
-      clientLogger.log('='.repeat(80))
-
       const response = await QuotationsAPI.updateQuotationStatus(requestBody, null)
-
-      clientLogger.log('\n' + '='.repeat(80))
-      clientLogger.log('API RESPONSE')
-      clientLogger.log('='.repeat(80))
-      clientLogger.log('Success:', response.success)
-      clientLogger.log('Data:', response.data)
-      clientLogger.log('Error:', response.error || 'None')
-      clientLogger.log('='.repeat(80) + '\n')
 
       if (response.success) {
         alert(`Quotation ${status.toLowerCase()} successfully!${remark ? `\nRemark: ${remark}` : ''}`)
         setRemark("")
         setSelectedApproval(null)
 
-        // Add a longer delay to ensure backend has processed the update
-        clientLogger.log('Waiting 1000ms before refreshing data from API...')
-        await new Promise(resolve => setTimeout(resolve, 1000))
-
         // Refresh the data from API
-        clientLogger.log('Refreshing approval list from API after status update...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
         await fetchQuotationsForApproval()
-        clientLogger.log('Approval list refreshed from API')
       } else {
         alert(`Failed to ${status.toLowerCase()} quotation: ${response.error || 'Unknown error'}`)
       }
@@ -550,27 +482,10 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   // Use only API quotations (no hardcoded data)
   const allPendingApprovals = quotationsForApproval
 
-  clientLogger.log('Pending approvals (API only):', {
-    quotationsFromAPI: quotationsForApproval.length,
-    total: allPendingApprovals.length
-  })
-
-  // Filter data based on user role
-  // HOD and Vertical Head users should see ALL quotations sent to them (no KAM filtering)
-  // Only KAM users are restricted to their own data
+  // Filter data based on user role - HOD/VH see all quotations sent to them
   const userFilteredPending = (isRestrictedUser && !isHODUser && !isVerticalHeadUser)
     ? allPendingApprovals.filter(a => a.kamName && viewableKams.includes(a.kamName))
     : allPendingApprovals
-
-  clientLogger.log('User filtered pending approvals:', {
-    isRestrictedUser,
-    isHODUser,
-    isVerticalHeadUser,
-    viewableKams,
-    filteredCount: userFilteredPending.length,
-    userLevel,
-    note: (isHODUser || isVerticalHeadUser) ? 'HOD/VH sees all quotations' : 'KAM filtering applied'
-  })
 
   // For now, history is empty (only showing pending approvals from API)
   const userFilteredHistory: any[] = []
@@ -582,10 +497,9 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   const hodNames = Array.from(new Set(currentData.map(item => item.hodName).filter((name): name is string => Boolean(name))))
   const kamNames = Array.from(new Set(currentData.map(item => item.kamName).filter((name): name is string => Boolean(name))))
 
+  // Show all quotations with "Sent to HOD" or "Sent to Vertical Head" status
+  // Filter only by search, type, HOD, and KAM filters
   const filteredApprovals = currentData.filter((approval) => {
-    // Filter by approval level - HOD sees L1, Vertical Head sees L2 (only for pending approvals)
-    const matchesLevel = showHistory || !userLevel || approval.level === userLevel
-
     const matchesType = statusFilter === "all" || (approval as any).type === statusFilter
 
     const matchesSearch =
@@ -598,7 +512,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
     const matchesHod = hodFilter === "all" || approval.hodName === hodFilter
     const matchesKam = kamFilter === "all" || approval.kamName === kamFilter
 
-    return matchesLevel && matchesType && matchesSearch && matchesHod && matchesKam
+    return matchesType && matchesSearch && matchesHod && matchesKam
   })
 
   // Pagination calculations

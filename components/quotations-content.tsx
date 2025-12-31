@@ -185,6 +185,7 @@ const STATUS_BADGES: Record<string, string> = {
   Quoted: "bg-[#78BE20]/15 text-[#78BE20] border-[#78BE20]/30",
   Approved: "bg-[#78BE20]/15 text-[#78BE20] border-[#78BE20]/30",
   "Sent to HOD": "bg-[#005180]/15 text-[#005180] border-[#005180]/30",
+  "Sent to Vertical Head": "bg-[#005180]/15 text-[#005180] border-[#005180]/30",
   "Sent to Customer": "bg-[#005180]/20 text-[#005180] border-[#005180]/40",
   Disapproved: "bg-[#B92221]/15 text-[#B92221] border-[#B92221]/30",
   Rejected: "bg-[#B92221]/15 text-[#B92221] border-[#B92221]/30",
@@ -194,6 +195,7 @@ const STATUS_ACCENTS: Record<string, string> = {
   Quoted: "bg-[#78BE20]",
   Approved: "bg-[#78BE20]",
   "Sent to HOD": "bg-[#005180]",
+  "Sent to Vertical Head": "bg-[#005180]",
   "Sent to Customer": "bg-[#005180]",
   Disapproved: "bg-[#B92221]",
   Rejected: "bg-[#B92221]",
@@ -260,6 +262,26 @@ export function QuotationsContent() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const itemsPerPage = 20
 
+  // Packing Spec Dialog state
+  const [packingSpecDialog, setPackingSpecDialog] = useState<{
+    isOpen: boolean
+    bookingId: string | number | null
+    pdfType: 'vertical' | 'horizontal' | null
+  }>({ isOpen: false, bookingId: null, pdfType: null })
+
+  // Message Dialog state for showing success/error messages
+  const [messageDialog, setMessageDialog] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    type: 'success' | 'error' | 'info'
+  }>({ isOpen: false, title: '', message: '', type: 'info' })
+
+  // Helper function to show message dialog
+  const showMessage = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setMessageDialog({ isOpen: true, title, message, type })
+  }
+
   // Fetch quotations from API
   const fetchQuotations = async () => {
       try {
@@ -277,6 +299,15 @@ export function QuotationsContent() {
 
 
         if (response.success && response.data && response.data.length > 0) {
+          // Debug: Log status breakdown
+          console.log('📊 QUOTATIONS PAGE - Total:', response.data.length)
+          console.log('📊 QUOTATIONS PAGE - Statuses:', [...new Set(response.data.map((item: any) => item.Status))])
+          console.log('📊 QUOTATIONS PAGE - First 10 quotations:', response.data.slice(0, 10).map((item: any) => ({
+            BookingNo: item.BookingNo,
+            Status: item.Status,
+            ClientName: item.ClientName
+          })))
+
           // Transform API data
           const transformedData = response.data.map((item: any) => {
             // Extract numeric values from QuotedCost (remove "INR" and parse)
@@ -362,7 +393,7 @@ export function QuotationsContent() {
   // Handle sending quotation for approval
   const handleSendForApproval = async (bookingId: string | number, approvalType: 'HOD' | 'VerticalHead') => {
     if (!bookingId) {
-      alert('Invalid quotation ID')
+      showMessage('Error', 'Invalid quotation ID', 'error')
       return
     }
 
@@ -376,26 +407,50 @@ export function QuotationsContent() {
       }, null)
 
       if (response.success) {
-        alert(`✅ Quotation sent to ${approvalType} successfully!\nThe quotation will now appear in the ${approvalType} approvals page.`)
+        const approvalName = approvalType === 'VerticalHead' ? 'Vertical Head' : 'HOD'
+        showMessage('Success', `Quotation sent to ${approvalName} successfully!\n\nThe quotation will now appear in the ${approvalName} approvals page.`, 'success')
         setSelectedQuotation(null)
         await fetchQuotations()
       } else {
-        alert(`❌ Failed to send quotation to ${approvalType}: ${response.error}`)
+        showMessage('Failed', `Failed to send quotation to ${approvalType}: ${response.error}`, 'error')
       }
     } catch (error: any) {
-      alert(`❌ Error: ${error.message}`)
+      showMessage('Error', error.message, 'error')
     } finally {
       setIsSendingForApproval(false)
     }
   }
 
+  // Show Packing Spec dialog before downloading PDF
+  const showPackingSpecDialog = (bookingId: string | number, pdfType: 'vertical' | 'horizontal') => {
+    setPackingSpecDialog({ isOpen: true, bookingId, pdfType })
+  }
+
+  // Handle Packing Spec dialog response
+  const handlePackingSpecResponse = (includePackingSpec: boolean) => {
+    const { bookingId, pdfType } = packingSpecDialog
+    setPackingSpecDialog({ isOpen: false, bookingId: null, pdfType: null })
+
+    if (bookingId && pdfType) {
+      if (pdfType === 'vertical') {
+        downloadPDFVertical(bookingId, includePackingSpec)
+      } else {
+        downloadPDFHorizontal(bookingId, includePackingSpec)
+      }
+    }
+  }
+
   // Handle downloading quotation PDF - VERTICAL FORMAT
-  const handleDownloadQuotationVertical = async (bookingId: string | number | undefined) => {
+  const handleDownloadQuotationVertical = (bookingId: string | number | undefined) => {
     if (!bookingId) {
-      alert('Invalid quotation ID: BookingID is missing')
+      showMessage('Error', 'Invalid quotation ID: BookingID is missing', 'error')
       return
     }
+    showPackingSpecDialog(bookingId, 'vertical')
+  }
 
+  // Actual PDF generation for Vertical format
+  const downloadPDFVertical = async (bookingId: string | number, showPackingSpec: boolean) => {
     const bookingIdStr = String(bookingId)
     setIsDownloadingPDF(bookingIdStr)
     try {
@@ -626,46 +681,48 @@ export function QuotationsContent() {
 
       yPos = (pdf as any).lastAutoTable.finalY + 8
 
-      // Packing Spec Section - Vertical Format (A4 adjusted)
-      // Column 0: "Packing Spec" label (rowSpan)
-      // Column 1: "Tentative Packing Spec" header spans col 1-2, then field labels
-      // Column 2: Values (empty)
-      autoTable(pdf, {
-        startY: yPos,
-        body: [
-          [
-            { content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
-            { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }
+      // Packing Spec Section - Vertical Format (A4 adjusted) - Only if user requested
+      if (showPackingSpec) {
+        // Column 0: "Packing Spec" label (rowSpan)
+        // Column 1: "Tentative Packing Spec" header spans col 1-2, then field labels
+        // Column 2: Values (empty)
+        autoTable(pdf, {
+          startY: yPos,
+          body: [
+            [
+              { content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
+              { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }
+            ],
+            ['Shipper box size in MM', ''],
+            ['Quantity per shipper box: Packs', ''],
+            ['Shipper box Weight: Gross in KG', ''],
+            ['Pallet size in MM', ''],
+            ['Number of Shipper per pallets: Shippers', ''],
+            ['Quantity per pallet: Packs', ''],
+            ['Pallet Weight: Gross in Kg', ''],
+            ['Pallets per 20 FT FCL', ''],
+            ['Quantity per 20 FT FCL: Packs', ''],
+            ['Pallets per 40 FT FCL', ''],
+            ['Quantity per 40 FT FCL: Packs', ''],
           ],
-          ['Shipper box size in MM', ''],
-          ['Quantity per shipper box: Packs', ''],
-          ['Shipper box Weight: Gross in KG', ''],
-          ['Pallet size in MM', ''],
-          ['Number of Shipper per pallets: Shippers', ''],
-          ['Quantity per pallet: Packs', ''],
-          ['Pallet Weight: Gross in Kg', ''],
-          ['Pallets per 20 FT FCL', ''],
-          ['Quantity per 20 FT FCL: Packs', ''],
-          ['Pallets per 40 FT FCL', ''],
-          ['Quantity per 40 FT FCL: Packs', ''],
-        ],
-        theme: 'grid',
-        bodyStyles: {
-          fontSize: 6,
-          lineWidth: 0.2,
-          lineColor: [0, 0, 0],
-          minCellHeight: 5,
-          fontStyle: 'bold' as const
-        },
-        columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 80, halign: 'left' as const },
-          2: { cellWidth: 40 }
-        },
-        margin: { left: 10 }
-      })
+          theme: 'grid',
+          bodyStyles: {
+            fontSize: 6,
+            lineWidth: 0.2,
+            lineColor: [0, 0, 0],
+            minCellHeight: 5,
+            fontStyle: 'bold' as const
+          },
+          columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 80, halign: 'left' as const },
+            2: { cellWidth: 40 }
+          },
+          margin: { left: 10 }
+        })
 
-      yPos = (pdf as any).lastAutoTable.finalY + 5
+        yPos = (pdf as any).lastAutoTable.finalY + 5
+      }
 
       // Terms & Conditions Section - Vertical Format (A4 adjusted)
       // Column 0: "Terms & Conditions" label (rowSpan)
@@ -769,19 +826,23 @@ export function QuotationsContent() {
       pdf.save(`Quotation-${quotationNumber}-Vertical.pdf`)
 
     } catch (error: any) {
-      alert(`❌ Failed to download quotation: ${error.message}`)
+      showMessage('Download Failed', `Failed to download quotation: ${error.message}`, 'error')
     } finally {
       setIsDownloadingPDF(null)
     }
   }
 
   // Handle downloading quotation PDF - HORIZONTAL FORMAT
-  const handleDownloadQuotationHorizontal = async (bookingId: string | number | undefined) => {
+  const handleDownloadQuotationHorizontal = (bookingId: string | number | undefined) => {
     if (!bookingId) {
-      alert('Invalid quotation ID: BookingID is missing')
+      showMessage('Error', 'Invalid quotation ID: BookingID is missing', 'error')
       return
     }
+    showPackingSpecDialog(bookingId, 'horizontal')
+  }
 
+  // Actual PDF generation for Horizontal format
+  const downloadPDFHorizontal = async (bookingId: string | number, showPackingSpec: boolean) => {
     const bookingIdStr = String(bookingId)
     setIsDownloadingPDF(bookingIdStr)
     try {
@@ -964,43 +1025,45 @@ export function QuotationsContent() {
 
       yPos = (pdf as any).lastAutoTable.finalY + 8
 
-      // Packing Spec Section - A4 Portrait
-      autoTable(pdf, {
-        startY: yPos,
-        body: [
-          [
-            { content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
-            { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }
+      // Packing Spec Section - A4 Portrait - Only if user requested
+      if (showPackingSpec) {
+        autoTable(pdf, {
+          startY: yPos,
+          body: [
+            [
+              { content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
+              { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }
+            ],
+            ['Shipper box size in MM', ''],
+            ['Quantity per shipper box: Packs', ''],
+            ['Shipper box Weight: Gross in KG', ''],
+            ['Pallet size in MM', ''],
+            ['Number of Shipper per pallets: Shippers', ''],
+            ['Quantity per pallet: Packs', ''],
+            ['Pallet Weight: Gross in Kg', ''],
+            ['Pallets per 20 FT FCL', ''],
+            ['Quantity per 20 FT FCL: Packs', ''],
+            ['Pallets per 40 FT FCL', ''],
+            ['Quantity per 40 FT FCL: Packs', ''],
           ],
-          ['Shipper box size in MM', ''],
-          ['Quantity per shipper box: Packs', ''],
-          ['Shipper box Weight: Gross in KG', ''],
-          ['Pallet size in MM', ''],
-          ['Number of Shipper per pallets: Shippers', ''],
-          ['Quantity per pallet: Packs', ''],
-          ['Pallet Weight: Gross in Kg', ''],
-          ['Pallets per 20 FT FCL', ''],
-          ['Quantity per 20 FT FCL: Packs', ''],
-          ['Pallets per 40 FT FCL', ''],
-          ['Quantity per 40 FT FCL: Packs', ''],
-        ],
-        theme: 'grid',
-        bodyStyles: {
-          fontSize: 6,
-          lineWidth: 0.2,
-          lineColor: [0, 0, 0],
-          minCellHeight: 5,
-          fontStyle: 'bold' as const
-        },
-        columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 80, halign: 'left' as const },
-          2: { cellWidth: 40 }
-        },
-        margin: { left: 10 }
-      })
+          theme: 'grid',
+          bodyStyles: {
+            fontSize: 6,
+            lineWidth: 0.2,
+            lineColor: [0, 0, 0],
+            minCellHeight: 5,
+            fontStyle: 'bold' as const
+          },
+          columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 80, halign: 'left' as const },
+            2: { cellWidth: 40 }
+          },
+          margin: { left: 10 }
+        })
 
-      yPos = (pdf as any).lastAutoTable.finalY + 5
+        yPos = (pdf as any).lastAutoTable.finalY + 5
+      }
 
       // Terms & Conditions Section - A4 Portrait
       autoTable(pdf, {
@@ -1101,7 +1164,7 @@ export function QuotationsContent() {
       pdf.save(`Quotation-${quotationNumber}-Horizontal.pdf`)
 
     } catch (error: any) {
-      alert(`❌ Failed to download quotation: ${error.message}`)
+      showMessage('Download Failed', `Failed to download quotation: ${error.message}`, 'error')
     } finally {
       setIsDownloadingPDF(null)
     }
@@ -1110,7 +1173,7 @@ export function QuotationsContent() {
   // Handle downloading quotation as Excel
   const handleDownloadQuotationExcel = async (bookingId: string | number | undefined) => {
     if (!bookingId) {
-      alert('Invalid quotation ID: BookingID is missing')
+      showMessage('Error', 'Invalid quotation ID: BookingID is missing', 'error')
       return
     }
 
@@ -1349,7 +1412,7 @@ export function QuotationsContent() {
       XLSX.writeFile(wb, `Quotation-${quotationNumber}.xlsx`)
 
     } catch (error: any) {
-      alert(`❌ Failed to download quotation: ${error.message}`)
+      showMessage('Download Failed', `Failed to download quotation: ${error.message}`, 'error')
     } finally {
       setIsDownloadingPDF(null)
     }
@@ -1418,6 +1481,65 @@ export function QuotationsContent() {
 
   return (
     <div className="section-spacing">
+      {/* Packing Spec Confirmation Dialog */}
+      <Dialog open={packingSpecDialog.isOpen} onOpenChange={(open) => !open && setPackingSpecDialog({ isOpen: false, bookingId: null, pdfType: null })}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-center text-lg font-semibold">Include Packing Spec?</DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground pt-2">
+              Do you want to include Packing Spec section in the PDF?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center gap-4 pt-4">
+            <Button
+              variant="outline"
+              className="w-24 border-red-500 text-red-600 hover:bg-red-50"
+              onClick={() => handlePackingSpecResponse(false)}
+            >
+              No
+            </Button>
+            <Button
+              className="w-24 bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => handlePackingSpecResponse(true)}
+            >
+              Yes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Message Dialog for showing success/error/info messages */}
+      <Dialog open={messageDialog.isOpen} onOpenChange={(open) => !open && setMessageDialog({ ...messageDialog, isOpen: false })}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className={`text-center text-lg font-semibold flex items-center justify-center gap-2 ${
+              messageDialog.type === 'success' ? 'text-green-600' :
+              messageDialog.type === 'error' ? 'text-red-600' :
+              'text-[#005180]'
+            }`}>
+              {messageDialog.type === 'success' && <CheckCircle2 className="h-5 w-5" />}
+              {messageDialog.type === 'error' && <XCircle className="h-5 w-5" />}
+              {messageDialog.title}
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground pt-2 whitespace-pre-line">
+              {messageDialog.message}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center pt-4">
+            <Button
+              className={`w-24 ${
+                messageDialog.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                messageDialog.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                'bg-[#005180] hover:bg-[#004875]'
+              } text-white`}
+              onClick={() => setMessageDialog({ ...messageDialog, isOpen: false })}
+            >
+              OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="relative w-full flex gap-2 items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1429,7 +1551,7 @@ export function QuotationsContent() {
           />
         </div>
         <Mic
-          onClick={() => alert("Voice input feature coming soon")}
+          onClick={() => showMessage('Coming Soon', 'Voice input feature coming soon', 'info')}
           className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
         />
       </div>
@@ -1602,7 +1724,7 @@ export function QuotationsContent() {
                                   className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    alert(`Sending ${quotation.id} to customer`)
+                                    showMessage('Coming Soon', `Send to customer feature coming soon for ${quotation.id}`, 'info')
                                   }}
                                 >
                                   <ArrowUpCircle className="h-3 w-3 mr-1" />
@@ -1614,7 +1736,7 @@ export function QuotationsContent() {
                                   className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    alert(`Sharing ${quotation.id}`)
+                                    showMessage('Coming Soon', `Share feature coming soon for ${quotation.id}`, 'info')
                                   }}
                                 >
                                   <Share2 className="h-3 w-3 mr-1" />
@@ -1844,7 +1966,7 @@ export function QuotationsContent() {
                                         size="sm"
                                         className="rounded-md bg-[#78BE20] text-white hover:bg-[#78BE20]/90 text-xs"
                                         onClick={() => {
-                                          alert(`Sending ${selectedQuotation.id} to customer`)
+                                          showMessage('Coming Soon', `Send to customer feature coming soon for ${selectedQuotation.id}`, 'info')
                                         }}
                                       >
                                         <ArrowUpCircle className="mr-1 h-3 w-3" />
@@ -1855,7 +1977,7 @@ export function QuotationsContent() {
                                         variant="outline"
                                         className="rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
                                         onClick={() => {
-                                          alert(`Sharing ${selectedQuotation.id}`)
+                                          showMessage('Coming Soon', `Share feature coming soon for ${selectedQuotation.id}`, 'info')
                                         }}
                                       >
                                         <Share2 className="mr-1 h-3 w-3" />

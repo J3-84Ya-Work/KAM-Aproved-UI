@@ -46,6 +46,29 @@ const getHeaders = (session?: any) => {
   return headers
 }
 
+// Helper function to get headers for approvals (fetch all quotations)
+const getHeadersForApprovals = (session?: any) => {
+  // Get user auth data from localStorage
+  const authData = getUserAuthData()
+
+  // Use localStorage values first, then session, then defaults
+  const companyId = authData?.companyId?.toString() || session?.CompanyID?.toString() || '2'
+  const userId = authData?.userId?.toString() || session?.UserID?.toString() || '2'
+  const fyear = authData?.fyear || session?.Fyear || '2025-2026'
+  const productionUnitId = authData?.productionUnitId?.toString() || session?.ProductionUnitID?.toString() || '1'
+
+  const headers = {
+    'CompanyID': companyId,
+    'UserID': userId,
+    'Fyear': fyear,
+    'ProductionUnitID': productionUnitId,
+    'Authorization': `Basic ${btoa('parksonsnew:parksonsnew')}`,
+    'Content-Type': 'application/json',
+  }
+
+  return headers
+}
+
 // Date formatting helpers
 export const formatDateForAPI = (date: Date): string => {
   const year = date.getFullYear()
@@ -1124,6 +1147,49 @@ export class QuotationsAPI {
   }
 
   /**
+   * Get All Quotations for Approvals (without UserID filtering)
+   * Endpoint: POST /api/planwindow/getbookingdata
+   */
+  static async getAllQuotationsForApproval(request: {
+    FilterSTR: string
+    FromDate: string
+    ToDate: string
+  }, session: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planwindow/getbookingdata`, {
+        method: 'POST',
+        headers: getHeadersForApprovals(session),
+        body: JSON.stringify(request),
+      })
+
+      let data = await response.json()
+
+      // Handle multiple levels of JSON encoding (can be triple or more)
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          data = JSON.parse(data)
+          parseAttempts++
+        } catch (e) {
+          break
+        }
+      }
+
+      return {
+        success: response.ok,
+        data: Array.isArray(data) ? data : [],
+        error: response.ok ? null : 'Failed to fetch quotations for approval',
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        data: [],
+        error: `Failed to fetch quotations for approval: ${error.message}`,
+      }
+    }
+  }
+
+  /**
    * Update Quotation Status (Approve/Disapprove)
    * Endpoint: POST /api/planwindow/updateqoutestatus
    */
@@ -1224,7 +1290,6 @@ export class QuotationsAPI {
         BookingID: request.BookingID,
         Status: status
       }
-
 
       const response = await fetch(`${API_BASE_URL}/api/planwindow/updateqoutestatus`, {
         method: 'POST',
