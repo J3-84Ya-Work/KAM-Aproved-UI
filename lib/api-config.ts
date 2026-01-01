@@ -766,6 +766,65 @@ export async function postDirectCosting(costingParams: any, enquiryData: any) {
 // UTILITY FUNCTIONS
 // ============================================================================
 
+// ============================================================================
+// ITEM MANAGEMENT APIs
+// ============================================================================
+
+// Helper: Fetch item groups/master list
+export async function getItemMasterListAPI() {
+  const endpoint = 'api/othermaster/getitemgrouplist'
+  const res = await apiClient.get(endpoint)
+  return normalizeToArray(res)
+}
+
+// Helper: Fetch items for a specific group
+export async function getItemsListAPI(groupId: string) {
+  const endpoint = `api/othermaster/getitemlist/${groupId}`
+  const res = await apiClient.get(endpoint)
+  return normalizeToArray(res)
+}
+
+// ============================================================================
+// USER MANAGEMENT APIs
+// ============================================================================
+
+// Helper: Fetch all users from Indus Analytics API
+export async function fetchUsers() {
+  const endpoint = 'api/othermaster/getuserDetails'
+  return apiClient.get(endpoint)
+}
+
+// Stable wrapper: getUsersAPI
+// Returns normalized array of users with id, name, email, department
+export async function getUsersAPI() {
+  const res = await fetchUsers()
+
+  let items: any[] = []
+  if (!res) return items
+  if (Array.isArray(res)) items = res
+  else if (res?.data && Array.isArray(res.data)) items = res.data
+  else if (res?.Data && Array.isArray(res.Data)) items = res.Data
+  else if (res?.d && Array.isArray(res.d)) items = res.d
+  else if (typeof res === 'object') {
+    const firstArray = Object.values(res).find((v) => Array.isArray(v))
+    if (Array.isArray(firstArray)) items = firstArray as any[]
+  }
+
+  // Map to standardized format and filter out users without email
+  return items
+    .filter((user) => user.EmailID && user.EmailID !== '.' && user.EmailID.includes('@'))
+    .map((user) => ({
+      id: String(user.UserID),
+      name: user.UserName || user.LoginUserName || '',
+      email: user.EmailID || '',
+      department: user.RoleName || 'Purchase', // Default to Purchase if no role
+      designation: user.Designation || '',
+      loginUserName: user.LoginUserName || '',
+      productionUnitId: user.ProductionUnitID,
+      productionUnitName: user.ProductionUnitName || '',
+    }))
+}
+
 // Helper: Normalize API response to array
 export function normalizeToArray(res: any): any[] {
   let items: any[] = []

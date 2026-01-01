@@ -17,7 +17,7 @@ import { getCurrentUser } from "@/lib/permissions"
 import { formatDistanceToNow, differenceInHours } from "date-fns"
 import { RequestTimeline } from "@/components/request-timeline"
 import { clientLogger } from "@/lib/logger"
-import { getItemsListAPI, getItemMasterListAPI } from "@/lib/api-config"
+import { getItemsListAPI, getItemMasterListAPI, getUsersAPI } from "@/lib/api-config"
 
 interface RateQuery {
   requestId: number
@@ -37,17 +37,20 @@ interface RateQuery {
   plantID?: string
 }
 
-// Team members list with their departments
-const TEAM_MEMBERS = [
-  { id: 'bhumika', name: 'Bhumika', email: 'bhumika.indusanalytics@gmail.com', department: 'Purchase' },
-  { id: 'rajesh', name: 'Rajesh Kumar', email: 'rajesh@example.com', department: 'Purchase' },
-  { id: 'amit', name: 'Amit Sharma', email: 'amit@example.com', department: 'Operations' },
-  { id: 'priya', name: 'Priya Singh', email: 'priya@example.com', department: 'Operations' },
-] as const
+// Team member interface
+interface TeamMember {
+  id: string
+  name: string
+  email: string
+  department: string
+  designation?: string
+}
 
 export default function AskRatePage() {
   const [selectedPerson, setSelectedPerson] = useState<string>("")
   const [department, setDepartment] = useState<"Purchase" | "Operations" | "Sales">("Purchase")
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false)
   const [message, setMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [myRequests, setMyRequests] = useState<RateQuery[]>([])
@@ -64,10 +67,28 @@ export default function AskRatePage() {
   const [selectedGroup, setSelectedGroup] = useState<string>("")
   const [loadingGroups, setLoadingGroups] = useState(false)
 
+  // Fetch team members from API
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      setLoadingTeamMembers(true)
+      try {
+        const users = await getUsersAPI()
+        setTeamMembers(users)
+        clientLogger.log('Team members fetched:', users.length, 'users')
+      } catch (error) {
+        clientLogger.error('Error fetching team members:', error)
+      } finally {
+        setLoadingTeamMembers(false)
+      }
+    }
+
+    fetchTeamMembers()
+  }, [])
+
   // Auto-set department when person is selected
   const handlePersonChange = (personId: string) => {
     setSelectedPerson(personId)
-    const person = TEAM_MEMBERS.find(p => p.id === personId)
+    const person = teamMembers.find(p => p.id === personId)
     if (person) {
       setDepartment(person.department as "Purchase" | "Operations" | "Sales")
     }
@@ -328,7 +349,7 @@ export default function AskRatePage() {
                       <SelectValue placeholder="Choose team member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TEAM_MEMBERS.map((person) => (
+                      {teamMembers.map((person) => (
                         <SelectItem key={person.id} value={person.id}>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{person.name}</span>
