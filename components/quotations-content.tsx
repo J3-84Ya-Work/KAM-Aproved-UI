@@ -291,8 +291,8 @@ export function QuotationsContent() {
         const response = await QuotationsAPI.getQuotations(
           {
             FilterSTR: 'All',
-            FromDate: '2024-10-01',
-            ToDate: '2026-10-10',
+            FromDate: '2024-01-01',
+            ToDate: '2027-12-31',
           },
           null
         )

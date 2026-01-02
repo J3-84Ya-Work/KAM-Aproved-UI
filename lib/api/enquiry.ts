@@ -220,50 +220,65 @@ export class EnquiryAPI {
     session: any
   ) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/enquiry/getmshowlistdata`, {
+      const url = `${API_BASE_URL}/api/enquiry/getmshowlistdata`
+      const headers = getHeaders(session)
+
+      console.log('🔍 Enquiry API Request:', {
+        url,
+        headers: { ...headers, Authorization: '***' },
+        body: request
+      })
+
+      const response = await fetch(url, {
         method: 'POST',
-        headers: getHeaders(session),
+        headers: headers,
         body: JSON.stringify(request),
       })
 
-      let data = await response.json()
+      console.log('🔍 Enquiry API Response Status:', response.status, response.statusText)
 
-      // Handle double-encoded JSON string response
-      if (typeof data === 'string') {
+      if (!response.ok) {
+        console.error('❌ Enquiry API Error:', response.status, response.statusText)
+        return {
+          success: false,
+          data: [],
+          error: `API returned ${response.status}: ${response.statusText}`,
+        }
+      }
+
+      let data = await response.json()
+      console.log('🔍 Enquiry API Raw Response Type:', typeof data)
+
+      // Handle multiple levels of JSON encoding (can be triple or more)
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
         try {
           data = JSON.parse(data)
+          parseAttempts++
+          console.log('🔍 Enquiry API Parse attempt', parseAttempts, '- Type:', typeof data, '- IsArray:', Array.isArray(data))
         } catch (e) {
-          // If parsing fails, keep as is
+          console.log('🔍 Enquiry API Parse failed at attempt', parseAttempts)
+          break
         }
       }
 
       // Handle different response formats
       let enquiries = []
       if (Array.isArray(data)) {
-        // If response is directly an array
         enquiries = data
-      } else if (data.data && Array.isArray(data.data)) {
-        // If response has data property with array
+        console.log('🔍 Enquiry API - Found', enquiries.length, 'enquiries')
+      } else if (data && data.data && Array.isArray(data.data)) {
         enquiries = data.data
-      } else if (data.Data && Array.isArray(data.Data)) {
-        // If response has Data property with array (capital D)
+      } else if (data && data.Data && Array.isArray(data.Data)) {
         enquiries = data.Data
-      } else if (typeof data === 'string') {
-        // Try to parse again if still a string
-        try {
-          const parsed = JSON.parse(data)
-          if (Array.isArray(parsed)) {
-            enquiries = parsed
-          }
-        } catch (e) {
-          // Parsing failed
-        }
       }
+
+      console.log('🔍 Enquiry API Final Result:', enquiries.length, 'enquiries')
 
       return {
         success: response.ok,
         data: enquiries,
-        error: data.error || null,
+        error: null,
       }
     } catch (error: any) {
       return {

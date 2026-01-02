@@ -264,9 +264,9 @@ export function InquiriesContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
 
-  // Date range for filtering inquiries - default to 2025-2026
-  const [fromDate, setFromDate] = useState<Date | undefined>(new Date(2025, 0, 1)) // Jan 1, 2025
-  const [toDate, setToDate] = useState<Date | undefined>(new Date(2026, 11, 31)) // Dec 31, 2026
+  // Date range for filtering inquiries - default to wide range to get all data
+  const [fromDate, setFromDate] = useState<Date | undefined>(new Date(2024, 0, 1)) // Jan 1, 2024
+  const [toDate, setToDate] = useState<Date | undefined>(new Date(2027, 11, 31)) // Dec 31, 2027
   const [dateFilterOpen, setDateFilterOpen] = useState(false)
 
   // Voice input hook
