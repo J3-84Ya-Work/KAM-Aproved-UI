@@ -18,6 +18,7 @@ import { formatDistanceToNow, differenceInHours } from "date-fns"
 import { RequestTimeline } from "@/components/request-timeline"
 import { clientLogger } from "@/lib/logger"
 import { getItemsListAPI, getItemMasterListAPI, getUsersAPI } from "@/lib/api-config"
+import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 
 interface RateQuery {
   requestId: number
@@ -66,6 +67,17 @@ export default function AskRatePage() {
   const [groups, setGroups] = useState<any[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string>("")
   const [loadingGroups, setLoadingGroups] = useState(false)
+  const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+
+  const handleMenuToggle = useCallback((toggle: () => void) => {
+    setToggleMenu(() => toggle)
+  }, [])
+
+  const handleMenuClick = () => {
+    if (toggleMenu) {
+      toggleMenu()
+    }
+  }
 
   // Fetch team members from API
   useEffect(() => {
@@ -278,11 +290,11 @@ export default function AskRatePage() {
 
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <AppSidebar />
       </div>
       <SidebarInset className="overflow-hidden">
-        <AppHeader pageName="Ask Rate" showBackButton={false} />
+        <AppHeader pageName="Ask Rate" showBackButton={false} onMenuClick={handleMenuClick} />
         <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 max-w-full overflow-auto">
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -646,6 +658,7 @@ export default function AskRatePage() {
             </CardContent>
           </Card>
         </div>
+        <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
 
       {/* Request Timeline Dialog */}

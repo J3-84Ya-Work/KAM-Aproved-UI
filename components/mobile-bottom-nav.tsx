@@ -1,5 +1,5 @@
 "use client"
-import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, User, Settings, UserCircle, Home } from "lucide-react"
+import { FileText, LayoutDashboard, Package, FileCheck, Users, CheckCircle, User, Settings, UserCircle, Home, MessageSquare, CircleDollarSign } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -86,6 +86,12 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
   const [showSidePanel, setShowSidePanel] = useState(false) // State for side panel
   const [userRole, setUserRole] = useState<string>("")
   const [userName, setUserName] = useState<string>("")
+  const [customerCount, setCustomerCount] = useState<number>(0)
+  const [conversationCount, setConversationCount] = useState<number>(0)
+  const [enquiryCount, setEnquiryCount] = useState<number>(0)
+  const [quotationCount, setQuotationCount] = useState<number>(0)
+  const [projectCount, setProjectCount] = useState<number>(0)
+  const [askRateCount, setAskRateCount] = useState<number>(0)
 
   const toggleSidePanel = () => {
     setShowSidePanel(prev => !prev)
@@ -124,6 +130,163 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
     }
   }, [onMenuToggle])
 
+  // Fetch counts for navigation items
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const authData = localStorage.getItem("userAuth")
+        if (!authData) return
+
+        const auth = JSON.parse(authData)
+        const userId = auth.userId || '2'
+        const companyId = auth.companyId || '2'
+
+        const headers = {
+          'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+          'CompanyID': String(companyId),
+          'UserID': String(userId),
+          'Fyear': '2025-2026',
+          'ProductionUnitID': '1',
+          'Content-Type': 'application/json',
+        }
+
+        // Fetch customer count
+        try {
+          const customerResponse = await fetch('https://api.indusanalytics.co.in/api/planwindow/GetSbClient', {
+            method: 'GET',
+            headers,
+          })
+          if (customerResponse.ok) {
+            let data = await customerResponse.json()
+            while (typeof data === 'string') {
+              try { data = JSON.parse(data) } catch { break }
+            }
+            if (Array.isArray(data)) {
+              setCustomerCount(data.length)
+            }
+          }
+        } catch {}
+
+        // Fetch enquiry count
+        try {
+          const enquiryResponse = await fetch('https://api.indusanalytics.co.in/api/enquiry/getmshowlistdata', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              FromDate: '2024-01-01',
+              ToDate: '2027-12-31',
+              ApplydateFilter: 'N',
+              RadioValue: 'All',
+            }),
+          })
+          if (enquiryResponse.ok) {
+            let data = await enquiryResponse.json()
+            while (typeof data === 'string') {
+              try { data = JSON.parse(data) } catch { break }
+            }
+            if (Array.isArray(data)) {
+              setEnquiryCount(data.length)
+            }
+          }
+        } catch {}
+
+        // Fetch quotation count
+        try {
+          const quotationResponse = await fetch('https://api.indusanalytics.co.in/api/planwindow/getbookingdata', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              FilterSTR: 'All',
+              FromDate: '2024-01-01',
+              ToDate: '2027-12-31',
+            }),
+          })
+          if (quotationResponse.ok) {
+            let data = await quotationResponse.json()
+            while (typeof data === 'string') {
+              try { data = JSON.parse(data) } catch { break }
+            }
+            if (Array.isArray(data)) {
+              setQuotationCount(data.length)
+            }
+          }
+        } catch {}
+
+        // Fetch conversation count
+        try {
+          const conversationResponse = await fetch('https://api.indusanalytics.co.in/api/parksons/conversations', {
+            method: 'GET',
+            headers: {
+              'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+              'CompanyID': String(companyId),
+              'UserID': String(userId),
+              'Content-Type': 'application/json',
+            },
+          })
+          if (conversationResponse.ok) {
+            const data = await conversationResponse.json()
+            if (Array.isArray(data)) {
+              setConversationCount(data.length)
+            }
+          }
+        } catch {}
+
+        // Fetch project count (JDO/SDO forms)
+        try {
+          const projectResponse = await fetch('https://api.indusanalytics.co.in/api/othermaster/get-JDO-SDO', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+              'CompanyID': String(companyId),
+              'UserID': String(userId),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              FormType: 'JDO',
+            }),
+          })
+          if (projectResponse.ok) {
+            let data = await projectResponse.json()
+            while (typeof data === 'string') {
+              try { data = JSON.parse(data) } catch { break }
+            }
+            if (Array.isArray(data)) {
+              setProjectCount(data.length)
+            }
+          }
+        } catch {}
+
+        // Fetch ask rate count (pending requests)
+        try {
+          const RATE_API_URL = process.env.NEXT_PUBLIC_RATE_API_BASE_URL || 'http://localhost:5003/api/raterequest'
+          const askRateResponse = await fetch(`${RATE_API_URL}/all`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+          if (askRateResponse.ok) {
+            let data = await askRateResponse.json()
+            while (typeof data === 'string') {
+              try { data = JSON.parse(data) } catch { break }
+            }
+            let askRates = Array.isArray(data) ? data : (data?.data || data?.Data || data?.requests || [])
+            // Count only pending requests
+            const pendingCount = askRates.filter((item: any) =>
+              item.Status === 'Pending' || item.status === 'Pending' || item.STATUS === 'Pending'
+            ).length
+            setAskRateCount(pendingCount)
+          }
+        } catch {}
+
+      } catch (error) {
+        console.error('Error fetching counts:', error)
+      }
+    }
+
+    fetchCounts()
+  }, [])
+
   // Get role badge color
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -138,12 +301,78 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
     }
   }
 
-  const sidePanelItems = [
+  // Check if device is in landscape mode
+  const [isLandscape, setIsLandscape] = useState(false)
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight)
+    }
+
+    // Check on mount
+    checkOrientation()
+
+    // Listen for resize/orientation changes
+    window.addEventListener('resize', checkOrientation)
+    window.addEventListener('orientationchange', checkOrientation)
+
+    return () => {
+      window.removeEventListener('resize', checkOrientation)
+      window.removeEventListener('orientationchange', checkOrientation)
+    }
+  }, [])
+
+  // URLs shown in bottom nav (should be excluded from side panel in portrait mode)
+  const bottomNavUrls = navItems.map(item => item.url)
+
+  // Helper function to get count for a nav item
+  const getItemCount = (title: string): number | undefined => {
+    switch (title) {
+      case "Customer":
+        return customerCount > 0 ? customerCount : undefined
+      case "Conversations":
+        return conversationCount > 0 ? conversationCount : undefined
+      case "Enquiries":
+        return enquiryCount > 0 ? enquiryCount : undefined
+      case "Quotations":
+        return quotationCount > 0 ? quotationCount : undefined
+      case "Projects":
+        return projectCount > 0 ? projectCount : undefined
+      case "Ask Rate":
+        return askRateCount > 0 ? askRateCount : undefined
+      case "Home":
+      case "Analytics":
+      case "Settings":
+      default:
+        return undefined
+    }
+  }
+
+  // Side panel items - pages NOT in bottom nav (for portrait mode)
+  const portraitSidePanelItems = [
     { title: "Home", url: "/", icon: Home },
     { title: "Customer", url: "/clients", icon: Users },
-    { title: "Profile", url: "/profile", icon: User },
+    { title: "Conversations", url: "/chats", icon: MessageSquare },
+    { title: "Ask Rate", url: "/ask-rate", icon: CircleDollarSign },
     { title: "Settings", url: "/settings", icon: Settings },
   ]
+
+  // All items for landscape mode (when bottom nav is hidden)
+  const landscapeSidePanelItems = [
+    { title: "Home", url: "/", icon: Home },
+    { title: "Enquiries", url: "/inquiries", icon: FileText },
+    { title: "Quotations", url: "/quotations", icon: FileCheck },
+    { title: "Projects", url: "/projects", icon: Package },
+    { title: "Analytics", url: "/dashboard", icon: LayoutDashboard },
+    { title: "Customer", url: "/clients", icon: Users },
+    { title: "Conversations", url: "/chats", icon: MessageSquare },
+    { title: "Ask Rate", url: "/ask-rate", icon: CircleDollarSign },
+    { title: "Settings", url: "/settings", icon: Settings },
+  ]
+
+  // In landscape mode, show all items in side panel (bottom nav hidden)
+  // In portrait mode, only show items NOT in bottom nav
+  const sidePanelItems = isLandscape ? landscapeSidePanelItems : portraitSidePanelItems
 
   return (
     <>
@@ -173,9 +402,13 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
                 </button>
               </div>
 
-              {/* User Role Indicator */}
+              {/* User Role Indicator - Clickable to open Profile */}
               {userRole && (
-                <div className="border-b border-gray-200 p-4 bg-gray-50">
+                <Link
+                  href="/profile"
+                  onClick={() => setShowSidePanel(false)}
+                  className="block border-b border-gray-200 p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     <UserCircle className="h-8 w-8 text-[#005180] flex-shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -185,24 +418,32 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
                       </Badge>
                     </div>
                   </div>
-                </div>
+                </Link>
               )}
 
               {/* Panel Content */}
               <nav className="flex-1 overflow-y-auto py-2 bg-white">
                 <ul className="space-y-0">
-                  {sidePanelItems.map((item, index) => (
-                    <li key={index}>
-                      <Link
-                        href={item.url}
-                        className="flex items-center gap-3 px-6 py-4 text-gray-700 hover:text-white font-medium transition-colors touch-manipulation border-b border-gray-100 hover:bg-[#005180]"
-                        onClick={() => setShowSidePanel(false)}
-                      >
-                        <item.icon className="w-5 h-5" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </li>
-                  ))}
+                  {sidePanelItems.map((item, index) => {
+                    const count = getItemCount(item.title)
+                    return (
+                      <li key={index}>
+                        <Link
+                          href={item.url}
+                          className="flex items-center gap-3 px-6 py-4 text-gray-700 hover:text-white font-medium transition-colors touch-manipulation border-b border-gray-100 hover:bg-[#005180]"
+                          onClick={() => setShowSidePanel(false)}
+                        >
+                          <item.icon className="w-5 h-5" />
+                          <span className="flex-1">{item.title}</span>
+                          {count !== undefined && (
+                            <Badge variant="secondary" className="ml-auto h-5 px-2 text-xs font-bold bg-gray-100 text-gray-700">
+                              {count}
+                            </Badge>
+                          )}
+                        </Link>
+                      </li>
+                    )
+                  })}
                 </ul>
               </nav>
 
@@ -221,7 +462,8 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
         </>
       )}
 
-      {/* Bottom Navigation - Tab Style (Hidden on Desktop) */}
+      {/* Bottom Navigation - Tab Style (Hidden on Desktop and Landscape) */}
+      {!isLandscape && (
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 safe-area-bottom lg:hidden">
         <div className="relative flex h-14 px-1">
           {navItems.map((item) => {
@@ -265,8 +507,10 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
               </Link>
             )
           })}
+
         </div>
       </nav>
+      )}
     </>
   )
 }

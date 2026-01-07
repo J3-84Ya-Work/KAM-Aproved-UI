@@ -100,11 +100,11 @@ export default function ProfilePage() {
 
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <AppSidebar />
       </div>
       <SidebarInset className="overflow-hidden">
-        <AppHeader pageName="Profile" showBackButton onMenuClick={handleMenuClick} />
+        <AppHeader pageName="Profile" onMenuClick={handleMenuClick} />
         <div className="flex flex-1 flex-col gap-4 p-4 pb-20 md:p-6 md:pb-6 bg-gradient-to-b from-white to-gray-50 overflow-auto">
           <Card className="overflow-hidden border-0 shadow-sm animate-slide-in">
             <div className="relative h-32 bg-gradient-to-r from-[#0F5F74] to-[#69B12C]">

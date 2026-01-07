@@ -12,7 +12,7 @@ import {
   LogOut,
   UserCircle,
   Home,
-  DollarSign,
+  CircleDollarSign,
   Package,
 } from "lucide-react"
 import Link from "next/link"
@@ -34,6 +34,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getCurrentUser } from "@/lib/permissions"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 const roleBasedNavItems = {
   KAM: [
@@ -75,7 +76,7 @@ const roleBasedNavItems = {
     {
       title: "Ask Rate",
       url: "/ask-rate",
-      icon: DollarSign,
+      icon: CircleDollarSign,
     },
     {
       title: "Settings",
@@ -183,7 +184,7 @@ const roleBasedNavItems = {
     {
       title: "Rate Queries",
       url: "/rate-queries",
-      icon: DollarSign,
+      icon: CircleDollarSign,
     },
     {
       title: "Settings",
@@ -196,6 +197,7 @@ const roleBasedNavItems = {
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const isMobile = useIsMobile()
   const { state, toggleSidebar } = useSidebar()
   const isCollapsed = state === "collapsed"
   const [userRole, setUserRole] = useState<string>("")
@@ -204,6 +206,9 @@ export function AppSidebar() {
   const [customerCount, setCustomerCount] = useState<number>(0)
   const [conversationCount, setConversationCount] = useState<number>(0)
   const [askRateCount, setAskRateCount] = useState<number>(0)
+  const [enquiryCount, setEnquiryCount] = useState<number>(0)
+  const [quotationCount, setQuotationCount] = useState<number>(0)
+  const [projectCount, setProjectCount] = useState<number>(0)
 
   useEffect(() => {
     // Get current user info
@@ -346,9 +351,123 @@ export function AppSidebar() {
       }
     }
 
+    // Fetch enquiry count
+    const fetchEnquiryCount = async () => {
+      try {
+        const user = getCurrentUser()
+        const userId = user?.userId || '2'
+        const companyId = user?.companyId || '2'
+
+        const response = await fetch('https://api.indusanalytics.co.in/api/enquiry/getmshowlistdata', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+            'CompanyID': String(companyId),
+            'UserID': String(userId),
+            'Fyear': '2025-2026',
+            'ProductionUnitID': '1',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            FromDate: '2024-01-01',
+            ToDate: '2027-12-31',
+            ApplydateFilter: 'N',
+            RadioValue: 'All',
+          }),
+        })
+
+        if (response.ok) {
+          let data = await response.json()
+          while (typeof data === 'string') {
+            try { data = JSON.parse(data) } catch { break }
+          }
+          if (Array.isArray(data)) {
+            setEnquiryCount(data.length)
+          }
+        }
+      } catch (error) {
+        // Silent fail - API error
+      }
+    }
+
+    // Fetch quotation count
+    const fetchQuotationCount = async () => {
+      try {
+        const user = getCurrentUser()
+        const userId = user?.userId || '2'
+        const companyId = user?.companyId || '2'
+
+        const response = await fetch('https://api.indusanalytics.co.in/api/planwindow/getbookingdata', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+            'CompanyID': String(companyId),
+            'UserID': String(userId),
+            'Fyear': '2025-2026',
+            'ProductionUnitID': '1',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            FilterSTR: 'All',
+            FromDate: '2024-01-01',
+            ToDate: '2027-12-31',
+          }),
+        })
+
+        if (response.ok) {
+          let data = await response.json()
+          while (typeof data === 'string') {
+            try { data = JSON.parse(data) } catch { break }
+          }
+          if (Array.isArray(data)) {
+            setQuotationCount(data.length)
+          }
+        }
+      } catch (error) {
+        // Silent fail - API error
+      }
+    }
+
+    // Fetch project count (JDO/SDO forms)
+    const fetchProjectCount = async () => {
+      try {
+        const user = getCurrentUser()
+        const userId = user?.userId || '2'
+        const companyId = user?.companyId || '2'
+
+        const response = await fetch('https://api.indusanalytics.co.in/api/othermaster/get-JDO-SDO', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Basic ' + btoa('parksonsnew:parksonsnew'),
+            'CompanyID': String(companyId),
+            'UserID': String(userId),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            FormType: 'JDO',
+          }),
+        })
+
+        if (response.ok) {
+          let data = await response.json()
+          while (typeof data === 'string') {
+            try { data = JSON.parse(data) } catch { break }
+          }
+          if (Array.isArray(data)) {
+            setProjectCount(data.length)
+          }
+        }
+      } catch (error) {
+        // Silent fail - API error
+      }
+    }
+
     fetchCustomerCount()
     fetchConversationCount()
     fetchAskRateCount()
+    fetchEnquiryCount()
+    fetchQuotationCount()
+    fetchProjectCount()
   }, [])
 
   const handleLogout = () => {
@@ -379,8 +498,13 @@ export function AppSidebar() {
     }
   }
 
+  // Don't render on mobile - use MobileBottomNav instead
+  if (isMobile) {
+    return null
+  }
+
   return (
-    <Sidebar collapsible="icon" className="hidden md:flex">
+    <Sidebar collapsible="icon" className="hidden lg:flex">
       {/* Toggle Button at Top */}
       <div className="border-b border-gray-200 p-2">
         <Button
@@ -400,11 +524,14 @@ export function AppSidebar() {
         </Button>
       </div>
 
-      {/* User Info */}
+      {/* User Info - Clickable to open Profile */}
       {userName && (
-        <div className="border-b border-gray-200 p-3">
+        <Link
+          href="/profile"
+          className="block border-b border-gray-200 p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+        >
           {isCollapsed ? (
-            <div className="flex justify-center" title={`${userName}${userRole ? ` - ${userRole}` : ''}`}>
+            <div className="flex justify-center" title={`${userName}${userRole ? ` - ${userRole}` : ''} - Click to view profile`}>
               <UserCircle className="h-6 w-6 text-[#005180]" />
             </div>
           ) : (
@@ -420,7 +547,7 @@ export function AppSidebar() {
               </div>
             </div>
           )}
-        </div>
+        </Link>
       )}
 
       <SidebarContent>
@@ -437,6 +564,12 @@ export function AppSidebar() {
                   displayCount = conversationCount
                 } else if (item.title === 'Ask Rate') {
                   displayCount = askRateCount
+                } else if (item.title === 'Enquiries') {
+                  displayCount = enquiryCount
+                } else if (item.title === 'Quotations') {
+                  displayCount = quotationCount
+                } else if (item.title === 'Projects') {
+                  displayCount = projectCount
                 }
 
                 return (
@@ -448,7 +581,7 @@ export function AppSidebar() {
                     >
                       <Link href={item.url} className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <item.icon className="h-6 w-6" />
+                          <item.icon className="h-6 w-6 shrink-0" />
                           <span className="text-base font-bold">{item.title}</span>
                         </div>
                         {displayCount !== undefined && displayCount > 0 && (

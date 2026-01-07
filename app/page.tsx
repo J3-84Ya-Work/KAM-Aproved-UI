@@ -151,13 +151,15 @@ export default function Page() {
 
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <AppSidebar />
       </div>
       <SidebarInset className="overflow-hidden">
         <AppHeader
+          pageName="ParkBuddy"
           showNewChatButton={chatStarted}
           onNewChatClick={handleBackToWelcome}
+          onMenuClick={handleMenuClick}
         />
         <div className="h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)] relative overflow-hidden">
           <div

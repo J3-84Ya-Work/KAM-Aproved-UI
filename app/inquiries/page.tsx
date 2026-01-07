@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MessageSquare, FileText, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { canCreate, isHOD } from "@/lib/permissions"
 import { clientLogger } from "@/lib/logger"
 
@@ -23,6 +23,7 @@ export default function InquiriesPage() {
   const [isHODUser, setIsHODUser] = useState(false)
   const [showInquiryTypeDialog, setShowInquiryTypeDialog] = useState(false)
   const [showNewInquiryDialog, setShowNewInquiryDialog] = useState(false)
+  const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
   const [formData, setFormData] = useState({
     customerName: "",
     contactPerson: "",
@@ -90,19 +91,28 @@ export default function InquiriesPage() {
         { label: "Export", onClick: handleExport },
       ]
 
+  const handleMenuToggle = useCallback((toggle: () => void) => {
+    setToggleMenu(() => toggle)
+  }, [])
+
+  const handleMenuClick = () => {
+    if (toggleMenu) {
+      toggleMenu()
+    }
+  }
 
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <AppSidebar />
       </div>
       <SidebarInset className="overflow-hidden">
-        <AppHeader pageName="Enquiries" />
+        <AppHeader pageName="Enquiries" onMenuClick={handleMenuClick} />
         <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 overflow-auto">
           <InquiriesContent />
         </div>
         {showFAB && <FloatingActionButton actions={actions} />}
-        <MobileBottomNav />
+        <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
 
       {/* Inquiry Type Selection Dialog */}
@@ -125,7 +135,7 @@ export default function InquiriesPage() {
                 <MessageSquare className="h-5 w-5" />
               </div>
               <div className="text-left flex-1">
-                <p className="font-semibold">Chat with AI Assistant</p>
+                <p className="font-semibold">Chat with Parkbuddy</p>
                 <p className="text-xs text-[#78BE20]/70">Use intelligent chat engine</p>
               </div>
             </Button>

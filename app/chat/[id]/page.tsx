@@ -6,7 +6,7 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 export default function ChatPage({ params }: { params: { id: string } }) {
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <AppSidebar />
       </div>
       <SidebarInset className="overflow-hidden">

@@ -246,6 +246,18 @@ function formatJsonResponse(data: any): string {
   return lines.join('\n')
 }
 
+// Function to render text with markdown-style bold (**text**)
+function renderTextWithBold(text: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      // Remove ** and render as bold
+      return <strong key={index}>{part.slice(2, -2)}</strong>
+    }
+    return <span key={index}>{part}</span>
+  })
+}
+
 // Function to parse numbered options from message text
 function parseOptions(text: string): { cleanText: string; options: string[] } {
   // Match patterns like "1. Option" or "1) Option" or "1 - Option"
@@ -504,8 +516,13 @@ export function AICostingChat({
             }
           }
 
-          // Check if the message contains "select" (case-insensitive)
-          const shouldShowButtons = /select/i.test(aiResponseText)
+          // Check if the message contains "select" or is asking about plant/customer/category (case-insensitive)
+          const shouldShowButtons = /select/i.test(aiResponseText) ||
+                                    /which\s+plant/i.test(aiResponseText) ||
+                                    /which\s+customer/i.test(aiResponseText) ||
+                                    /which\s+category/i.test(aiResponseText) ||
+                                    /\*\*Customers:\*\*/i.test(aiResponseText) ||
+                                    /Categories:/i.test(aiResponseText)
           // Check if multi-select should be enabled for processes
           const isMultiSelect = /select\s+processes/i.test(aiResponseText)
           const { cleanText, options } = parseOptions(aiResponseText)
@@ -1257,7 +1274,7 @@ export function AICostingChat({
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] max-w-[600px] mx-auto flex-col bg-background overflow-hidden pb-16 md:pb-0">
+    <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] w-full flex-col bg-background overflow-hidden pb-16 md:pb-0">
       {/* Scrollable Chat Area */}
       <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
         <div className="space-y-4 px-4 py-6">
@@ -1283,7 +1300,7 @@ export function AICostingChat({
                     onTouchEnd={handleLongPressEnd}
                     onTouchCancel={handleLongPressEnd}
                   >
-                    {message.content}
+                    {renderTextWithBold(message.content)}
                   </div>
 
                   {/* Show check icon when copied */}
@@ -1297,7 +1314,7 @@ export function AICostingChat({
 
               {/* Display option buttons only when message contains "select" */}
               {message.options && message.options.length > 0 && (
-                <div className="flex flex-col gap-2 mt-3 ml-0">
+                <div className="flex flex-col gap-2 mt-3 ml-0 max-w-[45%]">
                   {message.options.map((option, optionIndex) => {
                     const isMultiSelect = message.allowMultiSelect || false
                     const isSelected = isMultiSelect && (selectedOptions[message.id] || []).includes(option)
@@ -1308,7 +1325,7 @@ export function AICostingChat({
                         variant={isSelected ? "default" : "outline"}
                         onClick={() => handleOptionSelect(option, message.id, isMultiSelect)}
                         disabled={isTyping}
-                        className={`justify-start text-left h-auto py-3 px-4 transition-all ${
+                        className={`justify-start text-left h-auto py-3 px-4 transition-all w-full ${
                           isSelected
                             ? "bg-primary text-primary-foreground border-primary"
                             : "hover:bg-primary/10 hover:border-primary"
@@ -1325,7 +1342,7 @@ export function AICostingChat({
                     <Button
                       onClick={() => handleMultiSelectSubmit(message.id)}
                       disabled={isTyping}
-                      className="mt-2 bg-primary text-white hover:bg-primary/90"
+                      className="mt-2 bg-primary text-white hover:bg-primary/90 w-full"
                     >
                       Submit Selected ({(selectedOptions[message.id] || []).length})
                     </Button>

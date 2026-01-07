@@ -8,7 +8,7 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 export default function NewInquiryPage() {
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <AppSidebar />
       </div>
       <SidebarInset>

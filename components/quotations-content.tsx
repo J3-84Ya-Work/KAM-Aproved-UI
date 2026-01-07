@@ -477,29 +477,54 @@ export function QuotationsContent() {
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
 
-      let yPos = 8
+      // ========== PAGE BORDER ==========
+      pdf.setDrawColor(0, 0, 0)
+      pdf.setLineWidth(0.5)
+      pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+
+      let yPos = 18
 
       // ========== HEADER SECTION ==========
-      // Company Logo - Parksons
+      // Company Logo - Parksons (Left side)
       try {
-        // Load logo from public folder
         const logoBase64 = await loadImageAsBase64(PARKSONS_LOGO_PATH)
-        // Logo dimensions - maintain aspect ratio (original: 995 x 222)
-        const logoWidth = 60  // Width in mm
-        const logoHeight = logoWidth * (222 / 995)  // Maintain aspect ratio
-        pdf.addImage(logoBase64, 'PNG', 10, yPos, logoWidth, logoHeight)
-        yPos += logoHeight + 5
+        const logoWidth = 55
+        const logoHeight = logoWidth * (222 / 995)
+        pdf.addImage(logoBase64, 'PNG', 15, yPos, logoWidth, logoHeight)
       } catch (logoError) {
-        // Fallback if logo fails to load
         console.error('Failed to load logo:', logoError)
-        pdf.setDrawColor(200, 200, 200)
-        pdf.setFillColor(245, 245, 245)
-        pdf.rect(10, yPos, pageWidth - 20, 15, 'FD')
-        pdf.setFontSize(8)
-        pdf.setTextColor(150, 150, 150)
-        pdf.text('PARKSONS PACKAGING LTD', pageWidth / 2, yPos + 9, { align: 'center' })
-        yPos += 20
+        // Fallback text logo
+        pdf.setFontSize(16)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setTextColor(139, 0, 0) // Dark red
+        pdf.text('PARKSONS', 15, yPos + 8)
+        pdf.setFontSize(10)
+        pdf.text('PACKAGING LTD', 15, yPos + 14)
       }
+
+      // Corporate Office Details (Right side) - Compact layout
+      pdf.setFontSize(7)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(0, 0, 0)
+      const rightColX = pageWidth - 75
+      pdf.text('Parksons Packaging Limited Corporate Office', rightColX, yPos)
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(6.5)
+      pdf.text('One International Centre', rightColX, yPos + 4)
+      pdf.text('Tower 1, 701 & 702, 7th Floor', rightColX, yPos + 7.5)
+      pdf.text('Senapati Bapat Marg', rightColX, yPos + 11)
+      pdf.text('Prabhadevi (W)', rightColX, yPos + 14.5)
+      pdf.text('Mumbai - 400 013', rightColX, yPos + 18)
+      pdf.text('India', rightColX, yPos + 21.5)
+
+      pdf.text('T:  +91 (022) 6666 7200', rightColX, yPos + 26)
+      pdf.text('F:  +91 (022) 2421 1035', rightColX, yPos + 29.5)
+      pdf.text('E:  Info@parksonspackaging.com', rightColX, yPos + 33)
+
+      pdf.text('www.parksonspackaging.com', rightColX, yPos + 38)
+
+      yPos += 45
 
       // QUOTATION Title - Bold, Underlined, Centered
       pdf.setFontSize(14)
@@ -507,61 +532,50 @@ export function QuotationsContent() {
       pdf.setTextColor(0, 0, 0)
       const titleText = 'QUOTATION'
       const titleWidth = pdf.getTextWidth(titleText)
-      const titleX = (pageWidth - titleWidth) / 2
-      pdf.text(titleText, titleX, yPos)
+      const titleX = pageWidth / 2
+      pdf.text(titleText, titleX, yPos, { align: 'center' })
       // Underline
       pdf.setLineWidth(0.4)
-      pdf.line(titleX, yPos + 1, titleX + titleWidth, yPos + 1)
+      pdf.line(titleX - titleWidth/2, yPos + 1, titleX + titleWidth/2, yPos + 1)
 
+      yPos += 12
+
+      // Date and Quote Reference
+      pdf.setFontSize(10)
+      pdf.setFont('helvetica', 'bold')
+      const quotationDate = mainData.BookingDate || mainData.QuotationDate || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      pdf.text(`Date:`, 15, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(` ${quotationDate}`, 15 + pdf.getTextWidth('Date:') + 2, yPos)
+
+      yPos += 6
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(`Quote reference No.:`, 15, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(` ${quotationNumber}`, 15 + pdf.getTextWidth('Quote reference No.:') + 2, yPos)
+
+      yPos += 12
+
+      // Dear Sir/Madam greeting
+      pdf.setFontSize(10)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Dear Sir/Madam,', 15, yPos)
       yPos += 8
 
-      // Client Information Section
-      pdf.setFontSize(8)
+      // Intro text - exactly as in reference
+      pdf.setFontSize(10)
       pdf.setFont('helvetica', 'normal')
-
-      // Client Name
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Client Name', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`: ${mainData.ClientName || mainData.LedgerName || ''}`, 38, yPos)
-
+      const introLine1 = 'Thank you for your interest in our products and services. We are pleased to submit our'
+      const introLine2 = 'quotation as per the details below.'
+      const introLine3 = 'This quotation is based on the specifications and quantities shared by you.'
+      pdf.text(introLine1, 15, yPos)
       yPos += 5
+      pdf.text(introLine2, 15, yPos)
+      yPos += 6
+      pdf.text(introLine3, 15, yPos)
 
-      // To (Mailing Name)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('To', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`: ${mainData.MailingName || mainData.ClientName || ''}`, 38, yPos)
+      yPos += 10
 
-      yPos += 5
-
-      // Address
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Address', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      const address = mainData.Address || ''
-      // Handle long addresses - wrap text
-      const addressLines = pdf.splitTextToSize(`: ${address}`, pageWidth - 48)
-      pdf.text(addressLines, 38, yPos)
-      yPos += (addressLines.length * 4)
-
-      yPos += 1
-
-      // Subject
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Subject', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`: ${mainData.EmailSubject || mainData.JobName || ''}`, 38, yPos)
-
-      yPos += 5
-
-      // Kind Attention
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Kind Attention', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`: ${mainData.ConcernPerson || mainData.ContactPerson || ''}`, 38, yPos)
-
-      yPos += 8
       // ========== END HEADER SECTION ==========
 
       // Build column headers: S.N., then 1, 2, 3, 4... based on number of items
@@ -577,16 +591,41 @@ export function QuotationsContent() {
       const boardSpecsRow = ['Board Specs']
       const printingRow = ['Printing & Value Addition']
       const moqRow = ['MOQ']
-      const annualQtyRow = ['Annual Quantity']
+      const annualQtyRow = ['Annual Qnt']
 
       for (let i = 0; i < numItems; i++) {
-        const detail = allDetailsData[i] || {}
-        jobNameRow.push(mainData.JobName || detail.Content_Name || '')
-        sizeRow.push(detail.Job_Size || detail.Job_Size_In_Inches || '')
-        boardSpecsRow.push(detail.Paper || '')
-        printingRow.push(detail.Printing || '')
-        moqRow.push('')
-        annualQtyRow.push(i === 0 ? (priceData.PlanContQty || '') : '')
+        const detail = allDetailsData[i]
+        // Only populate data for columns that have actual detail data, leave others empty
+        if (detail && i < allDetailsData.length) {
+          jobNameRow.push(mainData.JobName || detail.Content_Name || priceData.JobName || '')
+          sizeRow.push(detail.Job_Size || detail.Job_Size_In_Inches || detail.JobSizeDetails || detail.SizeHeight || '')
+          // Board Specs = Paper quality and GSM
+          boardSpecsRow.push(detail.Paper || detail.CategoryName || '')
+
+          // Printing & Value Addition = Colors + Processes
+          const colorParts: string[] = []
+          if (detail.FColor) colorParts.push(`F:${detail.FColor}`)
+          if (detail.BColor) colorParts.push(`B:${detail.BColor}`)
+          if (detail.SfColor) colorParts.push(`Sf:${detail.SfColor}`)
+          if (detail.SbColor) colorParts.push(`Sb:${detail.SbColor}`)
+          const colorStr = colorParts.length > 0 ? colorParts.join('+') : ''
+          const processStr = detail.Operatios || detail.Printing || ''
+          const printingValue = [colorStr, processStr].filter(Boolean).join(', ')
+          printingRow.push(printingValue || detail.CategoryName || '')
+
+          // MOQ = Quantity from priceData
+          moqRow.push(i === 0 ? (priceData.PlanContQty || detail.Quantity || mainData.Quantity || '') : '')
+          // Annual Qnt = Annual quantity from priceData
+          annualQtyRow.push(i === 0 ? (priceData.PlanContQty || mainData.AnnualQuantity || '') : '')
+        } else {
+          // Empty columns for 2, 3, 4 when no data
+          jobNameRow.push('')
+          sizeRow.push('')
+          boardSpecsRow.push('')
+          printingRow.push('')
+          moqRow.push('')
+          annualQtyRow.push('')
+        }
       }
 
       // Calculate column width for A4 (210mm - 20mm margins = 190mm available)
@@ -629,10 +668,16 @@ export function QuotationsContent() {
           3: { cellWidth: dataColWidth },
           4: { cellWidth: dataColWidth }
         },
-        margin: { left: 10, right: 10 }
+        margin: { left: 12, right: 12, bottom: 15 },
+        didDrawPage: () => {
+          // Draw page border on every page
+          pdf.setDrawColor(0, 0, 0)
+          pdf.setLineWidth(0.5)
+          pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        }
       })
 
-      yPos = (pdf as any).lastAutoTable.finalY
+      yPos = (pdf as any).lastAutoTable.finalY + 2
 
       // Quote Section - "Quote (INR / 1000)" as row label on the left with 1L, 2L, 5L, 10L as sub-row labels
       // Build rows with empty cells for each product column
@@ -676,10 +721,15 @@ export function QuotationsContent() {
           4: { cellWidth: quoteDataColWidth },
           5: { cellWidth: quoteDataColWidth }
         },
-        margin: { left: 10, right: 10 }
+        margin: { left: 12, right: 12 },
+        didDrawPage: () => {
+          pdf.setDrawColor(0, 0, 0)
+          pdf.setLineWidth(0.5)
+          pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        }
       })
 
-      yPos = (pdf as any).lastAutoTable.finalY + 8
+      yPos = (pdf as any).lastAutoTable.finalY + 5
 
       // Packing Spec Section - Vertical Format (A4 adjusted) - Only if user requested
       if (showPackingSpec) {
@@ -718,108 +768,99 @@ export function QuotationsContent() {
             1: { cellWidth: 80, halign: 'left' as const },
             2: { cellWidth: 40 }
           },
-          margin: { left: 10 }
+          margin: { left: 10 },
+          didDrawPage: () => {
+            pdf.setDrawColor(0, 0, 0)
+            pdf.setLineWidth(0.5)
+            pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+          }
         })
 
         yPos = (pdf as any).lastAutoTable.finalY + 5
       }
 
-      // Terms & Conditions Section - Vertical Format (A4 adjusted)
-      // Column 0: "Terms & Conditions" label (rowSpan)
-      // Column 1: Field labels
-      // Column 2: Values
+      // ========== TERMS & CONDITIONS SECTION - IMPROVED LAYOUT ==========
+      // Check if we need a new page
+      if (yPos > pageHeight - 80) {
+        pdf.addPage()
+        // Re-draw page border on new page
+        pdf.setDrawColor(0, 0, 0)
+        pdf.setLineWidth(0.5)
+        pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        yPos = 15
+      }
+
+      // Prepare Terms & Conditions values with fallbacks
+      const deliveryDaysV = mainData.DeliveryDays || mainData.DeliveryTerms || '45'
+      const paymentDaysV = mainData.PaymentDays || mainData.PaymentTerms || '30'
+      const taxInfoV = priceData.TaxPercentage ? `GST ${priceData.TaxPercentage}% ${priceData.TaxInorExClusive || 'Including'}` : (mainData.TaxRate ? `GST ${mainData.TaxRate}%` : '')
+      const currencyInfoV = priceData.CurrencySymbol || mainData.Currency || 'INR'
+      const leadTimeV = mainData.LeadTime || ''
+      const quoteValidityV = mainData.QuoteValidity || mainData.ValidityDays || ''
+
+      // Terms & Conditions Table (like reference format)
       autoTable(pdf, {
         startY: yPos,
+        head: [],
         body: [
-          [
-            { content: 'Terms &\nConditions', rowSpan: 6, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
-            'Delivery Terms',
-            '45Days'
-          ],
-          ['Payment Terms', '30Days'],
-          ['Taxes', ''],
-          ['Currency', priceData.CurrencySymbol || ''],
-          ['Lead Time', ''],
-          ['Quote Validity', ''],
+          [{ content: 'Terms & Conditions', rowSpan: 6, styles: { fontStyle: 'bold', valign: 'middle', halign: 'center' } }, 'Delivery Terms', `${deliveryDaysV}Days`],
+          ['Payment Terms', `${paymentDaysV}Days`],
+          ['Taxes', taxInfoV],
+          ['Currency', currencyInfoV],
+          ['Lead Time', leadTimeV],
+          ['Quote Validity', quoteValidityV],
         ],
         theme: 'grid',
-        bodyStyles: {
-          fontSize: 6,
-          lineWidth: 0.2,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
           lineColor: [0, 0, 0],
-          minCellHeight: 5,
-          fontStyle: 'bold' as const
+          lineWidth: 0.2,
         },
         columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 80, halign: 'left' as const },
-          2: { cellWidth: 40 }
+          0: { cellWidth: 35, fontStyle: 'bold' },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 50 },
         },
-        margin: { left: 10 }
+        margin: { left: 12, right: 12 },
+        didDrawPage: () => {
+          pdf.setDrawColor(0, 0, 0)
+          pdf.setLineWidth(0.5)
+          pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        }
       })
 
       yPos = (pdf as any).lastAutoTable.finalY + 8
 
-      // ========== FOOTER SECTION ==========
-      // Check if we need a new page for footer
-      if (yPos > pageHeight - 35) {
+      // ========== FOOTER/CLOSING SECTION ==========
+      // Check if we need a new page for closing (need ~35mm space)
+      if (yPos > pageHeight - 45) {
         pdf.addPage()
-        yPos = 15
+        // Re-draw page border on new page
+        pdf.setDrawColor(0, 0, 0)
+        pdf.setLineWidth(0.5)
+        pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        yPos = 20
       }
 
-      // Footer Text (from API or default)
-      pdf.setFontSize(7)
+      // Closing statement - exactly as in reference
+      pdf.setFontSize(10)
       pdf.setFont('helvetica', 'normal')
-      pdf.setTextColor(80, 80, 80)
-      const footerText = mainData.FooterText || 'This quotation is valid for 10 days from the date of issue. All prices are exclusive of applicable taxes unless otherwise stated.'
-      const footerLines = pdf.splitTextToSize(footerText, pageWidth - 20)
-      pdf.text(footerLines, 10, yPos)
-
-      yPos += (footerLines.length * 3) + 5
-
-      // Prepared By section
-      pdf.setFontSize(7)
-      pdf.setFont('helvetica', 'bold')
       pdf.setTextColor(0, 0, 0)
-      pdf.text('Prepared By:', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(mainData.UserName || mainData.SalesEmployeeName || '', 32, yPos)
+      pdf.text('We look forward to your confirmation and remain hopeful of receiving your valued order.', 15, yPos)
 
-      // Designation
-      if (mainData.Designation) {
-        pdf.text(`(${mainData.Designation})`, 32 + pdf.getTextWidth(mainData.UserName || mainData.SalesEmployeeName || '') + 3, yPos)
-      }
+      yPos += 10
 
-      yPos += 4
-
-      // Contact
-      if (mainData.UserContactNo) {
-        pdf.text(`Contact: ${mainData.UserContactNo}`, 10, yPos)
-        yPos += 4
-      }
-
+      // Warm Regards
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Warm Regards,', 15, yPos)
       yPos += 5
 
-      // Company Name at bottom
-      pdf.setFontSize(8)
-      pdf.setFont('helvetica', 'bold')
-      pdf.setTextColor(0, 81, 128) // #005180
-      const companyName = mainData.CompanyName || 'INDAS Packaging Pvt. Ltd.'
-      pdf.text(companyName, pageWidth / 2, yPos, { align: 'center' })
-
-      yPos += 4
-
-      // GSTIN and CIN
-      pdf.setFontSize(6)
+      // Prepared By name (from API data or default)
+      const preparedBy = mainData.UserName || mainData.SalesEmployeeName || 'Sandesh Bane'
       pdf.setFont('helvetica', 'normal')
-      pdf.setTextColor(100, 100, 100)
-      if (mainData.GSTIN) {
-        pdf.text(`GSTIN: ${mainData.GSTIN}`, pageWidth / 2, yPos, { align: 'center' })
-        yPos += 3
-      }
-      if (mainData.CINNo) {
-        pdf.text(`CIN: ${mainData.CINNo}`, pageWidth / 2, yPos, { align: 'center' })
-      }
+      pdf.text(preparedBy, 15, yPos)
+
       // ========== END FOOTER SECTION ==========
 
       // Save PDF
@@ -869,29 +910,54 @@ export function QuotationsContent() {
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
 
-      let yPos = 8
+      // ========== PAGE BORDER ==========
+      pdf.setDrawColor(0, 0, 0)
+      pdf.setLineWidth(0.5)
+      pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+
+      let yPos = 18
 
       // ========== HEADER SECTION ==========
-      // Company Logo - Parksons
+      // Company Logo - Parksons (Left side)
       try {
-        // Load logo from public folder
         const logoBase64 = await loadImageAsBase64(PARKSONS_LOGO_PATH)
-        // Logo dimensions - maintain aspect ratio (original: 995 x 222)
-        const logoWidth = 60  // Width in mm
-        const logoHeight = logoWidth * (222 / 995)  // Maintain aspect ratio
-        pdf.addImage(logoBase64, 'PNG', 10, yPos, logoWidth, logoHeight)
-        yPos += logoHeight + 5
+        const logoWidth = 55
+        const logoHeight = logoWidth * (222 / 995)
+        pdf.addImage(logoBase64, 'PNG', 15, yPos, logoWidth, logoHeight)
       } catch (logoError) {
-        // Fallback if logo fails to load
         console.error('Failed to load logo:', logoError)
-        pdf.setDrawColor(200, 200, 200)
-        pdf.setFillColor(245, 245, 245)
-        pdf.rect(10, yPos, pageWidth - 20, 15, 'FD')
-        pdf.setFontSize(8)
-        pdf.setTextColor(150, 150, 150)
-        pdf.text('PARKSONS PACKAGING LTD', pageWidth / 2, yPos + 9, { align: 'center' })
-        yPos += 20
+        // Fallback text logo
+        pdf.setFontSize(16)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setTextColor(139, 0, 0) // Dark red
+        pdf.text('PARKSONS', 15, yPos + 8)
+        pdf.setFontSize(10)
+        pdf.text('PACKAGING LTD', 15, yPos + 14)
       }
+
+      // Corporate Office Details (Right side) - Compact layout
+      pdf.setFontSize(7)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(0, 0, 0)
+      const rightColXH = pageWidth - 75
+      pdf.text('Parksons Packaging Limited Corporate Office', rightColXH, yPos)
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(6.5)
+      pdf.text('One International Centre', rightColXH, yPos + 4)
+      pdf.text('Tower 1, 701 & 702, 7th Floor', rightColXH, yPos + 7.5)
+      pdf.text('Senapati Bapat Marg', rightColXH, yPos + 11)
+      pdf.text('Prabhadevi (W)', rightColXH, yPos + 14.5)
+      pdf.text('Mumbai - 400 013', rightColXH, yPos + 18)
+      pdf.text('India', rightColXH, yPos + 21.5)
+
+      pdf.text('T:  +91 (022) 6666 7200', rightColXH, yPos + 26)
+      pdf.text('F:  +91 (022) 2421 1035', rightColXH, yPos + 29.5)
+      pdf.text('E:  Info@parksonspackaging.com', rightColXH, yPos + 33)
+
+      pdf.text('www.parksonspackaging.com', rightColXH, yPos + 38)
+
+      yPos += 45
 
       // QUOTATION Title - Bold, Underlined, Centered
       pdf.setFontSize(14)
@@ -899,60 +965,50 @@ export function QuotationsContent() {
       pdf.setTextColor(0, 0, 0)
       const titleTextH = 'QUOTATION'
       const titleWidthH = pdf.getTextWidth(titleTextH)
-      const titleXH = (pageWidth - titleWidthH) / 2
-      pdf.text(titleTextH, titleXH, yPos)
+      const titleXH = pageWidth / 2
+      pdf.text(titleTextH, titleXH, yPos, { align: 'center' })
       // Underline
       pdf.setLineWidth(0.4)
-      pdf.line(titleXH, yPos + 1, titleXH + titleWidthH, yPos + 1)
+      pdf.line(titleXH - titleWidthH/2, yPos + 1, titleXH + titleWidthH/2, yPos + 1)
 
+      yPos += 12
+
+      // Date and Quote Reference
+      pdf.setFontSize(10)
+      pdf.setFont('helvetica', 'bold')
+      const quotationDateH = mainData.BookingDate || mainData.QuotationDate || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      pdf.text(`Date:`, 15, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(` ${quotationDateH}`, 15 + pdf.getTextWidth('Date:') + 2, yPos)
+
+      yPos += 6
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(`Quote reference No.:`, 15, yPos)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(` ${quotationNumber}`, 15 + pdf.getTextWidth('Quote reference No.:') + 2, yPos)
+
+      yPos += 12
+
+      // Dear Sir/Madam greeting
+      pdf.setFontSize(10)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Dear Sir/Madam,', 15, yPos)
       yPos += 8
 
-      // Client Information Section
-      pdf.setFontSize(8)
+      // Intro text - exactly as in reference
+      pdf.setFontSize(10)
       pdf.setFont('helvetica', 'normal')
-
-      // Client Name
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Client Name', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`: ${mainData.ClientName || mainData.LedgerName || ''}`, 38, yPos)
-
+      const introLine1H = 'Thank you for your interest in our products and services. We are pleased to submit our'
+      const introLine2H = 'quotation as per the details below.'
+      const introLine3H = 'This quotation is based on the specifications and quantities shared by you.'
+      pdf.text(introLine1H, 15, yPos)
       yPos += 5
+      pdf.text(introLine2H, 15, yPos)
+      yPos += 6
+      pdf.text(introLine3H, 15, yPos)
 
-      // To (Mailing Name)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('To', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`: ${mainData.MailingName || mainData.ClientName || ''}`, 38, yPos)
+      yPos += 10
 
-      yPos += 5
-
-      // Address
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Address', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      const addressH = mainData.Address || ''
-      const addressLinesH = pdf.splitTextToSize(`: ${addressH}`, pageWidth - 48)
-      pdf.text(addressLinesH, 38, yPos)
-      yPos += (addressLinesH.length * 4)
-
-      yPos += 1
-
-      // Subject
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Subject', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`: ${mainData.EmailSubject || mainData.JobName || ''}`, 38, yPos)
-
-      yPos += 5
-
-      // Kind Attention
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Kind Attention', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`: ${mainData.ConcernPerson || mainData.ContactPerson || ''}`, 38, yPos)
-
-      yPos += 8
       // ========== END HEADER SECTION ==========
 
       // Main Product Table - A4 Portrait (210mm - 20mm margins = 190mm available)
@@ -977,19 +1033,31 @@ export function QuotationsContent() {
             { content: '10L', styles: { halign: 'center' } },
           ]
         ],
-        body: allDetailsData.map((detailsData: any, index: number) => [
-          String(index + 1),
-          mainData.JobName || detailsData.Content_Name || '',
-          detailsData.Job_Size || detailsData.Job_Size_In_Inches || '',
-          detailsData.Paper || '',
-          detailsData.Printing || '',
-          '',
-          priceData.PlanContQty || '',
-          '', // 1L value
-          '', // 2L value
-          '', // 5L value
-          '', // 10L value
-        ]),
+        body: allDetailsData.map((detailsData: any, index: number) => {
+          // Build Printing & Value Addition = Colors + Processes
+          const colorPartsH: string[] = []
+          if (detailsData.FColor) colorPartsH.push(`F:${detailsData.FColor}`)
+          if (detailsData.BColor) colorPartsH.push(`B:${detailsData.BColor}`)
+          if (detailsData.SfColor) colorPartsH.push(`Sf:${detailsData.SfColor}`)
+          if (detailsData.SbColor) colorPartsH.push(`Sb:${detailsData.SbColor}`)
+          const colorStrH = colorPartsH.length > 0 ? colorPartsH.join('+') : ''
+          const processStrH = detailsData.Operatios || detailsData.Printing || ''
+          const printingValueH = [colorStrH, processStrH].filter(Boolean).join(', ') || detailsData.CategoryName || ''
+
+          return [
+            String(index + 1),
+            mainData.JobName || detailsData.Content_Name || priceData.JobName || '',
+            detailsData.Job_Size || detailsData.Job_Size_In_Inches || detailsData.JobSizeDetails || detailsData.SizeHeight || '',
+            detailsData.Paper || detailsData.CategoryName || '',
+            printingValueH,
+            index === 0 ? (priceData.PlanContQty || detailsData.Quantity || mainData.Quantity || '') : '',
+            index === 0 ? (priceData.PlanContQty || mainData.AnnualQuantity || '') : '',
+            '', // 1L value
+            '', // 2L value
+            '', // 5L value
+            '', // 10L value
+          ]
+        }),
         theme: 'grid',
         headStyles: {
           fillColor: [255, 255, 255],
@@ -1019,11 +1087,16 @@ export function QuotationsContent() {
           9: { cellWidth: 12, halign: 'center' },
           10: { cellWidth: 12, halign: 'center' }
         },
-        margin: { left: 10, right: 10 },
-        tableWidth: 'auto'
+        margin: { left: 12, right: 12 },
+        tableWidth: 'auto',
+        didDrawPage: () => {
+          pdf.setDrawColor(0, 0, 0)
+          pdf.setLineWidth(0.5)
+          pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        }
       })
 
-      yPos = (pdf as any).lastAutoTable.finalY + 8
+      yPos = (pdf as any).lastAutoTable.finalY + 5
 
       // Packing Spec Section - A4 Portrait - Only if user requested
       if (showPackingSpec) {
@@ -1059,105 +1132,99 @@ export function QuotationsContent() {
             1: { cellWidth: 80, halign: 'left' as const },
             2: { cellWidth: 40 }
           },
-          margin: { left: 10 }
+          margin: { left: 12 },
+          didDrawPage: () => {
+            pdf.setDrawColor(0, 0, 0)
+            pdf.setLineWidth(0.5)
+            pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+          }
         })
 
         yPos = (pdf as any).lastAutoTable.finalY + 5
       }
 
-      // Terms & Conditions Section - A4 Portrait
+      // ========== TERMS & CONDITIONS SECTION - TABLE FORMAT ==========
+      // Check if we need a new page
+      if (yPos > pageHeight - 80) {
+        pdf.addPage()
+        // Re-draw page border on new page
+        pdf.setDrawColor(0, 0, 0)
+        pdf.setLineWidth(0.5)
+        pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        yPos = 15
+      }
+
+      // Prepare Terms & Conditions values with fallbacks (Horizontal format)
+      const deliveryDaysH = mainData.DeliveryDays || mainData.DeliveryTerms || '45'
+      const paymentDaysH = mainData.PaymentDays || mainData.PaymentTerms || '30'
+      const taxInfoH = priceData.TaxPercentage ? `GST ${priceData.TaxPercentage}% ${priceData.TaxInorExClusive || 'Including'}` : (mainData.TaxRate ? `GST ${mainData.TaxRate}%` : '')
+      const currencyInfoH = priceData.CurrencySymbol || mainData.Currency || 'INR'
+      const leadTimeH = mainData.LeadTime || ''
+      const quoteValidityH = mainData.QuoteValidity || mainData.ValidityDays || ''
+
+      // Terms & Conditions Table (like reference format)
       autoTable(pdf, {
         startY: yPos,
+        head: [],
         body: [
-          [
-            { content: 'Terms &\nConditions', rowSpan: 6, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } },
-            'Delivery Terms',
-            '45Days'
-          ],
-          ['Payment Terms', '30Days'],
-          ['Taxes', ''],
-          ['Currency', priceData.CurrencySymbol || ''],
-          ['Lead Time', ''],
-          ['Quote Validity', ''],
+          [{ content: 'Terms & Conditions', rowSpan: 6, styles: { fontStyle: 'bold', valign: 'middle', halign: 'center' } }, 'Delivery Terms', `${deliveryDaysH}Days`],
+          ['Payment Terms', `${paymentDaysH}Days`],
+          ['Taxes', taxInfoH],
+          ['Currency', currencyInfoH],
+          ['Lead Time', leadTimeH],
+          ['Quote Validity', quoteValidityH],
         ],
         theme: 'grid',
-        bodyStyles: {
-          fontSize: 6,
-          lineWidth: 0.2,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
           lineColor: [0, 0, 0],
-          minCellHeight: 5,
-          fontStyle: 'bold' as const
+          lineWidth: 0.2,
         },
         columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 80, halign: 'left' as const },
-          2: { cellWidth: 40 }
+          0: { cellWidth: 35, fontStyle: 'bold' },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 50 },
         },
-        margin: { left: 10 }
+        margin: { left: 12, right: 12 },
+        didDrawPage: () => {
+          pdf.setDrawColor(0, 0, 0)
+          pdf.setLineWidth(0.5)
+          pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        }
       })
 
       yPos = (pdf as any).lastAutoTable.finalY + 8
 
-      // ========== FOOTER SECTION ==========
-      // Check if we need a new page for footer
-      if (yPos > pageHeight - 35) {
+      // ========== FOOTER/CLOSING SECTION ==========
+      // Check if we need a new page for closing (need ~35mm space)
+      if (yPos > pageHeight - 45) {
         pdf.addPage()
-        yPos = 15
+        // Re-draw page border on new page
+        pdf.setDrawColor(0, 0, 0)
+        pdf.setLineWidth(0.5)
+        pdf.rect(8, 8, pageWidth - 16, pageHeight - 16)
+        yPos = 20
       }
 
-      // Footer Text (from API or default)
-      pdf.setFontSize(7)
+      // Closing statement - exactly as in reference
+      pdf.setFontSize(10)
       pdf.setFont('helvetica', 'normal')
-      pdf.setTextColor(80, 80, 80)
-      const footerTextH = mainData.FooterText || 'This quotation is valid for 10 days from the date of issue. All prices are exclusive of applicable taxes unless otherwise stated.'
-      const footerLinesH = pdf.splitTextToSize(footerTextH, pageWidth - 20)
-      pdf.text(footerLinesH, 10, yPos)
-
-      yPos += (footerLinesH.length * 3) + 5
-
-      // Prepared By section
-      pdf.setFontSize(7)
-      pdf.setFont('helvetica', 'bold')
       pdf.setTextColor(0, 0, 0)
-      pdf.text('Prepared By:', 10, yPos)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(mainData.UserName || mainData.SalesEmployeeName || '', 32, yPos)
+      pdf.text('We look forward to your confirmation and remain hopeful of receiving your valued order.', 15, yPos)
 
-      // Designation
-      if (mainData.Designation) {
-        pdf.text(`(${mainData.Designation})`, 32 + pdf.getTextWidth(mainData.UserName || mainData.SalesEmployeeName || '') + 3, yPos)
-      }
+      yPos += 10
 
-      yPos += 4
-
-      // Contact
-      if (mainData.UserContactNo) {
-        pdf.text(`Contact: ${mainData.UserContactNo}`, 10, yPos)
-        yPos += 4
-      }
-
+      // Warm Regards
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Warm Regards,', 15, yPos)
       yPos += 5
 
-      // Company Name at bottom
-      pdf.setFontSize(8)
-      pdf.setFont('helvetica', 'bold')
-      pdf.setTextColor(0, 81, 128) // #005180
-      const companyNameH = mainData.CompanyName || 'INDAS Packaging Pvt. Ltd.'
-      pdf.text(companyNameH, pageWidth / 2, yPos, { align: 'center' })
-
-      yPos += 4
-
-      // GSTIN and CIN
-      pdf.setFontSize(6)
+      // Prepared By name (from API data or default)
+      const preparedByH = mainData.UserName || mainData.SalesEmployeeName || 'Sandesh Bane'
       pdf.setFont('helvetica', 'normal')
-      pdf.setTextColor(100, 100, 100)
-      if (mainData.GSTIN) {
-        pdf.text(`GSTIN: ${mainData.GSTIN}`, pageWidth / 2, yPos, { align: 'center' })
-        yPos += 3
-      }
-      if (mainData.CINNo) {
-        pdf.text(`CIN: ${mainData.CINNo}`, pageWidth / 2, yPos, { align: 'center' })
-      }
+      pdf.text(preparedByH, 15, yPos)
+
       // ========== END FOOTER SECTION ==========
 
       // Save PDF
@@ -1195,20 +1262,34 @@ export function QuotationsContent() {
       const quotationNumber = mainData.BookingNo || bookingId
 
       // Extract specific fields for better display
-      const jobName = mainData.JobName || detailsData.Content_Name || ''
-      const boxDimensions = detailsData.Job_Size || detailsData.Job_Size_In_Inches || ''
-      const paperQualityGSM = detailsData.Paper || ''
-      const colorDetails = detailsData.Printing || ''
-      const annualQuantity = priceData.PlanContQty || ''
+      const jobName = mainData.JobName || detailsData.Content_Name || priceData.JobName || ''
+      const boxDimensions = detailsData.Job_Size || detailsData.Job_Size_In_Inches || detailsData.JobSizeDetails || detailsData.SizeHeight || ''
+      // Board Specs = Paper quality and GSM
+      const paperQualityGSM = detailsData.Paper || detailsData.CategoryName || ''
+
+      // Printing & Value Addition = Colors + Processes
+      const colorPartsExcel: string[] = []
+      if (detailsData.FColor) colorPartsExcel.push(`F:${detailsData.FColor}`)
+      if (detailsData.BColor) colorPartsExcel.push(`B:${detailsData.BColor}`)
+      if (detailsData.SfColor) colorPartsExcel.push(`Sf:${detailsData.SfColor}`)
+      if (detailsData.SbColor) colorPartsExcel.push(`Sb:${detailsData.SbColor}`)
+      const colorStrExcel = colorPartsExcel.length > 0 ? colorPartsExcel.join('+') : ''
+      const processStrExcel = detailsData.Operatios || detailsData.Printing || ''
+      const colorDetails = [colorStrExcel, processStrExcel].filter(Boolean).join(', ') || detailsData.CategoryName || ''
+
+      // MOQ = Quantity from priceData
+      const moqValue = priceData.PlanContQty || detailsData.Quantity || mainData.Quantity || ''
+      // Annual Qnt = Annual quantity from priceData
+      const annualQuantity = priceData.PlanContQty || mainData.AnnualQuantity || ''
 
       // Prepare Excel data with HORIZONTAL format (matching screenshot)
       const excelData = [
         // Header Row
-        ['S.N.', 'Job name', 'Size (MM)', 'Board Specs', 'Printing & Value Addition', 'MOQ', 'Annual Quantity', '', '', 'Quote (INR / 1000)', '', ''],
+        ['S.N.', 'Job name', 'Size (MM)', 'Board Specs', 'Printing & Value Addition', 'MOQ', 'Annual Qnt', '', '', 'Quote (INR / 1000)', '', ''],
         // Subheader for Quote columns
         ['', '', '', '', '', '', '', '1L', '2L', '5L', '6L', ''],
         // Data Row 1 - with proper field labels
-        ['1', jobName, boxDimensions, paperQualityGSM, colorDetails, '', annualQuantity, '', '', '', '', ''],
+        ['1', jobName, boxDimensions, paperQualityGSM, colorDetails, moqValue, annualQuantity, '', '', '', '', ''],
         // Data Row 2 (if more products needed, can be added here)
         ['2', '', '', '', '', '', '', '', '', '', '', ''],
         // Data Row 3
@@ -1237,13 +1318,13 @@ export function QuotationsContent() {
         // Empty rows for spacing
         ['', '', '', '', '', '', '', '', '', '', '', ''],
         ['', '', '', '', '', '', '', '', '', '', '', ''],
-        // Terms & Conditions Section
-        ['', '', 'Delivery Terms', '45Days', '', '', '', '', '', '', '', ''],
-        ['', '', 'Payment Terms', '30Days', '', '', '', '', '', '', '', ''],
-        ['Terms &Conditions', '', 'Taxes', '', '', '', '', '', '', '', '', ''],
-        ['', '', 'Currency', '', '', '', '', '', '', '', '', ''],
-        ['', '', 'Lead Time', '', '', '', '', '', '', '', '', ''],
-        ['', '', 'Quote Validity', '', '', '', '', '', '', '', '', ''],
+        // Terms & Conditions Section with dynamic values
+        ['', '', 'Delivery Terms', `${mainData.DeliveryDays || mainData.DeliveryTerms || '45'}Days`, '', '', '', '', '', '', '', ''],
+        ['', '', 'Payment Terms', `${mainData.PaymentDays || mainData.PaymentTerms || '30'}Days`, '', '', '', '', '', '', '', ''],
+        ['Terms &Conditions', '', 'Taxes', priceData.TaxPercentage ? `GST ${priceData.TaxPercentage}% ${priceData.TaxInorExClusive || 'Including'}` : '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Currency', priceData.CurrencySymbol || mainData.Currency || 'INR', '', '', '', '', '', '', '', ''],
+        ['', '', 'Lead Time', mainData.LeadTime || '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Quote Validity', mainData.QuoteValidity || mainData.ValidityDays || '', '', '', '', '', '', '', '', ''],
       ]
 
       // Create workbook and worksheet

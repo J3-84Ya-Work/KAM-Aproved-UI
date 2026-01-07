@@ -3,54 +3,33 @@
  * Fetches and processes data for the analytics dashboard
  */
 
-import { EnquiryAPI, QuotationsAPI, type EnquiryItem } from "@/lib/api/enquiry"
+import { EnquiryAPI, QuotationsAPI, MasterDataAPI, type EnquiryItem } from "@/lib/api/enquiry"
 import { logger } from "@/lib/logger"
-
-// Helper function to get date range
-function getDateRange(period: 'month' | 'quarter' | 'year' = 'month') {
-  const now = new Date()
-  const startDate = new Date()
-
-  switch (period) {
-    case 'month':
-      startDate.setMonth(now.getMonth() - 1)
-      break
-    case 'quarter':
-      startDate.setMonth(now.getMonth() - 3)
-      break
-    case 'year':
-      startDate.setFullYear(now.getFullYear() - 1)
-      break
-  }
-
-  return { startDate, endDate: now }
-}
 
 // Get KPI data for dashboard
 export async function getAnalyticsKPIs(kamFilter?: string) {
   try {
     logger.log('🔍 Analytics API - Fetching KPIs, kamFilter:', kamFilter)
 
-    // Get current financial year dates
-    const currentYear = new Date().getFullYear()
-    const nextYear = currentYear + 1
-
-    // Fetch all inquiries
-    const inquiriesResponse = await EnquiryAPI.getEnquiries({
-      FromDate: `${currentYear}-01-01 00:00:00.000`,
-      ToDate: `${nextYear}-12-31 23:59:59.999`,
-      ApplydateFilter: 'True',
-      RadioValue: 'All',
-    }, null)
-
-    const quotationsResponse = await QuotationsAPI.getQuotations({
-      FilterSTR: 'All',
-      FromDate: `${currentYear}-01-01 00:00:00.000`,
-      ToDate: `${nextYear}-12-31 23:59:59.999`,
-    }, null)
+    // Fetch all data without date filter to match side panel counts
+    const [inquiriesResponse, quotationsResponse, customersResponse] = await Promise.all([
+      EnquiryAPI.getEnquiries({
+        FromDate: '2024-01-01',
+        ToDate: '2027-12-31',
+        ApplydateFilter: 'N',
+        RadioValue: 'All',
+      }, null),
+      QuotationsAPI.getQuotations({
+        FilterSTR: 'All',
+        FromDate: '2024-01-01',
+        ToDate: '2027-12-31',
+      }, null),
+      MasterDataAPI.getClients(null)
+    ])
 
     logger.log('📊 Inquiries Response:', inquiriesResponse)
     logger.log('📊 Quotations Response:', quotationsResponse)
+    logger.log('📊 Customers Response:', customersResponse)
 
     if (!inquiriesResponse.success || !inquiriesResponse.data) {
       logger.error('❌ Failed to fetch inquiries:', inquiriesResponse)
@@ -77,25 +56,23 @@ export async function getAnalyticsKPIs(kamFilter?: string) {
     const uniqueStatuses = new Set(inquiries.map(inq => inq.Status || inq.Status1).filter(Boolean))
     logger.log('📋 Unique Status values in data:', Array.from(uniqueStatuses))
 
-    // Completed = inquiries with quotations sent
-    const completed = inquiries.filter(inq => {
-      const status = (inq.Status || inq.Status1 || '').toLowerCase()
-      return status.includes('complete') ||
-             status.includes('quotation') ||
-             status.includes('sent') ||
-             status.includes('approved')
-    }).length
+    // Completed = count of quotations (inquiries that have quotations)
+    const completed = allQuotations.length
 
-    // Conversions = inquiries that became orders
+    // Conversions = inquiries that became orders (check various status patterns)
     const conversions = inquiries.filter(inq => {
       const status = (inq.Status || inq.Status1 || '').toLowerCase()
       return status.includes('convert') ||
              status.includes('order') ||
-             status.includes('won')
+             status.includes('won') ||
+             status.includes('booked')
     }).length
 
-    // Active clients = unique clients with inquiries
-    const activeClients = new Set(inquiries.map(inq => inq.LedgerID)).size
+    // Active Customer = total customers from the clients API (to match side panel)
+    const allCustomers = customersResponse.success ? (customersResponse.data || []) : []
+    const activeClients = allCustomers.length > 0
+      ? allCustomers.length
+      : new Set(inquiries.map(inq => inq.LedgerID)).size
 
     // Calculate previous period for comparison
     const currentMonth = new Date().getMonth()
@@ -154,27 +131,36 @@ export async function getAnalyticsKPIs(kamFilter?: string) {
 // Get monthly trend data
 export async function getMonthlyTrends(kamFilter?: string) {
   try {
-    // Get current financial year dates
-    const currentYear = new Date().getFullYear()
-    const nextYear = currentYear + 1
-
-    const inquiriesResponse = await EnquiryAPI.getEnquiries({
-      FromDate: `${currentYear}-01-01 00:00:00.000`,
-      ToDate: `${nextYear}-12-31 23:59:59.999`,
-      ApplydateFilter: 'True',
-      RadioValue: 'All',
-    }, null)
+    // Fetch both inquiries and quotations without date filter
+    const [inquiriesResponse, quotationsResponse] = await Promise.all([
+      EnquiryAPI.getEnquiries({
+        FromDate: '2024-01-01',
+        ToDate: '2027-12-31',
+        ApplydateFilter: 'N',
+        RadioValue: 'All',
+      }, null),
+      QuotationsAPI.getQuotations({
+        FilterSTR: 'All',
+        FromDate: '2024-01-01',
+        ToDate: '2027-12-31',
+      }, null)
+    ])
 
     if (!inquiriesResponse.success || !inquiriesResponse.data) {
       return { success: false, error: 'Failed to fetch inquiries' }
     }
 
     const allInquiries = inquiriesResponse.data as EnquiryItem[]
+    const allQuotations = quotationsResponse.success ? (quotationsResponse.data || []) : []
 
     // Filter by KAM if specified
     const inquiries = kamFilter
       ? allInquiries.filter(inq => inq.SalesRepresentative === kamFilter)
       : allInquiries
+
+    const quotations = kamFilter
+      ? allQuotations.filter((q: any) => q.SalesRepresentative === kamFilter || q.SalesEmployeeName === kamFilter)
+      : allQuotations
 
     // Group by month (last 6 months)
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -190,15 +176,21 @@ export async function getMonthlyTrends(kamFilter?: string) {
         return date.getMonth() === monthIndex
       })
 
-      const monthConversions = monthInquiries.filter(inq =>
-        inq.Status?.toLowerCase().includes('converted') ||
-        inq.Status?.toLowerCase().includes('order')
-      )
+      // Count actual quotations for this month
+      const monthQuotations = quotations.filter((q: any) => {
+        const date = new Date(q.BookingDate || q.QuotationDate)
+        return date.getMonth() === monthIndex
+      })
+
+      const monthConversions = monthInquiries.filter(inq => {
+        const status = (inq.Status || inq.Status1 || '').toLowerCase()
+        return status.includes('convert') || status.includes('order') || status.includes('won')
+      })
 
       monthlyData.push({
         month: monthName,
         inquiries: monthInquiries.length,
-        quotations: Math.floor(monthInquiries.length * 0.65), // Estimate
+        quotations: monthQuotations.length,
         conversions: monthConversions.length
       })
     }
@@ -219,19 +211,53 @@ export async function getMonthlyTrends(kamFilter?: string) {
 // Get conversion funnel data
 export async function getConversionFunnel(kamFilter?: string) {
   try {
-    const kpisResponse = await getAnalyticsKPIs(kamFilter)
+    // Fetch both inquiries and quotations without date filter
+    const [inquiriesResponse, quotationsResponse] = await Promise.all([
+      EnquiryAPI.getEnquiries({
+        FromDate: '2024-01-01',
+        ToDate: '2027-12-31',
+        ApplydateFilter: 'N',
+        RadioValue: 'All',
+      }, null),
+      QuotationsAPI.getQuotations({
+        FilterSTR: 'All',
+        FromDate: '2024-01-01',
+        ToDate: '2027-12-31',
+      }, null)
+    ])
 
-    if (!kpisResponse.success || !kpisResponse.data) {
-      return { success: false, error: 'Failed to fetch KPIs' }
+    if (!inquiriesResponse.success || !inquiriesResponse.data) {
+      return { success: false, error: 'Failed to fetch data' }
     }
 
-    const { totalInquiries, completed, conversions } = kpisResponse.data
+    const allInquiries = inquiriesResponse.data as EnquiryItem[]
+    const allQuotations = quotationsResponse.success ? (quotationsResponse.data || []) : []
 
-    // Estimate quotations sent (assuming 60-70% of inquiries get quoted)
-    const quotations = Math.floor(totalInquiries * 0.65)
+    // Filter by KAM if specified
+    const inquiries = kamFilter
+      ? allInquiries.filter(inq => inq.SalesRepresentative === kamFilter)
+      : allInquiries
 
-    // Estimate approved (assuming 70% of quotations get approved)
-    const approved = Math.floor(quotations * 0.70)
+    const quotations = kamFilter
+      ? allQuotations.filter((q: any) => q.SalesRepresentative === kamFilter || q.SalesEmployeeName === kamFilter)
+      : allQuotations
+
+    const totalInquiries = inquiries.length
+
+    // Count actual quotations
+    const quotationsCount = quotations.length
+
+    // Count approved quotations (status contains 'approved' or 'approve')
+    const approved = quotations.filter((q: any) => {
+      const status = (q.Status || q.BookingStatus || '').toLowerCase()
+      return status.includes('approv') && !status.includes('disapprov')
+    }).length
+
+    // Count conversions/orders
+    const conversions = inquiries.filter(inq => {
+      const status = (inq.Status || inq.Status1 || '').toLowerCase()
+      return status.includes('convert') || status.includes('order') || status.includes('won')
+    }).length
 
     const funnelData = [
       {
@@ -241,8 +267,8 @@ export async function getConversionFunnel(kamFilter?: string) {
       },
       {
         stage: "Quotations",
-        value: quotations,
-        percentage: totalInquiries > 0 ? Math.round((quotations / totalInquiries) * 100) : 0
+        value: quotationsCount,
+        percentage: totalInquiries > 0 ? Math.round((quotationsCount / totalInquiries) * 100) : 0
       },
       {
         stage: "Approved",
@@ -303,14 +329,11 @@ export async function getSalesVsTarget(kamFilter?: string) {
 // Get status distribution
 export async function getStatusDistribution(kamFilter?: string) {
   try {
-    // Get current financial year dates
-    const currentYear = new Date().getFullYear()
-    const nextYear = currentYear + 1
-
+    // Fetch all inquiries without date filter
     const inquiriesResponse = await EnquiryAPI.getEnquiries({
-      FromDate: `${currentYear}-01-01 00:00:00.000`,
-      ToDate: `${nextYear}-12-31 23:59:59.999`,
-      ApplydateFilter: 'True',
+      FromDate: '2024-01-01',
+      ToDate: '2027-12-31',
+      ApplydateFilter: 'N',
       RadioValue: 'All',
     }, null)
 
@@ -361,14 +384,11 @@ export async function getStatusDistribution(kamFilter?: string) {
 // Get projects by type distribution
 export async function getProjectsByType(kamFilter?: string) {
   try {
-    // Get current financial year dates
-    const currentYear = new Date().getFullYear()
-    const nextYear = currentYear + 1
-
+    // Fetch all inquiries without date filter
     const inquiriesResponse = await EnquiryAPI.getEnquiries({
-      FromDate: `${currentYear}-01-01 00:00:00.000`,
-      ToDate: `${nextYear}-12-31 23:59:59.999`,
-      ApplydateFilter: 'True',
+      FromDate: '2024-01-01',
+      ToDate: '2027-12-31',
+      ApplydateFilter: 'N',
       RadioValue: 'All',
     }, null)
 
@@ -383,19 +403,36 @@ export async function getProjectsByType(kamFilter?: string) {
       ? allInquiries.filter(inq => inq.SalesRepresentative === kamFilter)
       : allInquiries
 
-    // Count by category/type
+    // Count by EnquiryType (SDO, JDO, etc.) or CategoryName as fallback
     const typeCounts: Record<string, number> = {}
     inquiries.forEach(inq => {
-      const type = inq.CategoryName || 'Other'
+      // Use EnquiryType first (for SDO/JDO), then SalesType, then CategoryName
+      const type = inq.EnquiryType || inq.SalesType || inq.CategoryName || 'Other'
       typeCounts[type] = (typeCounts[type] || 0) + 1
     })
 
-    const colors = ['#005180', '#78BE20', '#B92221', '#0066a1']
-    const typeData = Object.entries(typeCounts).map(([type, count], index) => ({
+    // Define fixed colors for known project types
+    const typeColors: Record<string, string> = {
+      'SDO': '#005180',
+      'JDO': '#78BE20',
+      'Commercial': '#B92221',
+      'PN': '#0066a1',
+      'Sample': '#f59e0b',
+      'New': '#10b981',
+      'Repeat': '#6366f1',
+    }
+
+    const defaultColors = ['#005180', '#78BE20', '#B92221', '#0066a1', '#f59e0b', '#10b981']
+    let colorIndex = 0
+
+    const typeData = Object.entries(typeCounts).map(([type, count]) => ({
       type,
       count,
-      color: colors[index % colors.length]
+      color: typeColors[type] || defaultColors[colorIndex++ % defaultColors.length]
     }))
+
+    // Sort by count descending
+    typeData.sort((a, b) => b.count - a.count)
 
     return {
       success: true,

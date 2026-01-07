@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
@@ -12,12 +12,24 @@ import { formatDistanceToNow } from "date-fns"
 import { clientLogger } from "@/lib/logger"
 import { getCurrentUser } from "@/lib/permissions"
 import { FloatingActionButton } from "@/components/floating-action-button"
+import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 
 export default function ChatsPage() {
   const router = useRouter()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+
+  const handleMenuToggle = useCallback((toggle: () => void) => {
+    setToggleMenu(() => toggle)
+  }, [])
+
+  const handleMenuClick = () => {
+    if (toggleMenu) {
+      toggleMenu()
+    }
+  }
 
   // Get current user
   useEffect(() => {
@@ -87,9 +99,11 @@ export default function ChatsPage() {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <div className="hidden lg:block">
+        <AppSidebar />
+      </div>
       <SidebarInset className="overflow-hidden">
-        <AppHeader pageName="Conversations" />
+        <AppHeader pageName="Conversations" onMenuClick={handleMenuClick} />
         <div className="flex flex-1 flex-col gap-6 p-4 pb-20 md:p-6 md:pb-6 overflow-auto">
           <Card className="surface-elevated overflow-hidden relative">
             <CardContent className="p-0">
@@ -161,6 +175,7 @@ export default function ChatsPage() {
           </Card>
         </div>
         <FloatingActionButton actions={actions} />
+        <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
     </SidebarProvider>
   )

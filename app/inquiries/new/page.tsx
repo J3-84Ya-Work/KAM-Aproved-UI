@@ -27,7 +27,9 @@ function NewInquiryContent() {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <div className="hidden lg:block">
+        <AppSidebar />
+      </div>
       <SidebarInset className="overflow-hidden">
         <AppHeader
           pageName={getPageName()}
@@ -38,9 +40,9 @@ function NewInquiryContent() {
           {mode === 'ai' && (
             <div className="max-w-4xl mx-auto w-full">
               <div className="bg-white rounded-lg border border-[#005180]/20 p-8">
-                <p className="text-gray-600">AI Chat mode coming soon...</p>
+                <p className="text-gray-600">Chat with Parkbuddy coming soon...</p>
                 <p className="text-sm text-gray-500 mt-2">
-                  This feature will allow you to create inquiries by chatting with an AI assistant.
+                  This feature will allow you to create inquiries by chatting with Parkbuddy.
                 </p>
               </div>
             </div>

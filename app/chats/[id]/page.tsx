@@ -138,7 +138,9 @@ export default function ConversationPage() {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <div className="hidden lg:block">
+        <AppSidebar />
+      </div>
       <SidebarInset className="overflow-hidden">
         <AppHeader
           pageName={`Conversation #${conversationId}`}

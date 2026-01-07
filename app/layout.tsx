@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   title: "ParkBuddy",
   description: "ParkBuddy - Key Account Manager Dashboard",
   generator: "v0.app",
+  icons: {
+    icon: "/images/parkbuddy-logo.jpg",
+    shortcut: "/images/parkbuddy-logo.jpg",
+    apple: "/images/parkbuddy-logo.jpg",
+  },
 }
 
 export default function RootLayout({

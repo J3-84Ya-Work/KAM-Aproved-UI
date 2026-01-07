@@ -47,7 +47,7 @@ const baseKpiData: Record<string, any> = {
       comparison: "conversion rate 60.7%",
     },
     {
-      title: "Active Clients",
+      title: "Active Customer",
       value: "87",
       change: "+5%",
       trend: "up",
@@ -89,7 +89,7 @@ const baseKpiData: Record<string, any> = {
       comparison: "conversion rate 61.3%",
     },
     {
-      title: "Active Clients",
+      title: "Active Customer",
       value: "23",
       change: "+6%",
       trend: "up",
@@ -131,7 +131,7 @@ const baseKpiData: Record<string, any> = {
       comparison: "conversion rate 60.3%",
     },
     {
-      title: "Active Clients",
+      title: "Active Customer",
       value: "21",
       change: "+4%",
       trend: "up",
@@ -173,7 +173,7 @@ const baseKpiData: Record<string, any> = {
       comparison: "conversion rate 60.0%",
     },
     {
-      title: "Active Clients",
+      title: "Active Customer",
       value: "24",
       change: "-3%",
       trend: "down",
@@ -215,7 +215,7 @@ const baseKpiData: Record<string, any> = {
       comparison: "conversion rate 61.2%",
     },
     {
-      title: "Active Clients",
+      title: "Active Customer",
       value: "19",
       change: "-2%",
       trend: "down",
@@ -257,7 +257,7 @@ const baseKpiData: Record<string, any> = {
       comparison: "conversion rate 60.8%",
     },
     {
-      title: "Active Clients",
+      title: "Active Customer",
       value: "44",
       change: "+5%",
       trend: "up",
@@ -299,7 +299,7 @@ const baseKpiData: Record<string, any> = {
       comparison: "conversion rate 60.5%",
     },
     {
-      title: "Active Clients",
+      title: "Active Customer",
       value: "43",
       change: "+5%",
       trend: "up",
@@ -650,7 +650,7 @@ export function DashboardContent() {
           comparison: `conversion rate ${realKpiData.conversionRate}%`,
         },
         {
-          title: "Active Clients",
+          title: "Active Customer",
           value: String(realKpiData.activeClients || 0),
           change: "+0%",
           trend: "up",
@@ -894,9 +894,9 @@ export function DashboardContent() {
         })}
       </div>
 
-      {/* Row 1: Sales vs Target & Conversion Funnel */}
+      {/* Row 1: Enquiries vs Quotations & Conversion Funnel */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Chart: Sales vs Target */}
+        {/* Chart: Enquiries vs Quotations */}
         <Card
           className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
           style={{
@@ -906,19 +906,19 @@ export function DashboardContent() {
           }}
         >
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-gray-900">Sales vs Target</CardTitle>
+            <CardTitle className="text-base font-semibold text-gray-900">Enquiries vs Quotations</CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
-            <ChartContainer config={{ sales: { label: "Sales", color: "#005180" }, target: { label: "Target", color: "#78BE20" } }} className="h-[280px] w-full">
+            <ChartContainer config={{ inquiries: { label: "Enquiries", color: "#005180" }, quotations: { label: "Quotations", color: "#78BE20" } }} className="h-[280px] w-full">
               <ResponsiveContainer>
-                <BarChart data={salesVsTargetData}>
+                <BarChart data={monthlyInquiriesData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="month" className="text-xs" />
                   <YAxis className="text-xs" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend wrapperStyle={{ fontSize: "12px" }} />
-                  <Bar dataKey="sales" fill="#005180" fillOpacity={1} radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="target" fill="#78BE20" fillOpacity={0.7} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="inquiries" fill="#005180" fillOpacity={1} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="quotations" fill="#78BE20" fillOpacity={0.7} radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
@@ -957,9 +957,9 @@ export function DashboardContent() {
         </Card>
       </div>
 
-      {/* Row 2: Projects by Type & Monthly Inquiries vs Conversions */}
+      {/* Row 2: Projects & Monthly Conversions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Chart: Projects by Type */}
+        {/* Chart: Projects */}
         <Card
           className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
           style={{
@@ -969,7 +969,7 @@ export function DashboardContent() {
           }}
         >
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-gray-900">Projects by Type</CardTitle>
+            <CardTitle className="text-base font-semibold text-gray-900">Projects</CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <ChartContainer config={{ count: { label: "Projects", color: "#005180" } }} className="h-[280px] w-full">
@@ -990,7 +990,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        {/* Chart: Monthly Inquiries vs Conversions */}
+        {/* Chart: Monthly Conversions */}
         <Card
           className="border-0 shadow-md bg-white/80 backdrop-blur hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
           style={{
@@ -1000,10 +1000,10 @@ export function DashboardContent() {
           }}
         >
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-gray-900">Monthly Inquiries vs Conversions</CardTitle>
+            <CardTitle className="text-base font-semibold text-gray-900">Monthly Conversions</CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
-            <ChartContainer config={{ inquiries: { label: "Inquiries", color: "#005180" }, conversions: { label: "Conversions", color: "#78BE20" } }} className="h-[280px] w-full">
+            <ChartContainer config={{ conversions: { label: "Conversions", color: "#78BE20" } }} className="h-[280px] w-full">
               <ResponsiveContainer>
                 <AreaChart data={monthlyInquiriesData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -1011,8 +1011,7 @@ export function DashboardContent() {
                   <YAxis className="text-xs" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend wrapperStyle={{ fontSize: "12px" }} />
-                  <Area type="monotone" dataKey="inquiries" stackId="1" stroke="#005180" fill="#005180" fillOpacity={0.6} />
-                  <Area type="monotone" dataKey="conversions" stackId="2" stroke="#78BE20" fill="#78BE20" fillOpacity={0.6} />
+                  <Area type="monotone" dataKey="conversions" stroke="#78BE20" fill="#78BE20" fillOpacity={0.6} />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartContainer>

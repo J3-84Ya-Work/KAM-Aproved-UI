@@ -137,7 +137,7 @@ export default function CustomerHistoryPage() {
 
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <AppSidebar />
       </div>
       <SidebarInset className="overflow-hidden">
