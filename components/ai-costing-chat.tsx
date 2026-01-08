@@ -246,16 +246,203 @@ function formatJsonResponse(data: any): string {
   return lines.join('\n')
 }
 
-// Function to render text with markdown-style bold (**text**)
-function renderTextWithBold(text: string): React.ReactNode[] {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g)
-  return parts.map((part, index) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      // Remove ** and render as bold
-      return <strong key={index}>{part.slice(2, -2)}</strong>
+// Function to check if text is a costing summary and render as table
+function renderCostingSummary(text: string): React.ReactNode | null {
+  // Check if this is a costing summary - look for the specific markers
+  if (!text.includes('COSTING SUMMARY') && !text.includes('Customer & JOB DETAILS') && !text.includes('COST STRUCTURE') && !text.includes('"CostingBot"')) {
+    return null
+  }
+
+  let customerName = '-'
+  let jobName = '-'
+  let sheetSize = '-'
+  let orderQuantity = '-'
+  let noOfUps = '-'
+  let requiredSheets = '-'
+  let boardCost = '-'
+  let otherMaterialCost = '-'
+  let conversionCost = '-'
+  let profit = '-'
+  let totalCost = '-'
+  let status = 'Estimated'
+  let generatedDate = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+
+  // Try to parse as JSON first (new format)
+  try {
+    // Extract JSON from the text - it might have text before the JSON
+    const jsonMatch = text.match(/\{[\s\S]*"Type"\s*:\s*"CostingBot"[\s\S]*\}/)
+    if (jsonMatch) {
+      const jsonData = JSON.parse(jsonMatch[0])
+
+      if (jsonData.CustomerDetails) {
+        customerName = jsonData.CustomerDetails.CustomerName || '-'
+        jobName = jsonData.CustomerDetails.JobName || '-'
+        sheetSize = jsonData.CustomerDetails.SheetSize || '-'
+        orderQuantity = jsonData.CustomerDetails.OrderQuantity?.toLocaleString() || '-'
+        noOfUps = jsonData.CustomerDetails.Ups?.toString() || '-'
+        requiredSheets = jsonData.CustomerDetails.RequiredSheets?.toLocaleString() || '-'
+      }
+
+      if (jsonData.CostStructurePer1000) {
+        boardCost = jsonData.CostStructurePer1000.BoardCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+        otherMaterialCost = jsonData.CostStructurePer1000.OtherMaterialCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+        conversionCost = jsonData.CostStructurePer1000.ConversionCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+        profit = jsonData.CostStructurePer1000.Profit?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+        totalCost = jsonData.CostStructurePer1000.TotalCostPer1000?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+      }
+
+      if (jsonData.Status) {
+        status = jsonData.Status
+      }
     }
-    return <span key={index}>{part}</span>
+  } catch (e) {
+    // JSON parsing failed, fall back to text extraction
+    console.log('JSON parsing failed, using text extraction')
+  }
+
+  // If JSON parsing didn't work, try text extraction (old format)
+  if (customerName === '-' && jobName === '-') {
+    const extractValue = (labelPattern: string): string => {
+      const lines = text.split('\n')
+      for (const line of lines) {
+        const regex = new RegExp(labelPattern + '.+:\\s*(.+)', 'i')
+        const match = line.match(regex)
+        if (match && match[1]) {
+          return match[1].trim()
+        }
+      }
+      return '-'
+    }
+
+    customerName = extractValue('Customer Name')
+    jobName = extractValue('Job Name')
+    sheetSize = extractValue('Sheet Size')
+    orderQuantity = extractValue('Order Quantity')
+    noOfUps = extractValue('No\\.? of Ups')
+    requiredSheets = extractValue('Required Sheets')
+    boardCost = extractValue('Board Cost')
+    otherMaterialCost = extractValue('Other Material Cost')
+    conversionCost = extractValue('Conversion')
+    profit = extractValue('Profit')
+    totalCost = extractValue('TOTAL COST')
+  }
+
+  return (
+    <div className="w-full max-w-xl rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm">
+      {/* Header */}
+      <div className="px-3 py-2 flex items-center justify-between border-b border-gray-200 bg-[#2F4669]/5">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded bg-[#2F4669]/10 flex items-center justify-center">
+            <svg className="w-3 h-3 text-[#2F4669]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-semibold text-[#2F4669] text-xs">Costing Summary</h3>
+            <p className="text-gray-500 text-[10px]">{jobName !== '-' ? jobName : 'Costing'}</p>
+          </div>
+        </div>
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-[#005180] text-[#005180] bg-[#005180]/5">
+          BEST PLAN
+        </span>
+      </div>
+
+      {/* Customer & Sheet Info Cards */}
+      <div className="p-2 grid grid-cols-2 gap-2">
+        <div className="rounded-md border border-[#005180]/20 p-2 bg-[#005180]/5">
+          <p className="text-[#005180]/70 text-[10px] uppercase tracking-wide mb-0.5">Customer</p>
+          <p className="text-[#2F4669] text-xs font-medium truncate">{customerName}</p>
+        </div>
+        <div className="rounded-md border border-[#005180]/20 p-2 bg-[#005180]/5">
+          <p className="text-[#005180]/70 text-[10px] uppercase tracking-wide mb-0.5">Sheet Size</p>
+          <p className="text-[#2F4669] text-xs font-medium">{sheetSize}</p>
+        </div>
+        <div className="rounded-md border border-[#005180]/20 p-2 bg-[#005180]/5">
+          <p className="text-[#005180]/70 text-[10px] uppercase tracking-wide mb-0.5">Order Qty</p>
+          <p className="text-[#2F4669] text-xs font-medium">{orderQuantity}</p>
+        </div>
+        <div className="rounded-md border border-[#005180]/20 p-2 bg-[#005180]/5">
+          <p className="text-[#005180]/70 text-[10px] uppercase tracking-wide mb-0.5">Ups / Sheets</p>
+          <p className="text-[#2F4669] text-xs font-medium">{noOfUps} / {requiredSheets}</p>
+        </div>
+      </div>
+
+      {/* Cost Breakdown */}
+      <div className="px-3 pb-3">
+        <div className="flex items-center gap-1.5 mb-2">
+          <div className="w-0.5 h-3 bg-[#005180] rounded-full"></div>
+          <p className="text-gray-600 text-[10px] uppercase tracking-wide font-medium">Cost Breakdown (Per 1,000 Units)</p>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
+            <span className="text-gray-600 text-xs">Board Cost</span>
+            <span className="text-[#2F4669] text-xs font-medium">₹ {boardCost}</span>
+          </div>
+          <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
+            <span className="text-gray-600 text-xs">Other Material Cost</span>
+            <span className="text-[#2F4669] text-xs font-medium">₹ {otherMaterialCost}</span>
+          </div>
+          <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
+            <span className="text-gray-600 text-xs">Conversion Cost</span>
+            <span className="text-[#2F4669] text-xs font-medium">₹ {conversionCost}</span>
+          </div>
+          <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
+            <span className="text-[#005180] text-xs font-medium">Profit Margin</span>
+            <span className="text-green-600 text-xs font-medium">₹ {profit}</span>
+          </div>
+        </div>
+
+        {/* Total Cost */}
+        <div className="mt-3 rounded-md p-2 flex justify-between items-center bg-[#2F4669]/5 border border-[#2F4669]/20">
+          <span className="text-[#005180] text-xs font-semibold">TOTAL COST / 1,000</span>
+          <span className="text-[#005180] text-base font-bold">₹ {totalCost}</span>
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
+// Function to render text with markdown-style bold (**text**) and clickable links
+function renderTextWithBoldAndLinks(text: string): React.ReactNode[] {
+  // First split by URLs, then handle bold within each part
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+
+  return parts.map((part, index) => {
+    // Check if this part is a URL
+    if (urlRegex.test(part)) {
+      // Reset regex lastIndex
+      urlRegex.lastIndex = 0
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 underline hover:text-blue-700 break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      )
+    }
+
+    // Handle bold text within non-URL parts
+    const boldParts = part.split(/(\*\*[^*]+\*\*)/g)
+    return boldParts.map((boldPart, boldIndex) => {
+      if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
+        return <strong key={`${index}-${boldIndex}`}>{boldPart.slice(2, -2)}</strong>
+      }
+      return <span key={`${index}-${boldIndex}`}>{boldPart}</span>
+    })
   })
+}
+
+// Keep old function for backward compatibility
+function renderTextWithBold(text: string): React.ReactNode[] {
+  return renderTextWithBoldAndLinks(text)
 }
 
 // Function to parse numbered options from message text
@@ -523,9 +710,33 @@ export function AICostingChat({
                                     /which\s+category/i.test(aiResponseText) ||
                                     /\*\*Customers:\*\*/i.test(aiResponseText) ||
                                     /Categories:/i.test(aiResponseText)
+
+          // Check if this is a YES/NO confirmation message (estimation confirmation)
+          const isYesNoConfirmation = /Reply with:\s*\n?\s*YES\s+[–-]\s+Save/i.test(aiResponseText) ||
+                                      /YES\s+[–-]\s+Save.*NO\s+[–-]\s+Discard/i.test(aiResponseText)
+
           // Check if multi-select should be enabled for processes
           const isMultiSelect = /select\s+processes/i.test(aiResponseText)
-          const { cleanText, options } = parseOptions(aiResponseText)
+          let { cleanText, options } = parseOptions(aiResponseText)
+
+          // If it's a YES/NO confirmation, override options
+          if (isYesNoConfirmation) {
+            // Remove the "Reply with:" section from display text
+            cleanText = aiResponseText.replace(/Reply with:[\s\S]*$/i, '').trim()
+            options = ['YES', 'NO']
+          }
+
+          // Check if this is a Job Specification Summary message with Confirm/Modify options
+          const isJobSpecSummary = /Job Specification Summary/i.test(aiResponseText) &&
+                                   (/Confirm.*Generate.*Costing/i.test(aiResponseText) ||
+                                    /Modify.*Details/i.test(aiResponseText))
+
+          if (isJobSpecSummary) {
+            // Remove the numbered options from display text
+            cleanText = aiResponseText.replace(/\d+\.\s*[✅❌]?\s*(Confirm.*|Modify.*)$/gim, '').trim()
+            cleanText = cleanText.replace(/What would you like to do\?/i, '').trim()
+            options = ['CONFIRM', 'MODIFY']
+          }
 
           // Extract BookingID from response for PDF download
           let extractedBookingId: number | string | undefined = undefined
@@ -553,12 +764,13 @@ export function AICostingChat({
             }
           }
 
+          const showOptionsButtons = (shouldShowButtons && options.length > 0) || isYesNoConfirmation || isJobSpecSummary
           const aiMessage: Message = {
             id: `${Date.now()}-ai`,
-            content: shouldShowButtons && options.length > 0 ? cleanText : aiResponseText,
+            content: showOptionsButtons ? cleanText : aiResponseText,
             sender: "ai",
             timestamp: new Date(),
-            options: shouldShowButtons && options.length > 0 ? options : undefined,
+            options: showOptionsButtons ? options : undefined,
             allowMultiSelect: isMultiSelect,
             bookingId: extractedBookingId,
           }
@@ -582,6 +794,8 @@ export function AICostingChat({
         setMessages((prev) => [...prev, errorMessage])
       } finally {
         setIsTyping(false)
+        // Focus back on input after sending
+        setTimeout(() => inputRef.current?.focus(), 100)
       }
     },
     [isNewChat, conversationId]
@@ -694,6 +908,84 @@ export function AICostingChat({
     return () => timers.forEach(timer => clearTimeout(timer))
   }, [messages, isTyping])
 
+  // Auto-focus on input - always keep cursor in input box
+  useEffect(() => {
+    // Focus on mount - more aggressive timing
+    const focusInput = () => {
+      if (inputRef.current) {
+        inputRef.current.focus()
+      }
+    }
+
+    // Initial focus after component mounts with multiple attempts
+    focusInput()
+    const timers = [
+      setTimeout(focusInput, 50),
+      setTimeout(focusInput, 100),
+      setTimeout(focusInput, 300),
+      setTimeout(focusInput, 500),
+      setTimeout(focusInput, 1000),
+    ]
+
+    return () => timers.forEach(timer => clearTimeout(timer))
+  }, [])
+
+  // Focus on input after loading completes
+  useEffect(() => {
+    if (!isInitialLoading && inputRef.current) {
+      const timers = [
+        setTimeout(() => inputRef.current?.focus(), 50),
+        setTimeout(() => inputRef.current?.focus(), 200),
+      ]
+      return () => timers.forEach(timer => clearTimeout(timer))
+    }
+  }, [isInitialLoading])
+
+  // Focus on input after AI stops typing (response received)
+  useEffect(() => {
+    if (!isTyping && inputRef.current) {
+      const timers = [
+        setTimeout(() => inputRef.current?.focus(), 50),
+        setTimeout(() => inputRef.current?.focus(), 200),
+      ]
+      return () => timers.forEach(timer => clearTimeout(timer))
+    }
+  }, [isTyping])
+
+  // Focus on input after messages change (new message received)
+  useEffect(() => {
+    if (inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }, [messages])
+
+  // Refocus on input when window/document gets focus or after button click
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      setTimeout(() => inputRef.current?.focus(), 50)
+    }
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // After clicking a button, focus on input after a delay
+      if (target.closest('button')) {
+        setTimeout(() => inputRef.current?.focus(), 150)
+      }
+      // If clicking anywhere else (not textarea, button, or link), also focus
+      else if (!target.closest('textarea') && !target.closest('a')) {
+        setTimeout(() => inputRef.current?.focus(), 50)
+      }
+    }
+
+    window.addEventListener('focus', handleWindowFocus)
+    document.addEventListener('click', handleClick)
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus)
+      document.removeEventListener('click', handleClick)
+    }
+  }, [])
+
   const handleSendMessage = () => {
     if (!inputValue.trim()) return
 
@@ -792,8 +1084,30 @@ export function AICostingChat({
         }
       })
     } else {
-      // Single select - send immediately
-      sendChatMessage(option)
+      // Handle special CONFIRM/MODIFY buttons for Job Specification Summary
+      if (option === 'CONFIRM') {
+        // Send confirm message directly
+        sendChatMessage('Confirm & Generate Costing')
+        // Focus on input after action
+        setTimeout(() => inputRef.current?.focus(), 100)
+      } else if (option === 'MODIFY') {
+        // Put "Modify: " in input box and focus
+        setInputValue('Modify: ')
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus()
+            // Move cursor to end
+            const len = inputRef.current.value?.length || 0
+            inputRef.current.setSelectionRange(len, len)
+          }
+        }, 100)
+        return // Don't send message, let user complete it
+      } else {
+        // Single select - send immediately
+        sendChatMessage(option)
+        // Focus on input after action
+        setTimeout(() => inputRef.current?.focus(), 100)
+      }
 
       // Force scroll after option is selected
       setTimeout(() => {
@@ -821,7 +1135,7 @@ export function AICostingChat({
         return newState
       })
 
-      // Force scroll
+      // Force scroll and focus on input
       setTimeout(() => {
         if (scrollAreaRef.current) {
           const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
@@ -829,6 +1143,7 @@ export function AICostingChat({
             scrollContainer.scrollTop = scrollContainer.scrollHeight
           }
         }
+        inputRef.current?.focus()
       }, 100)
     }
   }
@@ -1300,13 +1615,15 @@ export function AICostingChat({
                     onTouchEnd={handleLongPressEnd}
                     onTouchCancel={handleLongPressEnd}
                   >
-                    {renderTextWithBold(message.content)}
+                    {/* Check if this is a costing summary - render as table */}
+                    {renderCostingSummary(message.content) || renderTextWithBold(message.content)}
                   </div>
 
-                  {/* Show check icon when copied */}
+                  {/* Show "Copied" badge when copied */}
                   {copiedMessageId === message.id && (
-                    <div className="absolute -top-2 -right-2 h-7 w-7 flex items-center justify-center bg-green-500 rounded-full shadow-sm">
-                      <Check className="h-4 w-4 text-white" />
+                    <div className="absolute -top-3 -right-2 flex items-center gap-1 bg-green-500 text-white px-2 py-1 rounded-full shadow-md text-xs font-medium">
+                      <Check className="h-3 w-3" />
+                      <span>Copied</span>
                     </div>
                   )}
                 </div>
@@ -1314,10 +1631,18 @@ export function AICostingChat({
 
               {/* Display option buttons only when message contains "select" */}
               {message.options && message.options.length > 0 && (
-                <div className="flex flex-col gap-2 mt-3 ml-0 max-w-[45%]">
+                <div className={`mt-3 ml-0 ${
+                  // Check if it's YES/NO or CONFIRM/MODIFY buttons - show in row
+                  (message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
+                  (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))
+                    ? 'flex flex-row gap-3'
+                    : 'flex flex-col gap-2 max-w-[45%]'
+                }`}>
                   {message.options.map((option, optionIndex) => {
                     const isMultiSelect = message.allowMultiSelect || false
                     const isSelected = isMultiSelect && (selectedOptions[message.id] || []).includes(option)
+                    const isYesNo = message.options?.length === 2 && message.options.includes('YES') && message.options.includes('NO')
+                    const isConfirmModify = message.options?.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY')
 
                     return (
                       <Button
@@ -1325,14 +1650,22 @@ export function AICostingChat({
                         variant={isSelected ? "default" : "outline"}
                         onClick={() => handleOptionSelect(option, message.id, isMultiSelect)}
                         disabled={isTyping}
-                        className={`justify-start text-left h-auto py-3 px-4 transition-all w-full ${
-                          isSelected
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "hover:bg-primary/10 hover:border-primary"
+                        className={`justify-center text-center h-auto py-3 px-6 transition-all ${
+                          isYesNo
+                            ? option === 'YES'
+                              ? 'bg-transparent text-green-600 hover:bg-green-50 border-2 border-green-600'
+                              : 'bg-transparent text-red-600 hover:bg-red-50 border-2 border-red-600'
+                            : isConfirmModify
+                              ? option === 'CONFIRM'
+                                ? 'bg-transparent text-green-600 hover:bg-green-50 border-2 border-green-600'
+                                : 'bg-transparent text-orange-500 hover:bg-orange-50 border-2 border-orange-500'
+                              : isSelected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "hover:bg-primary/10 hover:border-primary w-full justify-start text-left"
                         }`}
                       >
-                        <span className="font-semibold mr-2 text-primary">{optionIndex + 1}.</span>
-                        <span>{option}</span>
+                        {!isYesNo && !isConfirmModify && <span className="font-semibold mr-2 text-primary">{optionIndex + 1}.</span>}
+                        <span>{option === 'CONFIRM' ? 'Confirm' : option === 'MODIFY' ? 'Modify' : option}</span>
                       </Button>
                     )
                   })}
@@ -1433,6 +1766,7 @@ export function AICostingChat({
             placeholder={isListening ? "Listening..." : "Message AI Assistant..."}
             className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[40px] max-h-[120px] py-2"
             rows={1}
+            autoFocus
             style={{
               height: 'auto',
               overflow: inputValue.split('\n').length > 3 ? 'auto' : 'hidden'

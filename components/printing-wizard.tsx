@@ -119,6 +119,8 @@ interface JobData {
     qty: number
     costs: Costs
   }>
+  remark?: string
+  fileName?: string
 }
 
 const steps = [
@@ -1086,8 +1088,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             SizeZipperLength: 0,
             ZipperWeightPerMeter: 0,
             JobSizeInputUnit: 'MM',
-            LedgerID: 0,
-            ShowPlanUptoWastePercent: 100
+            LedgerID: planningResults?.[0]?.LedgerID || 0,
+            Process: '',
+            JobName: jobData.jobName || '',
+            ClientName: jobData.clientName || '',
+            ShowPlanUptoWastePercent: 100,
+            AnnualQuantity: Number(jobData.annualQuantity) || Number(jobData.quantity) || 0
           }
 
           // Validate we have EnquiryID before proceeding
@@ -1118,6 +1124,23 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             Source: 'KAM APP',
           }
 
+          // Log to both clientLogger and console for visibility
+          const fullRequestBody = {
+            CostignParams: costingParams,
+            EnquiryData: enquiryData
+          }
+
+          console.log('\n' + '='.repeat(80))
+          console.log('🚀 CREATE QUOTATION - API CALL')
+          console.log('='.repeat(80))
+          console.log('📍 API Endpoint: POST https://api.indusanalytics.co.in/api/parksons/directcosting')
+          console.log('='.repeat(80))
+          console.log('🔑 EnquiryID:', enquiryNumber || 0)
+          console.log('='.repeat(80))
+          console.log('📤 FULL REQUEST BODY:')
+          console.log(JSON.stringify(fullRequestBody, null, 2))
+          console.log('='.repeat(80) + '\n')
+
           clientLogger.log('\n' + '='.repeat(80))
           clientLogger.log('API CALL #1: DirectCosting (to get BookingID)')
           clientLogger.log('='.repeat(80))
@@ -1133,13 +1156,15 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           clientLogger.log('\n📤 REQUEST BODY - EnquiryData:')
           clientLogger.log(JSON.stringify(enquiryData, null, 2))
           clientLogger.log('\n📤 FULL REQUEST BODY:')
-          clientLogger.log(JSON.stringify({
-            CostignParams: costingParams,
-            EnquiryData: enquiryData
-          }, null, 2))
+          clientLogger.log(JSON.stringify(fullRequestBody, null, 2))
           clientLogger.log('='.repeat(80) + '\n')
 
           const bookingResponse = await createBooking(costingParams, enquiryData)
+
+          console.log('\n' + '='.repeat(80))
+          console.log('✅ RESPONSE from DirectCosting:')
+          console.log(JSON.stringify(bookingResponse, null, 2))
+          console.log('='.repeat(80) + '\n')
 
           clientLogger.log('\n' + '='.repeat(80))
           clientLogger.log('DirectCosting Response:')

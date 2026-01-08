@@ -285,6 +285,62 @@ export async function deleteDraft(draftId: number): Promise<any> {
 }
 
 /**
+ * Delete drafts older than specified days
+ * @param days - Number of days (default 7)
+ * @returns Promise with the cleanup result
+ */
+export async function deleteOldDrafts(days: number = 7): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+  try {
+    // First get all drafts
+    const result = await getAllDrafts()
+
+    if (!result.success || !result.data) {
+      return { success: false, deletedCount: 0, error: result.error || 'Failed to fetch drafts' }
+    }
+
+    const now = new Date()
+    const cutoffDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000))
+
+    // Find drafts older than cutoff date
+    const oldDrafts = result.data.filter(draft => {
+      const draftDate = new Date(draft.UpdatedAt || draft.CreatedAt)
+      return draftDate < cutoffDate
+    })
+
+    logger.log(`[Delete Old Drafts] Found ${oldDrafts.length} drafts older than ${days} days`)
+
+    let deletedCount = 0
+    const errors: string[] = []
+
+    // Delete each old draft
+    for (const draft of oldDrafts) {
+      try {
+        await deleteDraft(draft.DraftID)
+        deletedCount++
+        logger.log(`[Delete Old Drafts] Deleted draft ${draft.DraftID}: ${draft.DraftName}`)
+      } catch (error) {
+        const errorMsg = `Failed to delete draft ${draft.DraftID}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`[Delete Old Drafts] ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    return {
+      success: true,
+      deletedCount,
+      error: errors.length > 0 ? errors.join('; ') : undefined
+    }
+  } catch (error) {
+    logger.error('[Delete Old Drafts] Error:', error)
+    return {
+      success: false,
+      deletedCount: 0,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
  * Get mock draft data for development/testing
  * Use this as fallback when the API is unavailable
  */

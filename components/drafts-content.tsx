@@ -31,7 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { getAllDrafts, getMockDrafts, loadDraft, deleteDraft, renameDraft, type DraftRecord } from "@/lib/drafts-api"
+import { getAllDrafts, getMockDrafts, loadDraft, deleteDraft, renameDraft, deleteOldDrafts, type DraftRecord } from "@/lib/drafts-api"
 import { useToast } from "@/hooks/use-toast"
 import { clientLogger } from "@/lib/logger"
 
@@ -68,6 +68,12 @@ export function DraftsContent() {
     setError(null)
     setUsingMockData(false)
     try {
+      // First, cleanup old drafts (older than 7 days)
+      const cleanupResult = await deleteOldDrafts(7)
+      if (cleanupResult.deletedCount > 0) {
+        clientLogger.log(`[Drafts Cleanup] Deleted ${cleanupResult.deletedCount} old drafts`)
+      }
+
       const result = await getAllDrafts()
       if (result.success && result.data) {
         setDraftRecords(result.data)
