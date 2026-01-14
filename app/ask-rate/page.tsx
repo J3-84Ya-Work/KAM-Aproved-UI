@@ -4,21 +4,23 @@ import { useState, useCallback, useEffect } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Clock, CheckCircle, RefreshCw, AlertCircle } from "lucide-react"
+import { Send, MessageSquare, Clock, CheckCircle, AlertCircle, Package, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { getUserRateRequests, createRateRequest } from "@/lib/rate-queries-api"
 import { getCurrentUser } from "@/lib/permissions"
 import { formatDistanceToNow, differenceInHours } from "date-fns"
 import { RequestTimeline } from "@/components/request-timeline"
 import { clientLogger } from "@/lib/logger"
-import { getItemsListAPI, getItemMasterListAPI, getUsersAPI } from "@/lib/api-config"
+import { getItemMasterListAPI, getUsersAPI } from "@/lib/api-config"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
+import { MasterDataAPI } from "@/lib/api/enquiry"
 
 interface RateQuery {
   requestId: number
@@ -61,13 +63,33 @@ export default function AskRatePage() {
   const [selectedRequestForTimeline, setSelectedRequestForTimeline] = useState<RateQuery | null>(null)
   const [requestFilter, setRequestFilter] = useState<"all" | "answered" | "unanswered">("all")
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest")
-  const [items, setItems] = useState<any[]>([])
-  const [selectedItem, setSelectedItem] = useState<string>("")
-  const [loadingItems, setLoadingItems] = useState(false)
   const [groups, setGroups] = useState<any[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string>("")
   const [loadingGroups, setLoadingGroups] = useState(false)
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+
+  // New cascading dropdown states
+  const [productionUnits, setProductionUnits] = useState<any[]>([])
+  const [selectedProductionUnit, setSelectedProductionUnit] = useState<string>("")
+  const [loadingProductionUnits, setLoadingProductionUnits] = useState(false)
+
+  const [qualities, setQualities] = useState<any[]>([])
+  const [selectedQuality, setSelectedQuality] = useState<string>("")
+  const [loadingQualities, setLoadingQualities] = useState(false)
+
+  const [gsmList, setGsmList] = useState<any[]>([])
+  const [selectedGsmFrom, setSelectedGsmFrom] = useState<string>("")
+  const [selectedGsmTo, setSelectedGsmTo] = useState<string>("")
+  const [loadingGsm, setLoadingGsm] = useState(false)
+
+  const [mills, setMills] = useState<any[]>([])
+  const [selectedMill, setSelectedMill] = useState<string>("")
+  const [loadingMills, setLoadingMills] = useState(false)
+
+  // Items popup state
+  const [showItemsPopup, setShowItemsPopup] = useState(false)
+  const [filteredItems, setFilteredItems] = useState<any[]>([])
+  const [loadingItems, setLoadingItems] = useState(false)
 
   const handleMenuToggle = useCallback((toggle: () => void) => {
     setToggleMenu(() => toggle)
@@ -106,10 +128,32 @@ export default function AskRatePage() {
     }
   }
 
-  // Clear item selection when group changes
+  // Clear cascading selections when group changes
   const handleGroupChange = (groupId: string) => {
     setSelectedGroup(groupId)
-    setSelectedItem("") // Clear item when group changes
+    setSelectedQuality("") // Clear quality when group changes
+    setSelectedGsmFrom("") // Clear GSM from when group changes
+    setSelectedGsmTo("") // Clear GSM to when group changes
+    setSelectedMill("") // Clear mill when group changes
+  }
+
+  // Clear GSM and Mill when quality changes
+  const handleQualityChange = (quality: string) => {
+    setSelectedQuality(quality)
+    setSelectedGsmFrom("")
+    setSelectedGsmTo("")
+    setSelectedMill("")
+  }
+
+  // Get selected quality name for display
+  const getSelectedQualityName = () => {
+    if (!selectedQuality) return ""
+    const quality = qualities.find(q => {
+      const qualityValue = q.Quality || q.quality || q.Name || q
+      return qualityValue === selectedQuality
+    })
+    if (!quality) return selectedQuality
+    return quality.Quality || quality.quality || quality.Name || selectedQuality
   }
 
   // Get selected group name for display
@@ -121,44 +165,11 @@ export default function AskRatePage() {
     return groupName.replace(/^[-,\s]+/, '').trim()
   }
 
-  // Get selected item name for display
-  const getSelectedItemName = () => {
-    if (!selectedItem) return ""
-    const item = items.find(i => String(i.ItemID || i.id) === selectedItem)
-    if (!item) return ""
-    // Use ItemName field from the API response
-    const itemName = item.ItemName || item.Name || item.name || ""
-    return itemName.replace(/^[-,\s]+/, '').trim()
-  }
-
   // Get current user
   useEffect(() => {
     const user = getCurrentUser()
     setCurrentUser(user)
   }, [])
-
-  // Fetch items list when group is selected
-  useEffect(() => {
-    if (!selectedGroup) {
-      setItems([])
-      return
-    }
-
-    const fetchItems = async () => {
-      setLoadingItems(true)
-      try {
-        const itemsList = await getItemsListAPI(selectedGroup)
-        setItems(itemsList)
-        clientLogger.log('Items list fetched for group:', selectedGroup, itemsList)
-      } catch (error) {
-        clientLogger.error('Error fetching items:', error)
-      } finally {
-        setLoadingItems(false)
-      }
-    }
-
-    fetchItems()
-  }, [selectedGroup])
 
   // Fetch groups list for dropdown
   useEffect(() => {
@@ -177,6 +188,115 @@ export default function AskRatePage() {
 
     fetchGroups()
   }, [])
+
+  // Fetch production units on mount
+  useEffect(() => {
+    const fetchProductionUnits = async () => {
+      setLoadingProductionUnits(true)
+      try {
+        const result = await MasterDataAPI.getProductionUnits(null)
+        if (result.success) {
+          setProductionUnits(result.data)
+          clientLogger.log('Production units fetched:', result.data)
+        }
+      } catch (error) {
+        clientLogger.error('Error fetching production units:', error)
+      } finally {
+        setLoadingProductionUnits(false)
+      }
+    }
+
+    fetchProductionUnits()
+  }, [])
+
+  // Fetch qualities when Item Group is selected
+  useEffect(() => {
+    if (!selectedGroup) {
+      setQualities([])
+      setSelectedQuality("")
+      return
+    }
+
+    const fetchQualities = async () => {
+      setLoadingQualities(true)
+      try {
+        const result = await MasterDataAPI.getQualitiesByItemGroup(parseInt(selectedGroup), null)
+        if (result.success) {
+          setQualities(result.data)
+          clientLogger.log('Qualities fetched for group:', selectedGroup, result.data)
+        }
+      } catch (error) {
+        clientLogger.error('Error fetching qualities:', error)
+      } finally {
+        setLoadingQualities(false)
+      }
+    }
+
+    fetchQualities()
+  }, [selectedGroup])
+
+  // Fetch GSM and Mills when Quality is selected
+  useEffect(() => {
+    if (!selectedGroup || !selectedQuality) {
+      setGsmList([])
+      setMills([])
+      setSelectedGsmFrom("")
+      setSelectedGsmTo("")
+      setSelectedMill("")
+      return
+    }
+
+    const fetchGsmAndMills = async () => {
+      setLoadingGsm(true)
+      setLoadingMills(true)
+
+      try {
+        // Fetch GSM values
+        const gsmResult = await MasterDataAPI.getGSMByItemGroupAndQuality(
+          parseInt(selectedGroup),
+          selectedQuality,
+          null
+        )
+        if (gsmResult.success) {
+          setGsmList(gsmResult.data)
+          clientLogger.log('GSM values fetched:', gsmResult.data)
+        }
+
+        // Fetch Mill values
+        const millResult = await MasterDataAPI.getMillByItemGroupAndQuality(
+          parseInt(selectedGroup),
+          selectedQuality,
+          null
+        )
+        console.log('Mill API result:', millResult)
+        if (millResult.success && millResult.data) {
+          // Handle different response formats for mills
+          let millData = millResult.data
+          // If response is an object with a nested array, extract it
+          if (!Array.isArray(millData) && typeof millData === 'object') {
+            millData = millData.data || millData.Data || millData.mills || millData.Mills || [millData]
+          }
+          // If it's still not an array, wrap it
+          if (!Array.isArray(millData)) {
+            millData = [millData]
+          }
+          console.log('Processed mills data:', millData)
+          setMills(millData)
+          clientLogger.log('Mills fetched:', millData)
+        } else {
+          console.log('Mill API failed or no data:', millResult.error)
+          setMills([])
+        }
+      } catch (error) {
+        clientLogger.error('Error fetching GSM/Mills:', error)
+      } finally {
+        setLoadingGsm(false)
+        setLoadingMills(false)
+      }
+    }
+
+    fetchGsmAndMills()
+  }, [selectedGroup, selectedQuality])
 
   // Fetch user's rate requests
   const fetchMyRequests = useCallback(async () => {
@@ -205,6 +325,44 @@ export default function AskRatePage() {
     }
   }, [currentUser, fetchMyRequests])
 
+  // Handle Show Items button click
+  const handleShowItems = async () => {
+    if (!selectedGroup || !selectedProductionUnit || !selectedQuality || !selectedGsmFrom || !selectedGsmTo) {
+      alert('Please select Item Group, Production Unit, Quality, and GSM Range first')
+      return
+    }
+
+    setLoadingItems(true)
+    setShowItemsPopup(true)
+
+    try {
+      const requestBody = {
+        ItemGroupID: parseInt(selectedGroup),
+        PlantID: parseInt(selectedProductionUnit),
+        Quality: selectedQuality,
+        GSMFrom: selectedGsmFrom,
+        GSMTo: selectedGsmTo,
+        Mill: selectedMill || ""
+      }
+
+      console.log('Show Items Request:', requestBody)
+
+      const result = await MasterDataAPI.getFilteredItemList(requestBody, null)
+
+      if (result.success) {
+        setFilteredItems(result.data)
+      } else {
+        console.error('Failed to fetch items:', result.error)
+        setFilteredItems([])
+      }
+    } catch (error) {
+      console.error('Error fetching items:', error)
+      setFilteredItems([])
+    } finally {
+      setLoadingItems(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -218,40 +376,128 @@ export default function AskRatePage() {
       return
     }
 
-    if (!selectedItem) {
-      alert('Please select an item')
+    if (!selectedProductionUnit) {
+      alert('Please select a production unit')
       return
     }
 
     if (!selectedGroup) {
-      alert('Please select a group')
+      alert('Please select an item group')
+      return
+    }
+
+    if (!selectedQuality) {
+      alert('Please select a quality')
+      return
+    }
+
+    if (!selectedGsmFrom || !selectedGsmTo) {
+      alert('Please select GSM range (from and to)')
       return
     }
 
     setIsSubmitting(true)
     try {
-      // Get selected item details
-      const selectedItemData = items.find(i => String(i.ItemID || i.id) === selectedItem)
+      // Get selected group details
+      const selectedGroupData = groups.find(g => String(g.ItemGroupID || g.GroupID || g.id) === selectedGroup)
+      const groupName = selectedGroupData?.ItemGroupName || selectedGroupData?.GroupName || selectedGroupData?.Name || ""
 
-      const itemName = selectedItemData?.ItemName || selectedItemData?.Name || selectedItemData?.name || ""
-      const itemCode = selectedItemData?.ItemCode || selectedItemData?.Code || ""
+      // Build items array from filtered items (if available) or fetch them
+      let itemsArray: Array<{
+        ItemGroupID: number
+        PlantID: number
+        ItemID: number
+        EstimationRate: number
+      }> = []
 
-      const result = await createRateRequest({
+      // If we have filtered items from "Show Items", use them
+      if (filteredItems.length > 0) {
+        itemsArray = filteredItems.map(item => ({
+          ItemGroupID: parseInt(selectedGroup),
+          PlantID: parseInt(selectedProductionUnit),
+          ItemID: item.ItemID || item.itemId || item.ID || item.id || 0,
+          EstimationRate: 0 // Rate will be provided by purchase team
+        }))
+      } else {
+        // Fetch items if not already fetched
+        const requestBody = {
+          ItemGroupID: parseInt(selectedGroup),
+          PlantID: parseInt(selectedProductionUnit),
+          Quality: selectedQuality,
+          GSMFrom: selectedGsmFrom,
+          GSMTo: selectedGsmTo,
+          Mill: selectedMill || ""
+        }
+        const itemsResult = await MasterDataAPI.getFilteredItemList(requestBody, null)
+        if (itemsResult.success && itemsResult.data.length > 0) {
+          itemsArray = itemsResult.data.map((item: any) => ({
+            ItemGroupID: parseInt(selectedGroup),
+            PlantID: parseInt(selectedProductionUnit),
+            ItemID: item.ItemID || item.itemId || item.ID || item.id || 0,
+            EstimationRate: 0
+          }))
+        }
+      }
+
+      // Log the request body to console
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📤 RATE REQUEST BODY:')
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📋 Selection Details:')
+      console.log('  - Item Group:', groupName, '(ID:', selectedGroup, ')')
+      console.log('  - Production Unit ID:', selectedProductionUnit)
+      console.log('  - Quality:', selectedQuality)
+      console.log('  - GSM Range:', selectedGsmFrom, '-', selectedGsmTo)
+      console.log('  - Mill:', selectedMill || 'Not selected')
+      console.log('  - Question:', message.trim())
+      console.log('  - Total Items:', itemsArray.length)
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📦 Items Array:')
+      console.log(JSON.stringify(itemsArray, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      // Build the request message with all the selected details
+      const fullMessage = `
+Item Group: ${groupName}
+Quality: ${selectedQuality}
+GSM Range: ${selectedGsmFrom} - ${selectedGsmTo}
+${selectedMill ? `Mill: ${selectedMill}` : ''}
+
+Question: ${message.trim()}
+      `.trim()
+
+      // Get selected person's email for assignedToEmail
+      const selectedPersonData = teamMembers.find(p => p.id === selectedPerson)
+      const assignedToEmail = selectedPersonData?.email || ""
+
+      const requestPayload = {
         requestorId: 2, // You can map this to actual user ID
         department: department,
-        requestMessage: message.trim(),
-        ItemCode: itemCode,
-        ItemID: selectedItem,
-        ItemName: itemName,
-        PlantID: "2" // Default plant ID, can be made dynamic if needed
-      })
+        requestMessage: fullMessage,
+        assignedToEmail: assignedToEmail,
+        ItemCode: "",
+        ItemID: itemsArray.length > 0 ? String(itemsArray[0].ItemID) : "",
+        ItemName: groupName,
+        PlantID: selectedProductionUnit,
+        items: itemsArray
+      }
+
+      console.log('📤 FULL REQUEST PAYLOAD:')
+      console.log(JSON.stringify(requestPayload, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const result = await createRateRequest(requestPayload)
 
       if (result.success) {
         alert('✅ Rate request sent successfully!')
         setMessage("")
         setSelectedPerson("")
-        setSelectedItem("")
+        setSelectedProductionUnit("")
         setSelectedGroup("")
+        setSelectedQuality("")
+        setSelectedGsmFrom("")
+        setSelectedGsmTo("")
+        setSelectedMill("")
         setDepartment("Purchase")
         await fetchMyRequests()
       } else {
@@ -276,6 +522,29 @@ export default function AskRatePage() {
       default:
         return <Badge variant="outline">{status}</Badge>
     }
+  }
+
+  // Parse request message to extract structured data
+  const parseRequestMessage = (message: string) => {
+    const result: { itemGroup?: string; quality?: string; gsmRange?: string; mill?: string; question?: string } = {}
+
+    const lines = message.split('\n').map(l => l.trim()).filter(Boolean)
+
+    for (const line of lines) {
+      if (line.startsWith('Item Group:')) {
+        result.itemGroup = line.replace('Item Group:', '').trim()
+      } else if (line.startsWith('Quality:')) {
+        result.quality = line.replace('Quality:', '').trim()
+      } else if (line.startsWith('GSM Range:')) {
+        result.gsmRange = line.replace('GSM Range:', '').trim()
+      } else if (line.startsWith('Mill:')) {
+        result.mill = line.replace('Mill:', '').trim()
+      } else if (line.startsWith('Question:')) {
+        result.question = line.replace('Question:', '').trim()
+      }
+    }
+
+    return result
   }
 
   const pendingRequests = myRequests.filter(r => r.currentStatus?.toLowerCase() === 'pending')
@@ -354,105 +623,19 @@ export default function AskRatePage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="person">Select Person *</Label>
-                  <Select value={selectedPerson} onValueChange={handlePersonChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose team member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map((person) => (
-                        <SelectItem key={person.id} value={person.id}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{person.name}</span>
-                            <span className="text-xs text-gray-500">({person.email})</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedPerson && (
-                    <Badge
-                      variant="outline"
-                      className={`mt-2 ${
-                        department === "Purchase"
-                          ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
-                          : "bg-purple-50 text-purple-700 border-purple-200 font-medium"
-                      }`}
-                    >
-                      {department}
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Group and Item in one row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="group">Select Group *</Label>
-                    <Select value={selectedGroup} onValueChange={handleGroupChange} disabled={loadingGroups}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={loadingGroups ? "Loading groups..." : "Choose a group"}>
-                        {selectedGroup ? getSelectedGroupName() : null}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="max-w-md">
-                      <div className="p-2 border-b sticky top-0 bg-white z-10">
-                        <input
-                          type="text"
-                          placeholder="Search groups..."
-                          className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          onChange={(e) => {
-                            const searchValue = e.target.value.toLowerCase()
-                            const selectContent = e.target.closest('[role="listbox"]')
-                            if (selectContent) {
-                              const items = selectContent.querySelectorAll('[role="option"]')
-                              items.forEach((item) => {
-                                const text = item.textContent?.toLowerCase() || ''
-                                if (text.includes(searchValue)) {
-                                  (item as HTMLElement).style.display = ''
-                                } else {
-                                  (item as HTMLElement).style.display = 'none'
-                                }
-                              })
-                            }
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                      <div className="overflow-x-auto">
-                        {groups.map((group, index) => {
-                          const groupName = group.ItemGroupName || group.GroupName || group.Name || group.name || `Group ${index + 1}`
-                          // Remove leading "-, " or "-" and trim whitespace
-                          const cleanedName = groupName.replace(/^[-,\s]+/, '').trim()
-
-                          return (
-                            <SelectItem
-                              key={group.ItemGroupID || group.GroupID || group.id || index}
-                              value={String(group.ItemGroupID || group.GroupID || group.id || index)}
-                              className="whitespace-nowrap"
-                            >
-                              {cleanedName}
-                            </SelectItem>
-                          )
-                        })}
-                      </div>
-                    </SelectContent>
-                  </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="item">Select Item *</Label>
-                    <Select value={selectedItem} onValueChange={setSelectedItem} disabled={!selectedGroup || loadingItems}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={!selectedGroup ? "Select group first" : loadingItems ? "Loading items..." : "Choose an item"}>
-                          {selectedItem ? getSelectedItemName() : null}
-                        </SelectValue>
+                {/* Row 1: Select Person & Production Unit */}
+                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="person" className="text-sm">Select Person <span className="text-red-500">*</span></Label>
+                    <Select value={selectedPerson} onValueChange={handlePersonChange}>
+                      <SelectTrigger className="w-full truncate">
+                        <SelectValue placeholder="Choose team member" />
                       </SelectTrigger>
-                      <SelectContent className="max-w-md">
+                      <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
                         <div className="p-2 border-b sticky top-0 bg-white z-10">
                           <input
                             type="text"
-                            placeholder="Search items..."
+                            placeholder="Search persons..."
                             className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             onChange={(e) => {
                               const searchValue = e.target.value.toLowerCase()
@@ -472,20 +655,72 @@ export default function AskRatePage() {
                             onClick={(e) => e.stopPropagation()}
                           />
                         </div>
-                        <div className="overflow-x-auto">
-                          {items.map((item, index) => {
-                            // Use ItemName field from the API response
-                            const itemName = item.ItemName || item.Name || item.name || `Item ${index + 1}`
-                            // Remove leading "-, " or "-" and trim whitespace
-                            const cleanedName = itemName.replace(/^[-,\s]+/, '').trim()
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {teamMembers.map((person) => (
+                            <SelectItem key={person.id} value={person.id} className="truncate">
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="font-medium truncate">{person.name}</span>
+                                <span className="text-xs text-gray-500 truncate hidden sm:inline">({person.email})</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                    {selectedPerson && (
+                      <Badge
+                        variant="outline"
+                        className={`mt-2 ${
+                          department === "Purchase"
+                            ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
+                            : "bg-purple-50 text-purple-700 border-purple-200 font-medium"
+                        }`}
+                      >
+                        {department}
+                      </Badge>
+                    )}
+                  </div>
 
+                  <div className="min-w-0">
+                    <Label htmlFor="productionUnit" className="text-sm">Production Unit <span className="text-red-500">*</span></Label>
+                    <Select value={selectedProductionUnit} onValueChange={setSelectedProductionUnit} disabled={loadingProductionUnits}>
+                      <SelectTrigger className="w-full truncate">
+                        <SelectValue placeholder={loadingProductionUnits ? "Loading..." : "Select production unit"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
+                        <div className="p-2 border-b sticky top-0 bg-white z-10">
+                          <input
+                            type="text"
+                            placeholder="Search production units..."
+                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => {
+                              const searchValue = e.target.value.toLowerCase()
+                              const selectContent = e.target.closest('[role="listbox"]')
+                              if (selectContent) {
+                                const items = selectContent.querySelectorAll('[role="option"]')
+                                items.forEach((item) => {
+                                  const text = item.textContent?.toLowerCase() || ''
+                                  if (text.includes(searchValue)) {
+                                    (item as HTMLElement).style.display = ''
+                                  } else {
+                                    (item as HTMLElement).style.display = 'none'
+                                  }
+                                })
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {productionUnits.map((unit, index) => {
+                            const unitName = unit.ProductionUnitName || unit.Name || unit.name || `Unit ${index + 1}`
                             return (
                               <SelectItem
-                                key={item.ItemID || item.id || index}
-                                value={String(item.ItemID || item.id || index)}
-                                className="whitespace-nowrap"
+                                key={unit.ProductionUnitID || unit.id || index}
+                                value={String(unit.ProductionUnitID || unit.id || index)}
+                                className="truncate"
                               >
-                                {cleanedName}
+                                {unitName}
                               </SelectItem>
                             )
                           })}
@@ -495,8 +730,304 @@ export default function AskRatePage() {
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="message">Your Question</Label>
+                {/* Row 2: Item Group & Qualities */}
+                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="group" className="text-sm">Item Group <span className="text-red-500">*</span></Label>
+                    <Select value={selectedGroup} onValueChange={handleGroupChange} disabled={loadingGroups}>
+                      <SelectTrigger className="w-full truncate">
+                        <SelectValue placeholder={loadingGroups ? "Loading..." : "Select item group"}>
+                          {selectedGroup ? getSelectedGroupName() : null}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
+                        <div className="p-2 border-b sticky top-0 bg-white z-10">
+                          <input
+                            type="text"
+                            placeholder="Search groups..."
+                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => {
+                              const searchValue = e.target.value.toLowerCase()
+                              const selectContent = e.target.closest('[role="listbox"]')
+                              if (selectContent) {
+                                const items = selectContent.querySelectorAll('[role="option"]')
+                                items.forEach((item) => {
+                                  const text = item.textContent?.toLowerCase() || ''
+                                  if (text.includes(searchValue)) {
+                                    (item as HTMLElement).style.display = ''
+                                  } else {
+                                    (item as HTMLElement).style.display = 'none'
+                                  }
+                                })
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {groups.map((group, index) => {
+                            const groupName = group.ItemGroupName || group.GroupName || group.Name || group.name || `Group ${index + 1}`
+                            const cleanedName = groupName.replace(/^[-,\s]+/, '').trim()
+                            return (
+                              <SelectItem
+                                key={group.ItemGroupID || group.GroupID || group.id || index}
+                                value={String(group.ItemGroupID || group.GroupID || group.id || index)}
+                                className="truncate"
+                              >
+                                {cleanedName}
+                              </SelectItem>
+                            )
+                          })}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="min-w-0">
+                    <Label htmlFor="quality" className="text-sm">Qualities <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={selectedQuality}
+                      onValueChange={handleQualityChange}
+                      disabled={!selectedGroup || loadingQualities}
+                    >
+                      <SelectTrigger className="w-full truncate">
+                        <SelectValue placeholder={!selectedGroup ? "Select group first" : loadingQualities ? "Loading..." : "Select quality"}>
+                          {selectedQuality ? getSelectedQualityName() : null}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
+                        <div className="p-2 border-b sticky top-0 bg-white z-10">
+                          <input
+                            type="text"
+                            placeholder="Search qualities..."
+                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => {
+                              const searchValue = e.target.value.toLowerCase()
+                              const selectContent = e.target.closest('[role="listbox"]')
+                              if (selectContent) {
+                                const items = selectContent.querySelectorAll('[role="option"]')
+                                items.forEach((item) => {
+                                  const text = item.textContent?.toLowerCase() || ''
+                                  if (text.includes(searchValue)) {
+                                    (item as HTMLElement).style.display = ''
+                                  } else {
+                                    (item as HTMLElement).style.display = 'none'
+                                  }
+                                })
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {qualities.map((quality, index) => {
+                            const qualityValue = quality.Quality || quality.quality || quality.Name || quality
+                            return (
+                              <SelectItem
+                                key={qualityValue + '-' + index}
+                                value={String(qualityValue)}
+                                className="truncate"
+                              >
+                                {qualityValue}
+                              </SelectItem>
+                            )
+                          })}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Row 3: GSM From & GSM To */}
+                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="gsmFrom" className="text-sm">GSM From <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={selectedGsmFrom}
+                      onValueChange={setSelectedGsmFrom}
+                      disabled={!selectedQuality || loadingGsm}
+                    >
+                      <SelectTrigger className="w-full truncate">
+                        <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingGsm ? "Loading..." : "Select GSM from"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
+                        <div className="p-2 border-b sticky top-0 bg-white z-10">
+                          <input
+                            type="text"
+                            placeholder="Search GSM..."
+                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => {
+                              const searchValue = e.target.value.toLowerCase()
+                              const selectContent = e.target.closest('[role="listbox"]')
+                              if (selectContent) {
+                                const items = selectContent.querySelectorAll('[role="option"]')
+                                items.forEach((item) => {
+                                  const text = item.textContent?.toLowerCase() || ''
+                                  if (text.includes(searchValue)) {
+                                    (item as HTMLElement).style.display = ''
+                                  } else {
+                                    (item as HTMLElement).style.display = 'none'
+                                  }
+                                })
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {gsmList.map((gsm, index) => {
+                            const gsmValue = gsm.GSM || gsm.gsm || gsm
+                            return (
+                              <SelectItem
+                                key={'from-' + gsmValue + '-' + index}
+                                value={String(gsmValue)}
+                              >
+                                {gsmValue}
+                              </SelectItem>
+                            )
+                          })}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="min-w-0">
+                    <Label htmlFor="gsmTo" className="text-sm">GSM To <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={selectedGsmTo}
+                      onValueChange={setSelectedGsmTo}
+                      disabled={!selectedQuality || loadingGsm}
+                    >
+                      <SelectTrigger className="w-full truncate">
+                        <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingGsm ? "Loading..." : "Select GSM to"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
+                        <div className="p-2 border-b sticky top-0 bg-white z-10">
+                          <input
+                            type="text"
+                            placeholder="Search GSM..."
+                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => {
+                              const searchValue = e.target.value.toLowerCase()
+                              const selectContent = e.target.closest('[role="listbox"]')
+                              if (selectContent) {
+                                const items = selectContent.querySelectorAll('[role="option"]')
+                                items.forEach((item) => {
+                                  const text = item.textContent?.toLowerCase() || ''
+                                  if (text.includes(searchValue)) {
+                                    (item as HTMLElement).style.display = ''
+                                  } else {
+                                    (item as HTMLElement).style.display = 'none'
+                                  }
+                                })
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {gsmList.map((gsm, index) => {
+                            const gsmValue = gsm.GSM || gsm.gsm || gsm
+                            return (
+                              <SelectItem
+                                key={'to-' + gsmValue + '-' + index}
+                                value={String(gsmValue)}
+                              >
+                                {gsmValue}
+                              </SelectItem>
+                            )
+                          })}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Row 4: Mill (Optional) */}
+                <div className="min-w-0">
+                  <Label htmlFor="mill" className="text-sm">Mill</Label>
+                  <Select
+                    value={selectedMill}
+                    onValueChange={setSelectedMill}
+                    disabled={!selectedQuality || loadingMills}
+                  >
+                    <SelectTrigger className="w-full truncate">
+                      <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingMills ? "Loading..." : "Select mill (optional)"} />
+                    </SelectTrigger>
+                    <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
+                      <div className="p-2 border-b sticky top-0 bg-white z-10">
+                        <input
+                          type="text"
+                          placeholder="Search mills..."
+                          className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onChange={(e) => {
+                            const searchValue = e.target.value.toLowerCase()
+                            const selectContent = e.target.closest('[role="listbox"]')
+                            if (selectContent) {
+                              const items = selectContent.querySelectorAll('[role="option"]')
+                              items.forEach((item) => {
+                                const text = item.textContent?.toLowerCase() || ''
+                                if (text.includes(searchValue)) {
+                                  (item as HTMLElement).style.display = ''
+                                } else {
+                                  (item as HTMLElement).style.display = 'none'
+                                }
+                              })
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {mills.length === 0 ? (
+                          <div className="p-2 text-sm text-gray-500 text-center">No mills available</div>
+                        ) : (
+                          mills.map((mill, index) => {
+                            // Handle different possible property names for mill value
+                            const millValue = mill?.Mill || mill?.mill || mill?.MillName || mill?.millName ||
+                                             mill?.Name || mill?.name || mill?.Value || mill?.value ||
+                                             (typeof mill === 'string' ? mill : JSON.stringify(mill))
+                            return (
+                              <SelectItem
+                                key={millValue + '-' + index}
+                                value={String(millValue)}
+                                className="truncate"
+                              >
+                                {millValue}
+                              </SelectItem>
+                            )
+                          })
+                        )}
+                      </div>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Show Items Button */}
+                <div className="min-w-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleShowItems}
+                    disabled={!selectedGroup || !selectedProductionUnit || !selectedQuality || !selectedGsmFrom || !selectedGsmTo || loadingItems}
+                    className="w-full border-[#005180] text-[#005180] hover:bg-[#005180] hover:text-white"
+                  >
+                    {loadingItems ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <Package className="h-4 w-4 mr-2" />
+                        Show Items
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="min-w-0">
+                  <Label htmlFor="message" className="text-sm">Your Question <span className="text-red-500">*</span></Label>
                   <Textarea
                     id="message"
                     placeholder="E.g., Need urgent rate for Product ABC - Customer XYZ"
@@ -509,7 +1040,7 @@ export default function AskRatePage() {
 
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !message.trim() || !selectedPerson}
+                  disabled={isSubmitting || !message.trim() || !selectedPerson || !selectedProductionUnit || !selectedGroup || !selectedQuality || !selectedGsmFrom || !selectedGsmTo}
                   className="w-full bg-[#005180] hover:bg-[#004060]"
                 >
                   {isSubmitting ? (
@@ -594,63 +1125,98 @@ export default function AskRatePage() {
                 return (
                   <ScrollArea className="h-[500px]">
                     <div className="space-y-4">
-                      {filteredRequests.map((request) => (
-                      <div
-                        key={request.requestId}
-                        onClick={() => {
-                          clientLogger.log('📋 Ask Rate - Opening timeline for request:', request)
-                          clientLogger.log('📋 Ask Rate - Item details:', {
-                            itemName: request.itemName,
-                            itemCode: request.itemCode,
-                            itemID: request.itemID
-                          })
-                          setSelectedRequestForTimeline(request)
-                          setShowTimeline(true)
-                        }}
-                        className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
-                          request.status?.toLowerCase() === 'pending'
-                            ? 'border-yellow-200 bg-yellow-50/30 hover:bg-yellow-50/50'
-                            : 'border-green-200 bg-green-50/30 hover:bg-green-50/50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold text-gray-900">
-                                Request #{request.requestId}
-                              </h3>
-                              {getStatusBadge(request.currentStatus)}
-                              <Badge variant="outline" className="text-xs">
-                                {request.department}
-                              </Badge>
+                      {filteredRequests.map((request) => {
+                        const parsed = parseRequestMessage(request.requestMessage || '')
+                        return (
+                          <div
+                            key={request.requestId}
+                            onClick={() => {
+                              clientLogger.log('📋 Ask Rate - Opening timeline for request:', request)
+                              setSelectedRequestForTimeline(request)
+                              setShowTimeline(true)
+                            }}
+                            className="border rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg bg-white"
+                          >
+                            {/* Header Row */}
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-gray-900">#{request.requestId}</span>
+                                {getStatusBadge(request.currentStatus)}
+                                <Badge variant="outline" className="text-xs bg-gray-50">
+                                  {request.department}
+                                </Badge>
+                              </div>
+                              <span className="text-xs text-gray-500">
+                                {request.createdAt
+                                  ? formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })
+                                  : 'Recently'}
+                              </span>
                             </div>
-                            <p className="text-sm text-gray-700 mb-2">{request.requestMessage}</p>
-                            <p className="text-xs text-gray-500">
-                              <Clock className="h-3 w-3 inline mr-1" />
-                              {request.createdAt
-                                ? formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })
-                                : 'Recently'}
-                            </p>
-                          </div>
-                        </div>
 
-                        {(request.rate || request.providedRate) && (
-                          <div className="mt-3 pt-3 border-t border-gray-200">
-                            <div className="flex items-center gap-2 text-green-700 font-semibold">
-                              <span className="text-lg">Rate: {(() => {
-                                const rate = request.providedRate || request.rate
-                                return typeof rate === 'number' ? rate.toFixed(2) : rate
-                              })()}</span>
-                            </div>
-                            {request.respondedAt && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Answered {formatDistanceToNow(new Date(request.respondedAt), { addSuffix: true })}
-                              </p>
+                            {/* Requestor */}
+                            {request.requestorName && (
+                              <p className="text-xs text-gray-500 mb-3">From: <span className="font-medium text-gray-700">{request.requestorName}</span></p>
                             )}
+
+                            {/* Item Details Grid */}
+                            <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                                <div>
+                                  <span className="text-blue-600 text-xs">Item Group</span>
+                                  <p className="font-semibold text-blue-900">{parsed.itemGroup || request.itemName || '-'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-blue-600 text-xs">Quality</span>
+                                  <p className="font-semibold text-blue-900">{parsed.quality || '-'}</p>
+                                </div>
+                                {parsed.mill && (
+                                  <div>
+                                    <span className="text-blue-600 text-xs">Mill</span>
+                                    <p className="font-semibold text-blue-900">{parsed.mill}</p>
+                                  </div>
+                                )}
+                              </div>
+                              {parsed.gsmRange && (
+                                <div className="mt-2 pt-2 border-t border-blue-100">
+                                  <span className="text-blue-600 text-xs">GSM Range</span>
+                                  <p className="font-semibold text-blue-900">{parsed.gsmRange}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Question */}
+                            {parsed.question && (
+                              <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                                <span className="text-gray-500 text-xs">Question</span>
+                                <p className="text-sm text-gray-700">{parsed.question}</p>
+                              </div>
+                            )}
+
+                            {/* Rate Response (if answered) */}
+                            {(request.rate || request.providedRate) && (
+                              <div className="bg-green-50 rounded-lg p-3 flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs text-green-600 mb-1">Provided Rate</p>
+                                  <p className="text-xl font-bold text-green-700">
+                                    ₹{(() => {
+                                      const rate = request.providedRate || request.rate
+                                      return typeof rate === 'number' ? rate.toFixed(2) : rate
+                                    })()}
+                                  </p>
+                                </div>
+                                {request.respondedAt && (
+                                  <p className="text-xs text-green-600">
+                                    {formatDistanceToNow(new Date(request.respondedAt), { addSuffix: true })}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Click hint */}
+                            <p className="text-xs text-gray-400 mt-2 text-center">Tap to view items & details</p>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        )
+                      })}
                   </div>
                 </ScrollArea>
                 )
@@ -672,6 +1238,113 @@ export default function AskRatePage() {
           itemCode={selectedRequestForTimeline.itemCode}
         />
       )}
+
+      {/* Items Popup Dialog */}
+      <Dialog open={showItemsPopup} onOpenChange={setShowItemsPopup}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-2 border-b flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="bg-[#005180] p-2 rounded-lg">
+                <Package className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <DialogTitle className="text-lg">Filtered Items</DialogTitle>
+                <p className="text-sm text-gray-500">Items matching your selection criteria</p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+            {/* Selection Info - Fixed */}
+            <div className="bg-[#005180]/5 border-b border-[#005180]/20 p-3 flex-shrink-0">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-[#005180] text-xs font-medium">Item Group</span>
+                  <p className="font-semibold text-gray-900 truncate">{getSelectedGroupName() || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-[#005180] text-xs font-medium">Quality</span>
+                  <p className="font-semibold text-gray-900 truncate">{getSelectedQualityName() || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-[#005180] text-xs font-medium">GSM Range</span>
+                  <p className="font-semibold text-gray-900">{selectedGsmFrom && selectedGsmTo ? `${selectedGsmFrom} - ${selectedGsmTo}` : '-'}</p>
+                </div>
+                {selectedMill && (
+                  <div>
+                    <span className="text-[#005180] text-xs font-medium">Mill</span>
+                    <p className="font-semibold text-gray-900 truncate">{selectedMill}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Items Header - Fixed */}
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b flex-shrink-0">
+              <h4 className="font-semibold text-[#005180]">Items</h4>
+              <Badge className="bg-[#005180] text-white">{filteredItems.length} items</Badge>
+            </div>
+
+            {/* Items List - Scrollable */}
+            <div className="flex-1 overflow-y-auto px-4 py-2">
+              {loadingItems ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#005180]" />
+                  <span className="ml-3 text-gray-600">Loading items...</span>
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p>No items found for the selected criteria</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredItems.map((item, index) => {
+                    const rate = item.Rate || item.rate || item.EstimationRate || item.estimationRate || null
+                    return (
+                      <div
+                        key={item.ItemID || item.itemId || index}
+                        className="border border-[#005180]/20 rounded-lg p-3 bg-white hover:bg-[#005180]/5 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <p className="font-medium text-sm text-gray-900 flex-1">
+                            {item.ItemName || item.itemName || item.Name || '-'}
+                          </p>
+                          {rate && (
+                            <span className="bg-[#005180] text-white px-2 py-0.5 rounded text-xs font-medium ml-2">
+                              ₹{rate}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-600">
+                          {(item.GSM || item.gsm) && (
+                            <span className="bg-gray-100 px-2 py-0.5 rounded">GSM: {item.GSM || item.gsm}</span>
+                          )}
+                          {(item.Mill || item.mill) && (
+                            <span className="bg-gray-100 px-2 py-0.5 rounded">Mill: {item.Mill || item.mill}</span>
+                          )}
+                          {!rate && <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">No rate</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer - Fixed */}
+          <div className="p-4 border-t bg-gray-50 flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowItemsPopup(false)}
+              className="w-full border-[#005180] text-[#005180] hover:bg-[#005180] hover:text-white"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   )
 }

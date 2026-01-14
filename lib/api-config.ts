@@ -574,6 +574,7 @@ export async function saveMultipleEnquiry(enquiryData: {
   console.log('categoryId:', categoryId)
 
   // Build the payload matching the API structure
+  const annualQty = Number(enquiryData.annualQuantity) || Number(enquiryData.quantity) || 0
   const payload = {
     MainData: [
       {
@@ -593,7 +594,9 @@ export async function saveMultipleEnquiry(enquiryData: {
         EnquiryType: 'Bid',
         SalesType: 'Export',
         Quantity: Number(enquiryData.quantity) || 0,
+        AnnualQuantity: annualQty,
         PlantID: enquiryData.plantId || 1,
+        Source: 'D KAM APP',
       },
     ],
     DetailsData: [
@@ -616,7 +619,10 @@ export async function saveMultipleEnquiry(enquiryData: {
       : [],
     Prefix: 'EQ',
     Quantity: Number(enquiryData.quantity) || 0,
+    AnnualQuantity: annualQty,
     IsEdit: 'false',
+    IsDetailed: 1,
+    Source: 'D KAM APP',
     LayerDetailArr: [],
     JsonObjectsUserApprovalProcessArray: [
       {
@@ -637,6 +643,8 @@ export async function saveMultipleEnquiry(enquiryData: {
         EnquiryType: 'Bid',
         SalesType: 'Export',
         Quantity: String(enquiryData.quantity) || '0',
+        AnnualQuantity: annualQty,
+        Source: 'D KAM APP',
       },
     ],
   }
@@ -772,7 +780,7 @@ export async function postDirectCosting(costingParams: any, enquiryData: any) {
 
 // Helper: Fetch item groups/master list
 export async function getItemMasterListAPI() {
-  const endpoint = 'api/othermaster/getitemgrouplist'
+  const endpoint = 'api/itemmaster/itemmasterlist'
   const res = await apiClient.get(endpoint)
   return normalizeToArray(res)
 }
@@ -838,4 +846,40 @@ export function normalizeToArray(res: any): any[] {
     if (Array.isArray(firstArray)) items = firstArray as any[]
   }
   return items
+}
+
+// ============================================================================
+// BULK ITEM RATE UPDATE API
+// ============================================================================
+
+interface BulkItemRatePayload {
+  ItemGroupID: number
+  PlantID: number
+  ItemID: number
+  EstimationRate: number
+}
+
+// Helper: Update bulk item rates
+export async function updateBulkItemRate(items: BulkItemRatePayload[]): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const endpoint = 'api/othermaster/updatebulkitemrate'
+    logger.log('=== Calling updateBulkItemRate API ===')
+    logger.log('Endpoint:', endpoint)
+    logger.log('Items count:', items.length)
+    logger.log('Payload:', JSON.stringify(items, null, 2))
+
+    const res = await apiClient.post(endpoint, items)
+    logger.log('=== updateBulkItemRate Response ===', res)
+
+    return {
+      success: true,
+      data: res
+    }
+  } catch (error: any) {
+    logger.error('updateBulkItemRate error:', error)
+    return {
+      success: false,
+      error: error.message || 'Failed to update bulk item rates'
+    }
+  }
 }

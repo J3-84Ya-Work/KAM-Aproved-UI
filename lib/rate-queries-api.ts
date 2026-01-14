@@ -15,14 +15,23 @@ interface RateRequest {
   requestorName?: string
 }
 
+interface RateItem {
+  ItemGroupID: number
+  PlantID: number
+  ItemID: number
+  EstimationRate: number
+}
+
 interface CreateRateRequestPayload {
   requestorId: number
   department: 'Purchase' | 'Operations' | 'Sales'
   requestMessage: string
+  assignedToEmail?: string
   ItemCode?: string
   ItemID?: string
   ItemName?: string
   PlantID?: string
+  items?: RateItem[]
 }
 
 interface ProvideRatePayload {

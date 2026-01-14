@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Clock, User, ArrowRight, CheckCircle, AlertCircle, TrendingUp, FileText } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Clock, User, ArrowRight, CheckCircle, AlertCircle, TrendingUp, FileText, Package, RefreshCw } from "lucide-react"
 import { getRequestHistory } from "@/lib/rate-queries-api"
+import { getItemMasterListAPI } from "@/lib/api-config"
+import { MasterDataAPI } from "@/lib/api/enquiry"
 import { formatDistanceToNow, format } from "date-fns"
 
 interface TimelineEntry {
@@ -24,6 +27,23 @@ interface TimelineEntry {
   itemID?: string | number
 }
 
+interface FilteredItem {
+  ItemID?: number
+  itemID?: number
+  itemId?: number
+  ItemName?: string
+  itemName?: string
+  Name?: string
+  GSM?: number
+  gsm?: number
+  Mill?: string
+  mill?: string
+  Rate?: number
+  rate?: number
+  EstimationRate?: number
+  estimationRate?: number
+}
+
 interface RequestTimelineProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -31,6 +51,20 @@ interface RequestTimelineProps {
   requestMessage: string
   itemName?: string
   itemCode?: string
+}
+
+// Parse request message to extract structured data
+const parseRequestMessage = (message: string) => {
+  const result: { itemGroup?: string; quality?: string; gsmRange?: string; mill?: string; question?: string } = {}
+  const lines = message.split('\n').map(l => l.trim()).filter(Boolean)
+  for (const line of lines) {
+    if (line.startsWith('Item Group:')) result.itemGroup = line.replace('Item Group:', '').trim()
+    else if (line.startsWith('Quality:')) result.quality = line.replace('Quality:', '').trim()
+    else if (line.startsWith('GSM Range:')) result.gsmRange = line.replace('GSM Range:', '').trim()
+    else if (line.startsWith('Mill:')) result.mill = line.replace('Mill:', '').trim()
+    else if (line.startsWith('Question:')) result.question = line.replace('Question:', '').trim()
+  }
+  return result
 }
 
 const getActionIcon = (action: string) => {
@@ -82,6 +116,13 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage,
   const [detectedItemName, setDetectedItemName] = useState<string | undefined>(itemName)
   const [detectedItemCode, setDetectedItemCode] = useState<string | undefined>(itemCode)
 
+  // Items popup state
+  const [showItemsDialog, setShowItemsDialog] = useState(false)
+  const [filteredItems, setFilteredItems] = useState<FilteredItem[]>([])
+  const [loadingItems, setLoadingItems] = useState(false)
+  const [itemGroups, setItemGroups] = useState<any[]>([])
+  const [productionUnits, setProductionUnits] = useState<any[]>([])
+
   // Update detected item details when props change
   useEffect(() => {
     console.log('🔍 RequestTimeline - Props received:', {
@@ -93,6 +134,92 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage,
     if (itemName) setDetectedItemName(itemName)
     if (itemCode) setDetectedItemCode(itemCode)
   }, [requestId, requestMessage, itemName, itemCode])
+
+  // Fetch master data for item lookup
+  useEffect(() => {
+    const fetchMasterData = async () => {
+      try {
+        const groupsList = await getItemMasterListAPI()
+        if (groupsList && groupsList.length > 0) {
+          setItemGroups(groupsList)
+        }
+        const unitsResult = await MasterDataAPI.getProductionUnits(null)
+        if (unitsResult.success && unitsResult.data) {
+          setProductionUnits(unitsResult.data)
+        }
+      } catch (error) {
+        console.error('Error fetching master data:', error)
+      }
+    }
+    if (open) {
+      fetchMasterData()
+    }
+  }, [open])
+
+  // Handle View Items click
+  const handleViewItems = async () => {
+    setShowItemsDialog(true)
+    setFilteredItems([])
+    setLoadingItems(true)
+
+    const parsed = parseRequestMessage(requestMessage)
+
+    if (parsed.quality) {
+      try {
+        // Parse GSM range
+        let gsmFrom = "0"
+        let gsmTo = "999"
+        if (parsed.gsmRange) {
+          const gsmMatch = parsed.gsmRange.match(/(\d+)\s*-\s*(\d+)/)
+          if (gsmMatch) {
+            gsmFrom = gsmMatch[1]
+            gsmTo = gsmMatch[2]
+          }
+        }
+
+        // Get ItemGroupID by name
+        let itemGroupId = 0
+        if (parsed.itemGroup && itemGroups.length > 0) {
+          const foundGroup = itemGroups.find(g => {
+            const groupName = g.ItemGroupName || g.GroupName || g.Name || g.name || ''
+            return groupName.toUpperCase() === parsed.itemGroup?.toUpperCase()
+          })
+          if (foundGroup) {
+            itemGroupId = foundGroup.ItemGroupID || foundGroup.GroupID || foundGroup.id || foundGroup.ID || 0
+          }
+        }
+
+        // Get PlantID
+        let plantId = 1
+        if (productionUnits.length > 0) {
+          plantId = productionUnits[0]?.PlantID || productionUnits[0]?.ProductionUnitID || 1
+        }
+
+        const requestBody = {
+          ItemGroupID: itemGroupId,
+          PlantID: plantId,
+          Quality: parsed.quality,
+          GSMFrom: gsmFrom,
+          GSMTo: gsmTo,
+          Mill: parsed.mill || ""
+        }
+
+        console.log('Fetching items with:', requestBody)
+
+        const result = await MasterDataAPI.getFilteredItemList(requestBody, null)
+
+        if (result.success && result.data) {
+          setFilteredItems(result.data)
+        } else {
+          setFilteredItems([])
+        }
+      } catch (error) {
+        console.error('Error fetching items:', error)
+        setFilteredItems([])
+      }
+    }
+    setLoadingItems(false)
+  }
 
   useEffect(() => {
     if (open && requestId) {
@@ -166,6 +293,15 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage,
                   </div>
                 </div>
               )}
+
+              {/* View Items Button */}
+              <Button
+                onClick={handleViewItems}
+                className="w-full bg-[#005180] hover:bg-[#004060] text-white"
+              >
+                <Package className="h-4 w-4 mr-2" />
+                View Items
+              </Button>
             </div>
           </DialogHeader>
         </div>
@@ -275,6 +411,130 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage,
           )}
         </div>
       </DialogContent>
+
+      {/* Items List Dialog */}
+      <Dialog open={showItemsDialog} onOpenChange={setShowItemsDialog}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-2 border-b flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="bg-[#005180] p-2 rounded-lg">
+                <Package className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <DialogTitle className="text-lg">Request #{requestId} - Items</DialogTitle>
+                <p className="text-sm text-gray-500">Items matching the request criteria</p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+            {/* Request Info - Compact (Fixed) */}
+            {(() => {
+              const parsed = parseRequestMessage(requestMessage)
+              return (
+                <div className="bg-[#005180]/5 border-b border-[#005180]/20 p-3 flex-shrink-0">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    {parsed.itemGroup && (
+                      <div>
+                        <span className="text-[#005180] font-medium">Item Group: </span>
+                        <span className="text-gray-900">{parsed.itemGroup}</span>
+                      </div>
+                    )}
+                    {parsed.quality && (
+                      <div>
+                        <span className="text-[#005180] font-medium">Quality: </span>
+                        <span className="text-gray-900">{parsed.quality}</span>
+                      </div>
+                    )}
+                    {parsed.gsmRange && (
+                      <div>
+                        <span className="text-[#005180] font-medium">GSM: </span>
+                        <span className="text-gray-900">{parsed.gsmRange}</span>
+                      </div>
+                    )}
+                    {parsed.mill && (
+                      <div>
+                        <span className="text-[#005180] font-medium">Mill: </span>
+                        <span className="text-gray-900">{parsed.mill}</span>
+                      </div>
+                    )}
+                  </div>
+                  {parsed.question && (
+                    <div className="mt-2 pt-2 border-t border-[#005180]/10">
+                      <span className="text-[#005180] font-medium text-sm">Question: </span>
+                      <span className="text-gray-700 text-sm">{parsed.question}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Items List Header (Fixed) */}
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b flex-shrink-0">
+              <h4 className="font-semibold text-[#005180]">Items</h4>
+              <Badge className="bg-[#005180] text-white">{filteredItems.length} items</Badge>
+            </div>
+
+            {/* Items List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto px-4 py-2">
+              {loadingItems ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[#005180]" />
+                  <p className="text-sm text-gray-500 mt-2">Loading items...</p>
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p>No items found for this request</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredItems.map((item, index) => {
+                    const itemName = item.ItemName || item.itemName || item.Name || '-'
+                    const itemId = item.ItemID || item.itemID || item.itemId || index
+                    const gsm = item.GSM || item.gsm || null
+                    const mill = item.Mill || item.mill || null
+                    const rate = item.Rate || item.rate || item.EstimationRate || item.estimationRate || null
+
+                    return (
+                      <div
+                        key={itemId + '-' + index}
+                        className="border border-[#005180]/20 rounded-lg p-3 bg-white hover:bg-[#005180]/5 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <p className="font-medium text-sm text-gray-900 flex-1">
+                            {itemName}
+                          </p>
+                          {rate && (
+                            <span className="bg-[#005180] text-white px-2 py-0.5 rounded text-xs font-medium ml-2">
+                              ₹{rate}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-600">
+                          {gsm && <span className="bg-gray-100 px-2 py-0.5 rounded">GSM: {gsm}</span>}
+                          {mill && <span className="bg-gray-100 px-2 py-0.5 rounded">Mill: {mill}</span>}
+                          {!rate && <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">No rate</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="p-4 border-t bg-gray-50 flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowItemsDialog(false)}
+              className="w-full border-[#005180] text-[#005180] hover:bg-[#005180] hover:text-white"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }

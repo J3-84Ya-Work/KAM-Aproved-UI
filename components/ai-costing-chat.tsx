@@ -246,10 +246,15 @@ function formatJsonResponse(data: any): string {
   return lines.join('\n')
 }
 
+// Function to check if text is a costing summary
+function isCostingSummary(text: string): boolean {
+  return text.includes('COSTING SUMMARY') || text.includes('Customer & JOB DETAILS') || text.includes('COST STRUCTURE') || text.includes('"CostingBot"')
+}
+
 // Function to check if text is a costing summary and render as table
 function renderCostingSummary(text: string): React.ReactNode | null {
   // Check if this is a costing summary - look for the specific markers
-  if (!text.includes('COSTING SUMMARY') && !text.includes('Customer & JOB DETAILS') && !text.includes('COST STRUCTURE') && !text.includes('"CostingBot"')) {
+  if (!isCostingSummary(text)) {
     return null
   }
 
@@ -263,6 +268,7 @@ function renderCostingSummary(text: string): React.ReactNode | null {
   let otherMaterialCost = '-'
   let conversionCost = '-'
   let profit = '-'
+  let freightCost = '-'
   let totalCost = '-'
   let status = 'Estimated'
   let generatedDate = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
@@ -288,6 +294,7 @@ function renderCostingSummary(text: string): React.ReactNode | null {
         otherMaterialCost = jsonData.CostStructurePer1000.OtherMaterialCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
         conversionCost = jsonData.CostStructurePer1000.ConversionCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
         profit = jsonData.CostStructurePer1000.Profit?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+        freightCost = jsonData.CostStructurePer1000.FreightCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
         totalCost = jsonData.CostStructurePer1000.TotalCostPer1000?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
       }
 
@@ -328,75 +335,81 @@ function renderCostingSummary(text: string): React.ReactNode | null {
   }
 
   return (
-    <div className="w-full max-w-xl rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm">
+    <div className="w-full rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm">
       {/* Header */}
-      <div className="px-3 py-2 flex items-center justify-between border-b border-gray-200 bg-[#2F4669]/5">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-[#2F4669]/10 flex items-center justify-center">
-            <svg className="w-3 h-3 text-[#2F4669]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200 bg-[#2F4669]/5">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded bg-[#2F4669]/10 flex items-center justify-center">
+            <svg className="w-4 h-4 text-[#2F4669]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
           <div>
-            <h3 className="font-semibold text-[#2F4669] text-xs">Costing Summary</h3>
-            <p className="text-gray-500 text-[10px]">{jobName !== '-' ? jobName : 'Costing'}</p>
+            <h3 className="font-semibold text-[#2F4669] text-sm">Costing Summary</h3>
+            <p className="text-gray-500 text-xs">{jobName !== '-' ? jobName : 'Costing'}</p>
           </div>
         </div>
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-[#005180] text-[#005180] bg-[#005180]/5">
+        <span className="px-3 py-1 rounded-full text-xs font-medium border border-[#005180] text-[#005180] bg-[#005180]/5">
           BEST PLAN
         </span>
       </div>
 
       {/* Customer & Sheet Info Cards */}
-      <div className="p-2 grid grid-cols-2 gap-2">
-        <div className="rounded-md border border-[#005180]/20 p-2 bg-[#005180]/5">
-          <p className="text-[#005180]/70 text-[10px] uppercase tracking-wide mb-0.5">Customer</p>
-          <p className="text-[#2F4669] text-xs font-medium truncate">{customerName}</p>
+      <div className="p-3 grid grid-cols-2 gap-3">
+        <div className="rounded-md border border-[#005180]/20 p-3 bg-[#005180]/5">
+          <p className="text-[#005180]/70 text-xs uppercase tracking-wide mb-1">Customer</p>
+          <p className="text-[#2F4669] text-sm font-medium truncate">{customerName}</p>
         </div>
-        <div className="rounded-md border border-[#005180]/20 p-2 bg-[#005180]/5">
-          <p className="text-[#005180]/70 text-[10px] uppercase tracking-wide mb-0.5">Sheet Size</p>
-          <p className="text-[#2F4669] text-xs font-medium">{sheetSize}</p>
+        <div className="rounded-md border border-[#005180]/20 p-3 bg-[#005180]/5">
+          <p className="text-[#005180]/70 text-xs uppercase tracking-wide mb-1">Sheet Size</p>
+          <p className="text-[#2F4669] text-sm font-medium">{sheetSize}</p>
         </div>
-        <div className="rounded-md border border-[#005180]/20 p-2 bg-[#005180]/5">
-          <p className="text-[#005180]/70 text-[10px] uppercase tracking-wide mb-0.5">Order Qty</p>
-          <p className="text-[#2F4669] text-xs font-medium">{orderQuantity}</p>
+        <div className="rounded-md border border-[#005180]/20 p-3 bg-[#005180]/5">
+          <p className="text-[#005180]/70 text-xs uppercase tracking-wide mb-1">Order Qty</p>
+          <p className="text-[#2F4669] text-sm font-medium">{orderQuantity}</p>
         </div>
-        <div className="rounded-md border border-[#005180]/20 p-2 bg-[#005180]/5">
-          <p className="text-[#005180]/70 text-[10px] uppercase tracking-wide mb-0.5">Ups / Sheets</p>
-          <p className="text-[#2F4669] text-xs font-medium">{noOfUps} / {requiredSheets}</p>
+        <div className="rounded-md border border-[#005180]/20 p-3 bg-[#005180]/5">
+          <p className="text-[#005180]/70 text-xs uppercase tracking-wide mb-1">Ups / Sheets</p>
+          <p className="text-[#2F4669] text-sm font-medium">{noOfUps} / {requiredSheets}</p>
         </div>
       </div>
 
       {/* Cost Breakdown */}
-      <div className="px-3 pb-3">
-        <div className="flex items-center gap-1.5 mb-2">
-          <div className="w-0.5 h-3 bg-[#005180] rounded-full"></div>
-          <p className="text-gray-600 text-[10px] uppercase tracking-wide font-medium">Cost Breakdown (Per 1,000 Units)</p>
+      <div className="px-4 pb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1 h-4 bg-[#005180] rounded-full"></div>
+          <p className="text-gray-600 text-xs uppercase tracking-wide font-medium">Cost Breakdown (Per 1,000 Units)</p>
         </div>
 
-        <div className="space-y-1">
-          <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
-            <span className="text-gray-600 text-xs">Board Cost</span>
-            <span className="text-[#2F4669] text-xs font-medium">₹ {boardCost}</span>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <span className="text-gray-600 text-sm">Board Cost</span>
+            <span className="text-[#2F4669] text-sm font-medium">₹ {boardCost}</span>
           </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
-            <span className="text-gray-600 text-xs">Other Material Cost</span>
-            <span className="text-[#2F4669] text-xs font-medium">₹ {otherMaterialCost}</span>
+          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <span className="text-gray-600 text-sm">Other Material Cost</span>
+            <span className="text-[#2F4669] text-sm font-medium">₹ {otherMaterialCost}</span>
           </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
-            <span className="text-gray-600 text-xs">Conversion Cost</span>
-            <span className="text-[#2F4669] text-xs font-medium">₹ {conversionCost}</span>
+          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <span className="text-gray-600 text-sm">Conversion Cost</span>
+            <span className="text-[#2F4669] text-sm font-medium">₹ {conversionCost}</span>
           </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
-            <span className="text-[#005180] text-xs font-medium">Profit Margin</span>
-            <span className="text-green-600 text-xs font-medium">₹ {profit}</span>
+          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <span className="text-[#005180] text-sm font-medium">Profit Margin</span>
+            <span className="text-green-600 text-sm font-medium">₹ {profit}</span>
           </div>
+          {freightCost !== '-' && (
+            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+              <span className="text-gray-600 text-sm">Freight Cost</span>
+              <span className="text-[#2F4669] text-sm font-medium">₹ {freightCost}</span>
+            </div>
+          )}
         </div>
 
         {/* Total Cost */}
-        <div className="mt-3 rounded-md p-2 flex justify-between items-center bg-[#2F4669]/5 border border-[#2F4669]/20">
-          <span className="text-[#005180] text-xs font-semibold">TOTAL COST / 1,000</span>
-          <span className="text-[#005180] text-base font-bold">₹ {totalCost}</span>
+        <div className="mt-4 rounded-md p-3 flex justify-between items-center bg-[#2F4669]/5 border border-[#2F4669]/20">
+          <span className="text-[#005180] text-sm font-semibold">TOTAL COST / 1,000</span>
+          <span className="text-[#005180] text-lg font-bold">₹ {totalCost}</span>
         </div>
       </div>
 
@@ -732,9 +745,14 @@ export function AICostingChat({
                                     /Modify.*Details/i.test(aiResponseText))
 
           if (isJobSpecSummary) {
-            // Remove the numbered options from display text
-            cleanText = aiResponseText.replace(/\d+\.\s*[✅❌]?\s*(Confirm.*|Modify.*)$/gim, '').trim()
+            // Remove everything from the dashes line onwards (including "Please review..." and numbered options)
+            cleanText = aiResponseText.replace(/-{5,}[\s\S]*$/g, '').trim()
+            // Also try to remove numbered options if dashes weren't present
+            cleanText = cleanText.replace(/\d+\.\s*[✅❌✏️✓✎]?\s*[✅❌✏️✓✎]?\s*(Confirm.*|Modify.*)$/gim, '').trim()
+            cleanText = cleanText.replace(/Please review.*details\.?\s*/gi, '').trim()
             cleanText = cleanText.replace(/What would you like to do\?/i, '').trim()
+            // Remove leading emoji from title (📋)
+            cleanText = cleanText.replace(/^[📋📝📄]\s*/g, '').trim()
             options = ['CONFIRM', 'MODIFY']
           }
 
@@ -991,6 +1009,13 @@ export function AICostingChat({
 
     const messageText = inputValue
     setInputValue("")
+
+    // Reset textarea height to default
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+      inputRef.current.style.height = '40px'
+    }
+
     sendChatMessage(messageText)
   }
 
@@ -1062,6 +1087,18 @@ export function AICostingChat({
     }
   }
 
+  // Helper function to force focus on input with multiple attempts
+  const forceFocusInput = () => {
+    const attempts = [50, 100, 200, 300, 500]
+    attempts.forEach(delay => {
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus()
+        }
+      }, delay)
+    })
+  }
+
   const handleOptionSelect = (option: string, messageId: string, isMultiSelect: boolean) => {
     if (isMultiSelect) {
       // Toggle option in multi-select mode
@@ -1083,13 +1120,15 @@ export function AICostingChat({
           }
         }
       })
+      // Focus on input after multi-select toggle
+      forceFocusInput()
     } else {
       // Handle special CONFIRM/MODIFY buttons for Job Specification Summary
       if (option === 'CONFIRM') {
         // Send confirm message directly
         sendChatMessage('Confirm & Generate Costing')
         // Focus on input after action
-        setTimeout(() => inputRef.current?.focus(), 100)
+        forceFocusInput()
       } else if (option === 'MODIFY') {
         // Put "Modify: " in input box and focus
         setInputValue('Modify: ')
@@ -1106,7 +1145,7 @@ export function AICostingChat({
         // Single select - send immediately
         sendChatMessage(option)
         // Focus on input after action
-        setTimeout(() => inputRef.current?.focus(), 100)
+        forceFocusInput()
       }
 
       // Force scroll after option is selected
@@ -1143,8 +1182,10 @@ export function AICostingChat({
             scrollContainer.scrollTop = scrollContainer.scrollHeight
           }
         }
-        inputRef.current?.focus()
       }, 100)
+
+      // Force focus on input with multiple attempts
+      forceFocusInput()
     }
   }
 
@@ -1593,19 +1634,23 @@ export function AICostingChat({
       {/* Scrollable Chat Area */}
       <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
         <div className="space-y-4 px-4 py-6">
-          {messages.map((message, index) => (
+          {messages.map((message, index) => {
+            const isCosting = isCostingSummary(message.content)
+            return (
             <div
               key={message.id}
               className="message-fade-in"
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} w-full pr-2`}>
-                <div className={`relative group ${message.sender === "user" ? "max-w-[85%] md:max-w-[80%]" : "max-w-[95%] md:max-w-[90%]"}`}>
+                <div className={`relative group ${message.sender === "user" ? "max-w-[85%] md:max-w-[40%]" : "max-w-[95%] md:max-w-[40%]"} ${isCosting ? 'w-full' : ''}`}>
                   <div
-                    className={`rounded-2xl px-4 py-3 text-base leading-relaxed shadow-sm whitespace-pre-wrap break-words overflow-hidden cursor-pointer transition-all active:scale-95 ${
+                    className={`rounded-2xl text-base leading-relaxed whitespace-pre-wrap break-words overflow-hidden cursor-pointer transition-all active:scale-95 ${
+                      isCosting ? 'p-0 bg-transparent shadow-none w-full' : 'px-4 py-3 shadow-sm'
+                    } ${
                       message.sender === "user"
                         ? "bg-blue text-white"
-                        : "bg-blue-5 text-foreground"
+                        : isCosting ? '' : "bg-blue-5 text-foreground"
                     } ${copiedMessageId === message.id ? "ring-2 ring-green-500" : ""}`}
                     style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                     onMouseDown={() => handleLongPressStart(message.content, message.id)}
@@ -1616,7 +1661,7 @@ export function AICostingChat({
                     onTouchCancel={handleLongPressEnd}
                   >
                     {/* Check if this is a costing summary - render as table */}
-                    {renderCostingSummary(message.content) || renderTextWithBold(message.content)}
+                    {isCosting ? renderCostingSummary(message.content) : renderTextWithBold(message.content)}
                   </div>
 
                   {/* Show "Copied" badge when copied */}
@@ -1636,7 +1681,7 @@ export function AICostingChat({
                   (message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
                   (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))
                     ? 'flex flex-row gap-3'
-                    : 'flex flex-col gap-2 max-w-[45%]'
+                    : 'flex flex-col gap-2 max-w-[95%] md:max-w-[40%]'
                 }`}>
                   {message.options.map((option, optionIndex) => {
                     const isMultiSelect = message.allowMultiSelect || false
@@ -1650,7 +1695,7 @@ export function AICostingChat({
                         variant={isSelected ? "default" : "outline"}
                         onClick={() => handleOptionSelect(option, message.id, isMultiSelect)}
                         disabled={isTyping}
-                        className={`justify-center text-center h-auto py-3 px-6 transition-all ${
+                        className={`justify-center text-center h-auto py-2 px-4 text-xs sm:text-sm sm:py-3 sm:px-6 transition-all ${
                           isYesNo
                             ? option === 'YES'
                               ? 'bg-transparent text-green-600 hover:bg-green-50 border-2 border-green-600'
@@ -1664,7 +1709,7 @@ export function AICostingChat({
                                 : "hover:bg-primary/10 hover:border-primary w-full justify-start text-left"
                         }`}
                       >
-                        {!isYesNo && !isConfirmModify && <span className="font-semibold mr-2 text-primary">{optionIndex + 1}.</span>}
+                        {!isYesNo && !isConfirmModify && <span className="font-semibold mr-1 sm:mr-2 text-primary">{optionIndex + 1}.</span>}
                         <span>{option === 'CONFIRM' ? 'Confirm' : option === 'MODIFY' ? 'Modify' : option}</span>
                       </Button>
                     )
@@ -1675,7 +1720,7 @@ export function AICostingChat({
                     <Button
                       onClick={() => handleMultiSelectSubmit(message.id)}
                       disabled={isTyping}
-                      className="mt-2 bg-primary text-white hover:bg-primary/90 w-full"
+                      className="mt-2 bg-primary text-white hover:bg-primary/90 w-full py-2 text-xs sm:text-sm sm:py-3"
                     >
                       Submit Selected ({(selectedOptions[message.id] || []).length})
                     </Button>
@@ -1717,7 +1762,8 @@ export function AICostingChat({
                 </div>
               )}
             </div>
-          ))}
+          )})}
+
 
           {isTyping && (
             <div className="flex justify-start message-fade-in">
@@ -1763,7 +1809,7 @@ export function AICostingChat({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder={isListening ? "Listening..." : "Message AI Assistant..."}
+            placeholder={isListening ? "Listening..." : "Message to Park Buddy..."}
             className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[40px] max-h-[120px] py-2"
             rows={1}
             autoFocus

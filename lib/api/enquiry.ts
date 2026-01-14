@@ -1112,6 +1112,375 @@ export class MasterDataAPI {
       }
     }
   }
+
+  /**
+   * Get Item Groups (Item Master List)
+   * Endpoint: GET /api/itemmaster/itemmasterlist
+   */
+  static async getItemGroups(session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/itemmaster/itemmasterlist`
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: getItemGroups')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: GET')
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getHeaders(session),
+      })
+
+      let data = await response.json()
+
+      // Handle multiple levels of JSON encoding
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          data = JSON.parse(data)
+          parseAttempts++
+        } catch (e) {
+          break
+        }
+      }
+
+      // Handle different response formats
+      let itemGroups = []
+      if (Array.isArray(data)) {
+        itemGroups = data
+      } else if (data.data && Array.isArray(data.data)) {
+        itemGroups = data.data
+      } else if (data.Data && Array.isArray(data.Data)) {
+        itemGroups = data.Data
+      }
+
+      console.log('✅ API RESPONSE: getItemGroups -', itemGroups.length, 'groups')
+      console.log('📦 Response:', JSON.stringify(itemGroups, null, 2))
+
+      return {
+        success: response.ok,
+        data: itemGroups,
+        error: response.ok ? null : 'Failed to fetch item groups',
+      }
+    } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
+      return {
+        success: false,
+        data: [],
+        error: `Failed to fetch item groups: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Get Qualities by Item Group ID
+   * Endpoint: GET /api/othermaster/getquality/{ItemGroupID}
+   */
+  static async getQualitiesByItemGroup(itemGroupId: number, session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/othermaster/getquality/${itemGroupId}`
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: getQualitiesByItemGroup')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: GET')
+      console.log('📦 Parameters: { itemGroupId:', itemGroupId, '}')
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getHeaders(session),
+      })
+
+      let data = await response.json()
+
+      // Handle multiple levels of JSON encoding
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          data = JSON.parse(data)
+          parseAttempts++
+        } catch (e) {
+          break
+        }
+      }
+
+      // Handle different response formats
+      let qualities = []
+      if (Array.isArray(data)) {
+        qualities = data
+      } else if (data.data && Array.isArray(data.data)) {
+        qualities = data.data
+      } else if (data.Data && Array.isArray(data.Data)) {
+        qualities = data.Data
+      }
+
+      console.log('✅ API RESPONSE: getQualitiesByItemGroup -', qualities.length, 'qualities')
+      console.log('📦 Response:', JSON.stringify(qualities, null, 2))
+
+      return {
+        success: response.ok,
+        data: qualities,
+        error: response.ok ? null : 'Failed to fetch qualities',
+      }
+    } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
+      return {
+        success: false,
+        data: [],
+        error: `Failed to fetch qualities: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Get GSM by Item Group ID and Quality
+   * Endpoint: GET /api/othermaster/getgsm/{ItemGroupID}/{Quality}
+   */
+  static async getGSMByItemGroupAndQuality(itemGroupId: number, quality: string, session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/othermaster/getgsm/${itemGroupId}/${encodeURIComponent(quality)}`
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: getGSMByItemGroupAndQuality')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: GET')
+      console.log('📦 Parameters: { itemGroupId:', itemGroupId, ', quality:', quality, '}')
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getHeaders(session),
+      })
+
+      let data = await response.json()
+
+      // Handle multiple levels of JSON encoding
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          data = JSON.parse(data)
+          parseAttempts++
+        } catch (e) {
+          break
+        }
+      }
+
+      // Handle different response formats
+      let gsmList = []
+      if (Array.isArray(data)) {
+        gsmList = data
+      } else if (data.data && Array.isArray(data.data)) {
+        gsmList = data.data
+      } else if (data.Data && Array.isArray(data.Data)) {
+        gsmList = data.Data
+      }
+
+      console.log('✅ API RESPONSE: getGSMByItemGroupAndQuality -', gsmList.length, 'GSM values')
+      console.log('📦 Response:', JSON.stringify(gsmList, null, 2))
+
+      return {
+        success: response.ok,
+        data: gsmList,
+        error: response.ok ? null : 'Failed to fetch GSM values',
+      }
+    } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
+      return {
+        success: false,
+        data: [],
+        error: `Failed to fetch GSM values: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Get Mill by Item Group ID and Quality
+   * Endpoint: GET /api/othermaster/getmill/{ItemGroupID}?quality={Quality}
+   */
+  static async getMillByItemGroupAndQuality(itemGroupId: number, quality: string, session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/othermaster/getmill/${itemGroupId}?quality=${encodeURIComponent(quality)}`
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: getMillByItemGroupAndQuality')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: GET')
+      console.log('📦 Parameters: { itemGroupId:', itemGroupId, ', quality:', quality, '}')
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getHeaders(session),
+      })
+
+      let data = await response.json()
+
+      // Handle multiple levels of JSON encoding
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          data = JSON.parse(data)
+          parseAttempts++
+        } catch (e) {
+          break
+        }
+      }
+
+      // Handle different response formats
+      let millList = []
+      if (Array.isArray(data)) {
+        millList = data
+      } else if (data.data && Array.isArray(data.data)) {
+        millList = data.data
+      } else if (data.Data && Array.isArray(data.Data)) {
+        millList = data.Data
+      }
+
+      console.log('✅ API RESPONSE: getMillByItemGroupAndQuality -', millList.length, 'mills')
+      console.log('📦 Response:', JSON.stringify(millList, null, 2))
+
+      return {
+        success: response.ok,
+        data: millList,
+        error: response.ok ? null : 'Failed to fetch mills',
+      }
+    } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
+      return {
+        success: false,
+        data: [],
+        error: `Failed to fetch mills: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Get Filtered Item List
+   * Endpoint: POST /api/othermaster/getfiltereditemlist
+   */
+  static async getFilteredItemList(request: {
+    ItemGroupID: number
+    PlantID: number
+    Quality: string
+    GSMFrom: string
+    GSMTo: string
+    Mill: string
+  }, session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/othermaster/getfiltereditemlist`
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: getFilteredItemList')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: POST')
+      console.log('📦 Request Body:', JSON.stringify(request, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(session),
+        body: JSON.stringify(request),
+      })
+
+      let data = await response.json()
+
+      // Handle multiple levels of JSON encoding
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          data = JSON.parse(data)
+          parseAttempts++
+        } catch (e) {
+          break
+        }
+      }
+
+      // Handle different response formats
+      let itemList = []
+      if (Array.isArray(data)) {
+        itemList = data
+      } else if (data.data && Array.isArray(data.data)) {
+        itemList = data.data
+      } else if (data.Data && Array.isArray(data.Data)) {
+        itemList = data.Data
+      }
+
+      console.log('✅ API RESPONSE: getFilteredItemList -', itemList.length, 'items')
+      console.log('📦 Response:', JSON.stringify(itemList, null, 2))
+
+      return {
+        success: response.ok,
+        data: itemList,
+        error: response.ok ? null : 'Failed to fetch filtered items',
+      }
+    } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
+      return {
+        success: false,
+        data: [],
+        error: `Failed to fetch filtered items: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Update Bulk Item Rate
+   * Endpoint: POST /api/othermaster/updatebulkitemrate
+   */
+  static async updateBulkItemRate(items: Array<{
+    ItemGroupID: number
+    PlantID: number
+    ItemID: number
+    EstimationRate: number
+  }>, session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/othermaster/updatebulkitemrate`
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: updateBulkItemRate')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: POST')
+      console.log('📦 Request Body:', JSON.stringify(items, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(session),
+        body: JSON.stringify(items),
+      })
+
+      let data = await response.json()
+
+      // Handle multiple levels of JSON encoding
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          data = JSON.parse(data)
+          parseAttempts++
+        } catch (e) {
+          break
+        }
+      }
+
+      console.log('✅ API RESPONSE: updateBulkItemRate')
+      console.log('📦 Response:', JSON.stringify(data, null, 2))
+
+      return {
+        success: response.ok,
+        data: data,
+        error: response.ok ? null : 'Failed to update bulk item rates',
+      }
+    } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
+      return {
+        success: false,
+        data: null,
+        error: `Failed to update bulk item rates: ${error.message}`,
+      }
+    }
+  }
 }
 
 // Quotations API
