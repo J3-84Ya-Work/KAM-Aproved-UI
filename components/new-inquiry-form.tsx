@@ -1544,7 +1544,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         })) : []
 
         const detailedEnquiryData = {
-          MainData: [{ ...mainData, Source: 'D KAM APP' }],
+          MainData: [{ ...mainData, Source: 'KAM APP' }],
           DetailsData: detailsData,
           ProcessData: processData,
           Prefix: "EQ",
@@ -1552,7 +1552,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           AnnualQuantity: parseInt(formData.annualQuantity || formData.quantity) || 0,
           IsEdit: "false",
           IsDetailed: 1,
-          Source: 'D KAM APP',
+          Source: 'KAM APP',
           LayerDetailArr: [],
           JsonObjectsUserApprovalProcessArray: [{
             ProductCode: mainData.ProductCode,
@@ -1573,7 +1573,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             SalesType: mainData.SalesType,
             Quantity: String(parseInt(formData.quantity) || 0),
             AnnualQuantity: parseInt(formData.annualQuantity || formData.quantity) || 0,
-            Source: 'D KAM APP',
+            Source: 'KAM APP',
           }],
         }
 

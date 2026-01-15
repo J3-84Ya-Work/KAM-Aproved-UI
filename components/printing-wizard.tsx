@@ -128,8 +128,6 @@ const steps = [
   "Carton Type",
   "Size",
   "Paper & Color",
-  "Processes",
-  "Best Plans",
   "Final Cost",
 ]
 
@@ -924,42 +922,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     }
 
     if (currentStep < steps.length - 1) {
-      const processesIndex = steps.indexOf('Processes')
-      const bestPlansIndex = steps.indexOf('Best Plans')
+      const paperColorIndex = steps.indexOf('Paper & Color')
 
-      // If we're on Processes and moving to Best Plans, run planning first and wait
-      if (currentStep === processesIndex) {
-        clientLogger.log('=== On Processes step, triggering planning ===')
-        try {
-          setPlanningError(null)
-          const ok = await runPlanning()
-          clientLogger.log('=== Planning result ===', { ok })
-          if (ok) {
-            const newStep = currentStep + 1
-            setCurrentStep(newStep)
-            onStepChange?.(steps[newStep])
-          } else {
-            clientLogger.log('=== Planning failed, staying on Processes step ===')
-            // planning failed, remain on processes step
-          }
-        } catch (e: any) {
-          clientLogger.error('Planning failed during nextStep navigation', e)
-          const errorMsg = extractErrorMessage(e, 'Planning failed')
-          setPlanningError(errorMsg)
-          showToast(`Planning Error: ${errorMsg}`, 'error')
-        }
-      } else if (currentStep === bestPlansIndex) {
-        // If on Best Plans, create booking first, then get quotation details
-        clientLogger.log('=== On Best Plans step, creating quotation ===')
-
-        // Check if a plan is selected
-        clientLogger.log('=== Checking selectedPlan ===', selectedPlan)
-        if (!selectedPlan) {
-          clientLogger.error('=== No plan selected ===')
-          setPlanningError('Please select a plan first')
-          showToast('Please select a plan first', 'error')
-          return
-        }
+      // If we're on Paper & Color and moving to Final Cost, create quotation directly
+      if (currentStep === paperColorIndex) {
+        clientLogger.log('=== On Paper & Color step, creating quotation directly ===')
 
         try {
           setPlanningLoading(true)
@@ -979,18 +946,104 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             return
           }
 
-          const { createBooking, getQuotationDetail } = await import('@/lib/api-config')
+          const { createBooking, getQuotationDetail, saveMultipleEnquiry } = await import('@/lib/api-config')
 
-          // Step 1: Call directcosting API to get quotation number
+          // Step 1: Create enquiry first to get EnquiryID (if not already created)
+          let currentEnquiryNumber = enquiryNumber
+
+          if (!currentEnquiryNumber) {
+            clientLogger.log('\n' + '='.repeat(80))
+            clientLogger.log('STEP 1: Creating Enquiry via SaveMultipleEnquiry API')
+            clientLogger.log('='.repeat(80) + '\n')
+
+            // Get auth data from localStorage for dynamic values
+            const authData = localStorage.getItem('userAuth')
+            const parsedAuth = authData ? JSON.parse(authData) : null
+            const userId = parsedAuth?.userId || 0
+            const plantId = parsedAuth?.productionUnitId || 1
+
+            // Get selected category info
+            const selectedCategory = categories.find((c: any) => String(c.id) === String(selectedCategoryId))
+            const categoryName = selectedCategory?.name || ''
+            const categoryId = selectedCategory?.id ? Number(selectedCategory.id) : 25 // Default to 25 (Mono Carton)
+
+            // Build the enquiry data
+            const enquiryPayload = {
+              clientName: jobData.clientName,
+              clientId: jobData.clientId || 0,
+              ledgerId: jobData.clientId || 0,
+              jobName: jobData.jobName,
+              quantity: jobData.quantity,
+              cartonType: jobData.cartonType,
+              dimensions: {
+                height: Number(jobData.dimensions?.height) || 0,
+                length: Number(jobData.dimensions?.length) || 0,
+                width: Number(jobData.dimensions?.width) || 0,
+                openFlap: Number(jobData.dimensions?.openFlap) || 0,
+                pastingFlap: Number(jobData.dimensions?.pastingFlap) || 0,
+              },
+              paperDetails: {
+                quality: jobData.paperDetails?.quality || '',
+                gsm: Number(jobData.paperDetails?.gsm) || 0,
+                frontColor: Number(jobData.paperDetails?.frontColor) || 0,
+                backColor: Number(jobData.paperDetails?.backColor) || 0,
+                mill: jobData.paperDetails?.mill || '',
+                finish: jobData.paperDetails?.finish || '',
+              },
+              processes: jobData.processes?.map((p: any) => ({
+                operID: p.operID,
+                processName: p.processName,
+              })) || [],
+              productCode: jobData.productCode || '',
+              salesEmployeeId: userId,
+              categoryId: categoryId,
+              categoryName: categoryName,
+              plantId: plantId,
+              fileName: '',
+              remark: '',
+            }
+
+            try {
+              const res = await saveMultipleEnquiry(enquiryPayload)
+
+              // Extract EnquiryID from response
+              let extractedId = null
+              if (typeof res === 'number') {
+                extractedId = res
+              } else if (typeof res === 'object' && res !== null) {
+                extractedId = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
+              }
+
+              currentEnquiryNumber = extractedId
+              if (currentEnquiryNumber) {
+                setEnquiryNumber(currentEnquiryNumber)
+                setCreatedEnquiryId(typeof currentEnquiryNumber === 'string' ? parseInt(currentEnquiryNumber, 10) : currentEnquiryNumber)
+                setShowEnquiryCreatedDialog(true)
+                clientLogger.log('Enquiry created with ID:', currentEnquiryNumber)
+              }
+            } catch (saveErr: any) {
+              const errorMsg = extractErrorMessage(saveErr, 'Failed to save enquiry')
+              setPlanningError(errorMsg)
+              showToast(`API Error: ${errorMsg}`, 'error')
+              setPlanningLoading(false)
+              return
+            }
+          }
+
+          // Step 2: Call directcosting API to get quotation number
           clientLogger.log('\n' + '='.repeat(80))
-          clientLogger.log('CREATE QUOTATION BUTTON CLICKED')
+          clientLogger.log('CREATE QUOTATION')
           clientLogger.log('='.repeat(80))
-          clientLogger.log('STEP 1: Getting Quotation Number via DirectCosting API')
+          clientLogger.log('STEP 2: Getting Quotation Number via DirectCosting API')
           clientLogger.log('='.repeat(80) + '\n')
 
           // Build CostignParams and EnquiryData
           const dims = jobData.dimensions || {}
           const paper = jobData.paperDetails || {}
+
+          // Get selected category info for CategoryID
+          const selectedCategory = categories.find((c: any) => String(c.id) === String(selectedCategoryId))
+          const categoryId = selectedCategory?.id ? Number(selectedCategory.id) : 36 // Default to 36
 
           const costingParams = {
             SizeHeight: parseFloat(dims.height) || 0,
@@ -1018,7 +1071,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
               return 'Choose Best'
             })(),
             PlanWastageValue: 0,
-            ProductionUnitID: Number(jobData.productionUnitId) || 0,
+            ProductionUnitID: Number(jobData.productionUnitId) || 1,
             Trimmingleft: 0,
             Trimmingright: 0,
             Trimmingtop: 0,
@@ -1038,8 +1091,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             PlanSpeBColor: 0,
             PlanContName: jobData.cartonType || '',
             ItemPlanFinish: '',
-            OperId: resolveOperIdFromProcesses(jobData),
-            JobBottomPerc: 0,
+            OperId: '',
+            JobBottomPerc: 50,
             JobPrePlan: `H:${dims.height || 0},L:${dims.length || 0},W:${dims.width || 0},OF:${dims.openFlap || 0},PF:${dims.pastingFlap || 0}`,
             ChkPlanInSpecialSizePaper: false,
             ChkPlanInStandardSizePaper: false,
@@ -1071,7 +1124,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             SizeTopSeal: 0,
             SizeBottomGusset: 0,
             PlanMakeReadyWastage: 0,
-            CategoryID: 2,
+            CategoryID: categoryId,
             BookSpine: 0,
             BookHinge: 0,
             BookCoverTurnIn: 0,
@@ -1084,11 +1137,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             ChkBackToBackPastingRequired: false,
             JobAcrossUps: 0,
             JobAroundUps: 0,
-            SizeBottomflapPer: parseFloat(dims.bottomFlapPer || '0') || 0,
+            SizeBottomflapPer: 50,
             SizeZipperLength: 0,
             ZipperWeightPerMeter: 0,
             JobSizeInputUnit: 'MM',
-            LedgerID: planningResults?.[0]?.LedgerID || 0,
+            LedgerID: 0,
             Process: '',
             JobName: jobData.jobName || '',
             ClientName: jobData.clientName || '',
@@ -1096,18 +1149,17 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             AnnualQuantity: Number(jobData.annualQuantity) || Number(jobData.quantity) || 0
           }
 
-          // Validate we have EnquiryID before proceeding
-          if (!enquiryNumber) {
-            clientLogger.warn('⚠️ WARNING: No EnquiryID available! This may cause issues.')
-            clientLogger.warn('⚠️ Make sure you clicked "Get Plans" first to generate an enquiry.')
-          }
+          // Get auth data for SalesEmployeeID
+          const authDataForEnquiry = localStorage.getItem('userAuth')
+          const parsedAuthForEnquiry = authDataForEnquiry ? JSON.parse(authDataForEnquiry) : null
+          const salesEmployeeId = parsedAuthForEnquiry?.userId || 52
 
           const enquiryData = {
-            ProductCode: planningResults?.[0]?.ProductCode || '',
-            LedgerID: planningResults?.[0]?.LedgerID || 4,
-            EnquiryID: enquiryNumber || 0, // EnquiryID from SaveMultipleEnquiry
-            SalesEmployeeID: planningResults?.[0]?.SalesEmployeeID || 52,
-            CategoryID: 2,
+            EnquiryID: currentEnquiryNumber || 0, // EnquiryID from SaveMultipleEnquiry
+            ProductCode: jobData.productCode || '',
+            LedgerID: jobData.clientId || 4,
+            SalesEmployeeID: salesEmployeeId,
+            CategoryID: categoryId,
             Quantity: Number(jobData.quantity) || 0,
             ConcernPersonID: null,
             JobName: jobData.jobName || '',
@@ -1116,12 +1168,12 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             EnquiryDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
             EstimationUnit: 'PCS',
             ExpectCompletion: '10',
-            Remark: planningResults?.[0]?.Remark || '',
+            Remark: '',
             TypeOfJob: null,
             TypeOfPrinting: null,
             EnquiryType: 'Bid',
             SalesType: 'Export',
-            Source: 'KAM APP',
+            Source: 'D KAM APP',
           }
 
           // Log to both clientLogger and console for visibility
@@ -1131,25 +1183,22 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           }
 
           console.log('\n' + '='.repeat(80))
-          console.log('🚀 CREATE QUOTATION - API CALL')
+          console.log('CREATE QUOTATION - API CALL')
           console.log('='.repeat(80))
-          console.log('📍 API Endpoint: POST https://api.indusanalytics.co.in/api/parksons/directcosting')
+          console.log('API Endpoint: POST /api/parksons/directcosting')
           console.log('='.repeat(80))
-          console.log('🔑 EnquiryID:', enquiryNumber || 0)
+          console.log('EnquiryID:', currentEnquiryNumber || 0)
           console.log('='.repeat(80))
-          console.log('📤 FULL REQUEST BODY:')
+          console.log('FULL REQUEST BODY:')
           console.log(JSON.stringify(fullRequestBody, null, 2))
           console.log('='.repeat(80) + '\n')
 
           clientLogger.log('\n' + '='.repeat(80))
-          clientLogger.log('API CALL #1: DirectCosting (to get BookingID)')
+          clientLogger.log('DirectCosting API Call')
           clientLogger.log('='.repeat(80))
           clientLogger.log('Endpoint: POST /api/parksons/directcosting')
           clientLogger.log('='.repeat(80))
-          clientLogger.log('🔑 EnquiryID Status:')
-          clientLogger.log('  - EnquiryID value:', enquiryNumber)
-          clientLogger.log('  - Will send:', enquiryNumber || 0)
-          clientLogger.log('  - Is valid?', enquiryNumber ? '✅ YES' : '❌ NO (will send 0)')
+          clientLogger.log('EnquiryID:', currentEnquiryNumber || 0)
           clientLogger.log('='.repeat(80))
           clientLogger.log('\n📤 REQUEST BODY - CostingParams:')
           clientLogger.log(JSON.stringify(costingParams, null, 2))
@@ -1214,15 +1263,15 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           clientLogger.log('=== Quotation Data stored in state ===')
 
           // Step 3: Update enquiry status to "Quoted"
-          if (enquiryNumber) {
+          if (currentEnquiryNumber) {
             clientLogger.log('\n' + '='.repeat(80))
             clientLogger.log('STEP 3: Updating Enquiry Status to "Quoted"')
             clientLogger.log('='.repeat(80))
-            clientLogger.log('EnquiryID:', enquiryNumber)
+            clientLogger.log('EnquiryID:', currentEnquiryNumber)
 
             try {
               const { EnquiryAPI } = await import('@/lib/api/enquiry')
-              const statusResponse = await EnquiryAPI.updateEnquiryStatus(Number(enquiryNumber), 'Quoted', null)
+              const statusResponse = await EnquiryAPI.updateEnquiryStatus(Number(currentEnquiryNumber), 'Quoted', null)
 
               if (statusResponse.success) {
                 clientLogger.log('✅ Enquiry status updated to "Quoted" successfully')
@@ -1268,182 +1317,10 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         return
       }
 
-      // Old directcosting code (kept for reference, not used)
-      if (false) {
-        const dims = jobData.dimensions || {}
-        const paper = jobData.paperDetails || {}
-
-        const costingParams = {
-          SizeHeight: parseFloat(dims.height) || 0,
-          SizeLength: parseFloat(dims.length) || 0,
-          SizeWidth: parseFloat(dims.width) || 0,
-          SizeOpenflap: parseFloat(dims.openFlap) || 0,
-          SizePastingflap: parseFloat(dims.pastingFlap) || 0,
-          SizeBottomflap: 0,
-          JobNoOfPages: 0,
-          JobUps: 0,
-          JobFlapHeight: 0,
-          JobTongHeight: 0,
-          JobFoldedH: 0,
-          JobFoldedL: 0,
-          PlanContentType: jobData.cartonType ? jobData.cartonType.replace(/\s+/g, '') : '',
-          PlanFColor: Number(paper.frontColor) || 0,
-          PlanBColor: Number(paper.backColor) || 0,
-          PlanColorStrip: 0,
-          PlanGripper: 0,
-          PlanPrintingStyle: (() => {
-            const hasFront = Number(paper.frontColor) > 0
-            const hasBack = Number(paper.backColor) > 0
-            if (hasFront && hasBack) return 'Choose Best'
-            if (hasFront || hasBack) return 'Single Side'
-            return 'Choose Best'
-          })(),
-          PlanWastageValue: 0,
-          ProductionUnitID: Number(jobData.productionUnitId) || 0,
-          Trimmingleft: 0,
-          Trimmingright: 0,
-          Trimmingtop: 0,
-          Trimmingbottom: 0,
-          Stripingleft: 0,
-          Stripingright: 0,
-          Stripingtop: 0,
-          Stripingbottom: 0,
-          PlanPrintingGrain: 'Both',
-          ItemPlanQuality: paper.quality || '',
-          ItemPlanGsm: Number(paper.gsm) || 0,
-          ItemPlanMill: '',
-          PlanPlateType: 'CTP Plate',
-          PlanWastageType: 'Machine Default',
-          PlanContQty: Number(jobData.quantity) || 0,
-          PlanSpeFColor: 0,
-          PlanSpeBColor: 0,
-          PlanContName: jobData.cartonType || '',
-          ItemPlanFinish: '',
-          OperId: '',
-          JobBottomPerc: 0,
-          JobPrePlan: `H:${dims.height || 0},L:${dims.length || 0},W:${dims.width || 0},OF:${dims.openFlap || 0},PF:${dims.pastingFlap || 0}`,
-          ChkPlanInSpecialSizePaper: false,
-          ChkPlanInStandardSizePaper: false,
-          MachineId: '',
-          PlanOnlineCoating: '',
-          PaperTrimleft: 0,
-          PaperTrimright: 0,
-          PaperTrimtop: 0,
-          PaperTrimbottom: 0,
-          ChkPaperByClient: false,
-          JobFoldInL: 1,
-          JobFoldInH: 1,
-          ChkPlanInAvailableStock: false,
-          PlanPlateBearer: 0,
-          PlanStandardARGap: 0,
-          PlanStandardACGap: 0,
-          PlanContDomainType: 'Offset',
-          Planlabeltype: null,
-          Planwindingdirection: 0,
-          Planfinishedformat: null,
-          Plandietype: '',
-          PlanPcsPerRoll: 0,
-          PlanCoreInnerDia: 0,
-          PlanCoreOuterDia: 0,
-          EstimationQuantityUnit: 'PCS',
-          ItemPlanThickness: 0,
-          SizeCenterSeal: 0,
-          SizeSideSeal: 0,
-          SizeTopSeal: 0,
-          SizeBottomGusset: 0,
-          PlanMakeReadyWastage: 0,
-          CategoryID: 2,
-          BookSpine: 0,
-          BookHinge: 0,
-          BookCoverTurnIn: 0,
-          BookExtension: 0,
-          BookLoops: 0,
-          PlanOtherMaterialGSM: 0,
-          PlanOtherMaterialGSMSettingJSON: '',
-          MaterialWetGSMConfigJSON: '',
-          PlanPunchingType: null,
-          ChkBackToBackPastingRequired: false,
-          JobAcrossUps: 0,
-          JobAroundUps: 0,
-          SizeBottomflapPer: 0,
-          SizeZipperLength: 0,
-          ZipperWeightPerMeter: 0,
-          JobSizeInputUnit: 'MM',
-          LedgerID: 4,
-          ShowPlanUptoWastePercent: 100
-        }
-
-        // Build enquiry data - exact format matching API spec
-        const enquiryData = {
-          ProductCode: planningResults?.[0]?.ProductCode || '',
-          LedgerID: 4,
-          SalesEmployeeID: planningResults?.[0]?.SalesEmployeeID || 52,
-          CategoryID: 2,
-          Quantity: Number(jobData.quantity) || 0,
-          ConcernPersonID: null,
-          JobName: jobData.jobName || '',
-          ClientName: jobData.clientName || '',
-          FileName: '',
-          EnquiryDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-          EstimationUnit: 'PCS',
-          ExpectCompletion: '10',
-          Remark: planningResults?.[0]?.Remark || '',
-          TypeOfJob: null,
-          TypeOfPrinting: null,
-          EnquiryType: 'Bid',
-          SalesType: 'Export',
-        }
-
-        clientLogger.log('=== Quotation Body ===')
-        clientLogger.log('CostignParams:', JSON.stringify(costingParams, null, 2))
-        clientLogger.log('EnquiryData:', JSON.stringify(enquiryData, null, 2))
-
-        try {
-          setPlanningLoading(true)
-          setPlanningError(null)
-
-          const { postDirectCosting } = await import('@/lib/api-config')
-
-          clientLogger.log('=== Calling directcosting API ===')
-          const res = await postDirectCosting(costingParams, enquiryData)
-          clientLogger.log('=== DirectCosting response ===', JSON.stringify(res, null, 2))
-
-          // Extract quotation number from response - handle both object and direct number
-          let quotationNum = 'N/A'
-          if (typeof res === 'number') {
-            quotationNum = String(res)
-          } else if (res?.data?.QuotationNumber) {
-            quotationNum = String(res.data.QuotationNumber)
-          } else if (res?.QuotationNumber) {
-            quotationNum = String(res.QuotationNumber)
-          } else if (res?.data?.quotationNumber) {
-            quotationNum = String(res.data.quotationNumber)
-          } else if (res?.data) {
-            // If data is just a number
-            quotationNum = String(res.data)
-          }
-
-          setQuotationNumber(quotationNum)
-          clientLogger.log('=== Quotation Number ===', quotationNum)
-
-          // Clear all cached form data
-          // Move to next step on success
-          const newStep = currentStep + 1
-          setCurrentStep(newStep)
-          onStepChange?.(steps[newStep])
-        } catch (e: any) {
-          clientLogger.error('DirectCosting failed', e)
-          const errorMsg = extractErrorMessage(e, 'Failed to create quotation')
-          setPlanningError(errorMsg)
-          showToast(`DirectCosting Error: ${errorMsg}`, 'error')
-        } finally {
-          setPlanningLoading(false)
-        }
-      } else {
-        const newStep = currentStep + 1
-        setCurrentStep(newStep)
-        onStepChange?.(steps[newStep])
-      }
+      // For other steps, just move to the next step
+      const newStep = currentStep + 1
+      setCurrentStep(newStep)
+      onStepChange?.(steps[newStep])
     }
   }
 
@@ -1452,18 +1329,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
   useEffect(() => {
     const prev = prevStepRef.current
-    const processesIndex = steps.indexOf('Processes')
-    const bestPlansIndex = steps.indexOf('Best Plans')
-    // If user moved from Processes -> Best Plans, run planning/costing automatically
-    if (prev === processesIndex && currentStep === bestPlansIndex) {
-      // runPlanning is declared later but will be initialized before this effect runs
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        runPlanning()
-      } catch (e) {
-        clientLogger.error('Failed to auto-run planning on step change', e)
-      }
-    }
     prevStepRef.current = currentStep
   }, [currentStep])
 
@@ -1500,28 +1365,6 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     // Prevent forward navigation - only allow going back to previous steps
     if (stepIndex > currentStep) {
       showToast('Please use the Next button to proceed forward', 'warning')
-      return
-    }
-
-    const processesIndex = steps.indexOf('Processes')
-    const bestPlansIndex = steps.indexOf('Best Plans')
-
-    // If user clicks directly from Processes -> Best Plans, run planning first
-    if (stepIndex === bestPlansIndex && currentStep === processesIndex) {
-      try {
-        setPlanningError(null)
-        const ok = await runPlanning()
-        if (ok) {
-          setCurrentStep(stepIndex)
-          onStepChange?.(steps[stepIndex])
-        }
-      } catch (e: any) {
-        clientLogger.error('Planning failed during handleStepClick navigation', e)
-        const errorMsg = extractErrorMessage(e, 'Planning failed')
-        setPlanningError(errorMsg)
-        showToast(`Planning Error: ${errorMsg}`, 'error')
-        // do not navigate
-      }
       return
     }
 
@@ -4202,9 +4045,27 @@ Generated with KAM Printing Wizard
   const renderFinalCost = () => {
     // If quotation data exists, show detailed quotation
     if (quotationNumber && quotationData) {
-      const mainData = quotationData?.Main?.[0] || {}
-      const detailsData = quotationData?.Datails?.[0] || {}
-      const priceData = quotationData?.Price?.[0] || {}
+      // Parse the quotation data - it may be a double-escaped JSON string
+      let parsedQuotationData: any = quotationData
+      try {
+        let dataStr = quotationData
+        // If it's a string, parse it (may need multiple parses for double-escaped JSON)
+        if (typeof dataStr === 'string') {
+          dataStr = JSON.parse(dataStr)
+          if (typeof dataStr === 'string') {
+            dataStr = JSON.parse(dataStr)
+          }
+        }
+        parsedQuotationData = dataStr
+      } catch (e) {
+        // If parsing fails, use the original data
+        clientLogger.error('Failed to parse quotation data:', e)
+        parsedQuotationData = quotationData
+      }
+
+      const mainData = parsedQuotationData?.Main?.[0] || {}
+      const detailsData = parsedQuotationData?.Datails?.[0] || parsedQuotationData?.Details?.[0] || {}
+      const priceData = parsedQuotationData?.Price?.[0] || {}
 
       // Download as PDF handler
       const handleDownloadPDF = async () => {
@@ -4858,10 +4719,10 @@ Generated with KAM Printing Wizard
             {/* Quotation Details */}
             <div className="flex justify-between items-end">
               <div>
-                <div className="text-xs opacity-70 mb-1 uppercase tracking-wider">Quotation Number</div>
-                <div className="text-3xl font-bold tracking-tight">{mainData.BookingNo || quotationNumber}</div>
+                <div className="text-xs opacity-70 mb-1 uppercase tracking-wider">Booking Number</div>
+                <div className="text-3xl font-bold tracking-tight">{priceData.BookingNo || mainData.BookingNo || quotationNumber}</div>
               </div>
-              <div className="text-sm opacity-80 font-medium">{mainData.Job_Date || mainData.EnquiryDate}</div>
+              <div className="text-sm opacity-80 font-medium">{priceData.Job_Date || mainData.Job_Date || mainData.EnquiryDate}</div>
             </div>
           </Card>
 
@@ -4873,20 +4734,20 @@ Generated with KAM Printing Wizard
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs text-slate-500 mb-1">Customer Name</div>
-                <div className="font-bold text-slate-900 text-sm">{mainData.LedgerName || 'N/A'}</div>
-              </div>
-              <div>
                 <div className="text-xs text-slate-500 mb-1">Job Name</div>
-                <div className="font-bold text-slate-900 text-sm">{mainData.JobName || 'N/A'}</div>
+                <div className="font-bold text-slate-900 text-sm">{priceData.JobName || mainData.JobName || jobData.jobName || 'N/A'}</div>
               </div>
               <div>
-                <div className="text-xs text-slate-500 mb-1">Contact</div>
-                <div className="font-bold text-slate-900 text-sm">{mainData.ContactNO || 'N/A'}</div>
+                <div className="text-xs text-slate-500 mb-1">Category</div>
+                <div className="font-bold text-slate-900 text-sm">{priceData.CategoryName || detailsData.CategoryName || 'N/A'}</div>
               </div>
               <div>
-                <div className="text-xs text-slate-500 mb-1">GST IN</div>
-                <div className="font-bold text-slate-900 text-sm">{mainData.GSTIN || 'N/A'}</div>
+                <div className="text-xs text-slate-500 mb-1">Content Type</div>
+                <div className="font-bold text-slate-900 text-sm">{detailsData.Content_Name || jobData.cartonType || 'N/A'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Paper By</div>
+                <div className="font-bold text-slate-900 text-sm">{detailsData.Paperby || 'N/A'}</div>
               </div>
             </div>
             {mainData.Remark && (
@@ -4911,23 +4772,22 @@ Generated with KAM Printing Wizard
                   <div className="text-xl font-bold text-slate-900">{(priceData.PlanContQty || 0).toLocaleString()} PCS</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-slate-500 mb-1">Unit Cost</div>
-                  <div className="text-xl font-bold text-[#005180]">₹ {(priceData.UnitCost || 0).toFixed(4)}</div>
-                  <div className="text-xs text-green-600 mt-1">Per 1000: ₹ {((priceData.UnitCost || 0) * 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                  <div className="text-xs text-slate-500 mb-1">Unit Cost (per 1000)</div>
+                  <div className="text-xl font-bold text-[#005180]">₹ {(priceData.UnitCost || priceData.UnitCost1000 || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>
               </div>
 
               {priceData.QuotedCost && (
                 <div className="flex justify-between items-center py-2 border-b border-green-200">
-                  <span className="text-sm text-slate-600">Quoted Cost:</span>
-                  <span className="font-bold text-slate-900">₹ {priceData.QuotedCost.toFixed(2)}</span>
+                  <span className="text-sm text-slate-600">Quoted Cost (per 1000):</span>
+                  <span className="font-bold text-slate-900">₹ {priceData.QuotedCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               )}
 
               {priceData.Amount && (
                 <div className="flex justify-between items-center py-2 border-b border-green-200">
                   <span className="text-sm text-slate-600">Amount:</span>
-                  <span className="font-bold text-slate-900">₹ {priceData.Amount.toLocaleString()}</span>
+                  <span className="font-bold text-slate-900">₹ {priceData.Amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               )}
 
@@ -4941,7 +4801,7 @@ Generated with KAM Printing Wizard
               <div className="pt-3 mt-3 border-t-2 border-green-400">
                 <div className="flex justify-between items-center">
                   <span className="text-base font-bold text-slate-700">Grand Total:</span>
-                  <span className="text-2xl font-bold text-green-600">₹ {(priceData.GrandTotalCost || 0).toLocaleString()}</span>
+                  <span className="text-2xl font-bold text-green-600">₹ {(priceData.GrandTotalCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="text-xs text-slate-500 text-right mt-1">{priceData.CurrencySymbol || 'INR'}</div>
               </div>
@@ -5001,63 +4861,120 @@ Generated with KAM Printing Wizard
     <div className="p-2 sm:p-3 space-y-4 animate-fade-in">
       {renderStepHeader("Final Cost")}
 
-      {/* Selected Plan Details */}
-      {selectedPlan && (() => {
-        const unitCost = selectedPlan.UnitPrice || selectedPlan.TotalPlanCost || 0
-        const planQuantity = selectedPlan.PlanContQty || selectedPlan.Quantity || Number(jobData.quantity) || 0
-        const totalCost = unitCost * planQuantity
+      {/* Quotation Details */}
+      {quotationData && (() => {
+        // Parse the quotation data - it may be a double-escaped JSON string
+        let parsedData: any = null
+        try {
+          let dataStr = quotationData
+          // If it's a string, parse it (may need multiple parses for double-escaped JSON)
+          if (typeof dataStr === 'string') {
+            dataStr = JSON.parse(dataStr)
+            if (typeof dataStr === 'string') {
+              dataStr = JSON.parse(dataStr)
+            }
+          }
+          parsedData = dataStr
+        } catch (e) {
+          // If parsing fails, use the original data
+          parsedData = quotationData
+        }
+
+        // Extract data from parsed structure
+        const details = parsedData?.Datails?.[0] || parsedData?.Details?.[0] || {}
+        const price = parsedData?.Price?.[0] || {}
+
+        // Get values from Price object
+        const bookingNo = price.BookingNo || quotationNumber || 'N/A'
+        const jobName = price.JobName || jobData.jobName || 'N/A'
+        const jobDate = price.Job_Date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        const categoryName = price.CategoryName || details.CategoryName || 'N/A'
+        const contentName = details.Content_Name || jobData.cartonType || 'N/A'
+        const paperBy = details.Paperby || 'N/A'
+        const quantity = price.PlanContQty || Number(jobData.quantity) || 0
+        const unitCost = price.UnitCost || price.UnitCost1000 || 0
+        const quotedCost = price.QuotedCost || unitCost
+        const grandTotal = price.GrandTotalCost || (unitCost * quantity / 1000)
+        const currency = price.CurrencySymbol || 'INR'
+        const taxType = price.TaxInorExClusive || 'Exclusive'
 
         return (
-          <Card className="p-4 bg-gradient-to-br from-[#005180]/10 to-white border-2 border-[#005180]/30">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-              <h3 className="font-semibold text-slate-800">Selected Plan</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-slate-500">Machine</div>
-                <div className="text-sm font-semibold text-slate-800">
-                  {selectedPlan.MachineName || selectedPlan.MachineID || 'N/A'}
+          <div className="space-y-4">
+            {/* Main Quotation Card */}
+            <Card className="p-4 bg-gradient-to-br from-[#005180]/10 to-white border-2 border-[#005180]/30">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <h3 className="font-semibold text-slate-800">Quotation Created</h3>
+                </div>
+                <div className="text-xs text-slate-500">{jobDate}</div>
+              </div>
+
+              {/* Booking & Job Info */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <div className="text-xs text-slate-500">Booking No</div>
+                  <div className="text-lg font-bold text-[#005180]">{bookingNo}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Job Name</div>
+                  <div className="text-sm font-semibold text-slate-800 truncate" title={jobName}>{jobName}</div>
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-slate-500">UPS</div>
-                <div className="text-sm font-semibold text-slate-800">
-                  {selectedPlan.TotalUps || selectedPlan.Ups || 'N/A'}
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-3 py-3 border-t border-b border-[#005180]/20">
+                <div>
+                  <div className="text-xs text-slate-500">Category</div>
+                  <div className="text-sm font-medium text-slate-700">{categoryName}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Content Type</div>
+                  <div className="text-sm font-medium text-slate-700">{contentName}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Quantity</div>
+                  <div className="text-sm font-semibold text-slate-800">{quantity.toLocaleString()} PCS</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Paper By</div>
+                  <div className="text-sm font-medium text-slate-700">{paperBy}</div>
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-slate-500">Unit Cost</div>
-                <div className="text-sm font-semibold text-[#005180]">
-                  ₹ {unitCost.toFixed(2)}
+
+              {/* Pricing Section */}
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-slate-600">Unit Cost (per 1000)</div>
+                  <div className="text-sm font-semibold text-slate-800">
+                    {currency === 'INR' ? '₹' : currency} {unitCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-slate-600">Quoted Cost (per 1000)</div>
+                  <div className="text-sm font-semibold text-[#005180]">
+                    {currency === 'INR' ? '₹' : currency} {quotedCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t border-[#005180]/30">
+                  <div className="text-sm font-medium text-slate-700">Grand Total</div>
+                  <div className="text-xl font-bold text-green-600">
+                    {currency === 'INR' ? '₹' : currency} {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="text-xs text-slate-400 text-right">
+                  Tax: {taxType}
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-slate-500">Quantity</div>
-                <div className="text-sm font-semibold text-slate-800">
-                  {planQuantity.toLocaleString()}
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-[#005180]/30">
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-slate-600">Total Cost (Unit Cost × Quantity)</div>
-                <div className="text-xl font-bold text-green-600">
-                  ₹ {totalCost.toFixed(2)}
-                </div>
-              </div>
-              <div className="text-xs text-slate-400 text-right mt-1">
-                ({unitCost.toFixed(2)} × {planQuantity.toLocaleString()})
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         )
       })()}
 
-      {!selectedPlan && (
+      {!quotationData && (
         <Card className="p-4 bg-yellow-50 border border-yellow-200">
           <div className="flex items-center gap-2 text-yellow-700">
-            <div className="text-sm">⚠️ No plan selected. Please go back to "Best Plans" and select a plan.</div>
+            <div className="text-sm">⚠️ No quotation data available. Please go back to previous steps.</div>
           </div>
         </Card>
       )}
@@ -5395,10 +5312,6 @@ Generated with KAM Printing Wizard
       case 3:
         return renderPaperDetails()
       case 4:
-        return renderProcesses()
-      case 5:
-        return renderBestPlans()
-      case 6:
         return renderFinalCost()
       default:
         return renderJobDetails()
@@ -5507,8 +5420,7 @@ Generated with KAM Printing Wizard
             }}
             disabled={
               (currentStep === steps.length - 1 && !quotationNumber) ||
-              planningLoading ||
-              (currentStep === steps.indexOf('Best Plans') && (!!planningError || !selectedPlan))
+              planningLoading
             }
             className="bg-[#005180] hover:bg-[#004875] text-white text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 min-w-[80px] sm:min-w-[90px] flex items-center justify-center gap-1.5 sm:gap-2 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
@@ -5520,11 +5432,9 @@ Generated with KAM Printing Wizard
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                 </svg>
-                <span>Costing...</span>
+                <span>Creating...</span>
               </>
-            ) : currentStep === steps.indexOf('Processes') ? (
-              'Get Plans'
-            ) : currentStep === steps.indexOf('Best Plans') ? (
+            ) : currentStep === steps.indexOf('Paper & Color') ? (
               'Create Quotation'
             ) : (
               'Next'
