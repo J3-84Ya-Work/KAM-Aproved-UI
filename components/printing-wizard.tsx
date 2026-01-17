@@ -37,7 +37,6 @@ import {
   Printer,
   Eraser,
   Trash2,
-  FileText,
   Loader2,
 } from "lucide-react"
 
@@ -130,31 +129,6 @@ const steps = [
   "Paper & Color",
   "Final Cost",
 ]
-
-// Parksons Logo path for PDF
-const PARKSONS_LOGO_PATH = '/parksons-logo.png'
-
-// Helper function to load image as base64 for PDF
-const loadImageAsBase64 = (url: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(img, 0, 0)
-        resolve(canvas.toDataURL('image/png'))
-      } else {
-        reject(new Error('Could not get canvas context'))
-      }
-    }
-    img.onerror = reject
-    img.src = url
-  })
-}
 
 // Helper function to get image path for content type
 function getContentImagePath(contentName: string): string {
@@ -800,10 +774,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   async function fetchCategories() {
     try {
       const { apiClient } = await import('@/lib/api-config')
-      const data = await apiClient.get('api/planwindow/GetSbCategory')
+      const data = await apiClient.get('api/othermaster/getcategorybot')
 
-      if (Array.isArray(data) && data.length > 0) {
-        const normalized = data.map((cat: any, idx: number) => {
+      // API returns single object { CategoryID, CategoryName } or array
+      if (data) {
+        let categoriesArray = Array.isArray(data) ? data : [data]
+
+        const normalized = categoriesArray.map((cat: any, idx: number) => {
           const id = (
             cat.CategoryID ?? cat.CategoryId ?? cat.categoryID ?? cat.categoryId ??
             cat.ContentID ?? cat.contentID ?? cat.Id ?? cat.id ?? idx
@@ -813,7 +790,11 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         })
 
         setCategories(normalized)
-        // Do NOT auto-select the first category. User must explicitly pick a category.
+
+        // Auto-select if only one category returned
+        if (normalized.length === 1) {
+          setSelectedCategoryId(normalized[0].id)
+        }
       } else {
         setCategories([])
       }
@@ -946,91 +927,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             return
           }
 
-          const { createBooking, getQuotationDetail, saveMultipleEnquiry } = await import('@/lib/api-config')
+          const { createBooking, getQuotationDetail } = await import('@/lib/api-config')
 
-          // Step 1: Create enquiry first to get EnquiryID (if not already created)
-          let currentEnquiryNumber = enquiryNumber
-
-          if (!currentEnquiryNumber) {
-            clientLogger.log('\n' + '='.repeat(80))
-            clientLogger.log('STEP 1: Creating Enquiry via SaveMultipleEnquiry API')
-            clientLogger.log('='.repeat(80) + '\n')
-
-            // Get auth data from localStorage for dynamic values
-            const authData = localStorage.getItem('userAuth')
-            const parsedAuth = authData ? JSON.parse(authData) : null
-            const userId = parsedAuth?.userId || 0
-            const plantId = parsedAuth?.productionUnitId || 1
-
-            // Get selected category info
-            const selectedCategory = categories.find((c: any) => String(c.id) === String(selectedCategoryId))
-            const categoryName = selectedCategory?.name || ''
-            const categoryId = selectedCategory?.id ? Number(selectedCategory.id) : 25 // Default to 25 (Mono Carton)
-
-            // Build the enquiry data
-            const enquiryPayload = {
-              clientName: jobData.clientName,
-              clientId: jobData.clientId || 0,
-              ledgerId: jobData.clientId || 0,
-              jobName: jobData.jobName,
-              quantity: jobData.quantity,
-              cartonType: jobData.cartonType,
-              dimensions: {
-                height: Number(jobData.dimensions?.height) || 0,
-                length: Number(jobData.dimensions?.length) || 0,
-                width: Number(jobData.dimensions?.width) || 0,
-                openFlap: Number(jobData.dimensions?.openFlap) || 0,
-                pastingFlap: Number(jobData.dimensions?.pastingFlap) || 0,
-              },
-              paperDetails: {
-                quality: jobData.paperDetails?.quality || '',
-                gsm: Number(jobData.paperDetails?.gsm) || 0,
-                frontColor: Number(jobData.paperDetails?.frontColor) || 0,
-                backColor: Number(jobData.paperDetails?.backColor) || 0,
-                mill: jobData.paperDetails?.mill || '',
-                finish: jobData.paperDetails?.finish || '',
-              },
-              processes: jobData.processes?.map((p: any) => ({
-                operID: p.operID,
-                processName: p.processName,
-              })) || [],
-              productCode: jobData.productCode || '',
-              salesEmployeeId: userId,
-              categoryId: categoryId,
-              categoryName: categoryName,
-              plantId: plantId,
-              fileName: '',
-              remark: '',
-            }
-
-            try {
-              const res = await saveMultipleEnquiry(enquiryPayload)
-
-              // Extract EnquiryID from response
-              let extractedId = null
-              if (typeof res === 'number') {
-                extractedId = res
-              } else if (typeof res === 'object' && res !== null) {
-                extractedId = res?.EnquiryID || res?.enquiryID || res?.EnquiryId || res?.EnquiryNo || res?.enquiryNo || res?.EnquiryNumber || null
-              }
-
-              currentEnquiryNumber = extractedId
-              if (currentEnquiryNumber) {
-                setEnquiryNumber(currentEnquiryNumber)
-                setCreatedEnquiryId(typeof currentEnquiryNumber === 'string' ? parseInt(currentEnquiryNumber, 10) : currentEnquiryNumber)
-                setShowEnquiryCreatedDialog(true)
-                clientLogger.log('Enquiry created with ID:', currentEnquiryNumber)
-              }
-            } catch (saveErr: any) {
-              const errorMsg = extractErrorMessage(saveErr, 'Failed to save enquiry')
-              setPlanningError(errorMsg)
-              showToast(`API Error: ${errorMsg}`, 'error')
-              setPlanningLoading(false)
-              return
-            }
-          }
-
-          // Step 2: Call directcosting API to get quotation number
+          // Call directcosting API to get quotation number (no need to create enquiry first)
           clientLogger.log('\n' + '='.repeat(80))
           clientLogger.log('CREATE QUOTATION')
           clientLogger.log('='.repeat(80))
@@ -1094,7 +993,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             OperId: '',
             JobBottomPerc: 50,
             JobPrePlan: `H:${dims.height || 0},L:${dims.length || 0},W:${dims.width || 0},OF:${dims.openFlap || 0},PF:${dims.pastingFlap || 0}`,
-            ChkPlanInSpecialSizePaper: false,
+            ChkPlanInSpecialSizePaper: true,
             ChkPlanInStandardSizePaper: false,
             MachineId: '',
             PlanOnlineCoating: '',
@@ -1141,7 +1040,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             SizeZipperLength: 0,
             ZipperWeightPerMeter: 0,
             JobSizeInputUnit: 'MM',
-            LedgerID: 0,
+            LedgerID: jobData.clientId || 4,
             Process: '',
             JobName: jobData.jobName || '',
             ClientName: jobData.clientName || '',
@@ -1155,9 +1054,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           const salesEmployeeId = parsedAuthForEnquiry?.userId || 52
 
           const enquiryData = {
-            EnquiryID: currentEnquiryNumber || 0, // EnquiryID from SaveMultipleEnquiry
+            EnquiryID: 0, // Direct costing without pre-created enquiry
             ProductCode: jobData.productCode || '',
-            LedgerID: jobData.clientId || 4,
+            ClientID: jobData.clientId || 4,
             SalesEmployeeID: salesEmployeeId,
             CategoryID: categoryId,
             Quantity: Number(jobData.quantity) || 0,
@@ -1187,7 +1086,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           console.log('='.repeat(80))
           console.log('API Endpoint: POST /api/parksons/directcosting')
           console.log('='.repeat(80))
-          console.log('EnquiryID:', currentEnquiryNumber || 0)
+          console.log('EnquiryID:', 0)
           console.log('='.repeat(80))
           console.log('FULL REQUEST BODY:')
           console.log(JSON.stringify(fullRequestBody, null, 2))
@@ -1198,7 +1097,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           clientLogger.log('='.repeat(80))
           clientLogger.log('Endpoint: POST /api/parksons/directcosting')
           clientLogger.log('='.repeat(80))
-          clientLogger.log('EnquiryID:', currentEnquiryNumber || 0)
+          clientLogger.log('EnquiryID:', 0)
           clientLogger.log('='.repeat(80))
           clientLogger.log('\n📤 REQUEST BODY - CostingParams:')
           clientLogger.log(JSON.stringify(costingParams, null, 2))
@@ -1262,45 +1161,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           clientLogger.log('=== Quotation Number ===', quotationNum)
           clientLogger.log('=== Quotation Data stored in state ===')
 
-          // Step 3: Update enquiry status to "Quoted"
-          if (currentEnquiryNumber) {
-            clientLogger.log('\n' + '='.repeat(80))
-            clientLogger.log('STEP 3: Updating Enquiry Status to "Quoted"')
-            clientLogger.log('='.repeat(80))
-            clientLogger.log('EnquiryID:', currentEnquiryNumber)
-
-            try {
-              const { EnquiryAPI } = await import('@/lib/api/enquiry')
-              const statusResponse = await EnquiryAPI.updateEnquiryStatus(Number(currentEnquiryNumber), 'Quoted', null)
-
-              if (statusResponse.success) {
-                clientLogger.log('✅ Enquiry status updated to "Quoted" successfully')
-              } else {
-                clientLogger.warn('⚠️ Failed to update enquiry status:', statusResponse.error)
-              }
-            } catch (statusError) {
-              clientLogger.warn('⚠️ Error updating enquiry status:', statusError)
-              // Don't throw - quotation was created successfully, status update is secondary
-            }
-
-            clientLogger.log('='.repeat(80) + '\n')
-          }
-
-          // Clear all form data and reset to defaults
-          clientLogger.log('\n' + '='.repeat(80))
-          clientLogger.log('🗑️ CLEARING ALL FORM DATA')
-          clientLogger.log('='.repeat(80))
-
-          setJobData(DEFAULT_JOB_DATA)
-          clientLogger.log('✅ Reset form fields to default values')
-
-          setEnquiryNumber(null)
-          clientLogger.log('✅ Cleared enquiry number')
-
-          setPlanningResults(null)
-          clientLogger.log('✅ Cleared planning results')
-
-          clientLogger.log('='.repeat(80) + '\n')
+          // Keep form data for viewing - don't clear it
+          clientLogger.log('✅ Form data preserved for viewing')
 
           // Move to next step on success
           const newStep = currentStep + 1
@@ -1515,8 +1377,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   }
 
   const renderJobDetails = () => {
-    // Check if enquiry is already created - make fields read-only
-    const isReadOnly = createdEnquiryId !== null
+    // Check if enquiry or quotation is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null || (quotationNumber !== null && quotationData !== null)
 
     return (
     <div className="p-2 sm:p-4 space-y-3 sm:space-y-4 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -1525,7 +1387,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       {/* Read-only notice */}
       {isReadOnly && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-          <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+          <span className="font-medium">View Only:</span> {quotationNumber ? `Quotation #${quotationNumber}` : `Enquiry #${createdEnquiryId}`} has been created. Values cannot be edited.
         </div>
       )}
 
@@ -1696,8 +1558,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   const renderCartonType = () => {
     const selectedCategory = categories.find((c: any) => String(c.id) === String(selectedCategoryId))
     const selectedCategoryName = selectedCategory?.name || "Select Category"
-    // Check if enquiry is already created - make fields read-only
-    const isReadOnly = createdEnquiryId !== null
+    // Check if enquiry or quotation is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null || (quotationNumber !== null && quotationData !== null)
 
     // Filter categories and contents based on search
     const filteredCategories = categories.filter((category: any) => {
@@ -1717,7 +1579,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         {/* Read-only notice */}
         {isReadOnly && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-            <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+            <span className="font-medium">View Only:</span> {quotationNumber ? `Quotation #${quotationNumber}` : `Enquiry #${createdEnquiryId}`} has been created. Values cannot be edited.
           </div>
         )}
 
@@ -1873,8 +1735,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   }
 
   const renderSize = () => {
-    // Check if enquiry is already created - make fields read-only
-    const isReadOnly = createdEnquiryId !== null
+    // Check if enquiry or quotation is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null || (quotationNumber !== null && quotationData !== null)
 
     return (
     <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -1883,7 +1745,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       {/* Read-only notice */}
       {isReadOnly && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-          <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+          <span className="font-medium">View Only:</span> {quotationNumber ? `Quotation #${quotationNumber}` : `Enquiry #${createdEnquiryId}`} has been created. Values cannot be edited.
         </div>
       )}
 
@@ -2372,8 +2234,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
   }
 
   const renderPaperDetails = () => {
-    // Check if enquiry is already created - make fields read-only
-    const isReadOnly = createdEnquiryId !== null
+    // Check if enquiry or quotation is already created - make fields read-only
+    const isReadOnly = createdEnquiryId !== null || (quotationNumber !== null && quotationData !== null)
 
     return (
     <div className="p-2 sm:p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -2382,7 +2244,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       {/* Read-only notice */}
       {isReadOnly && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-          <span className="font-medium">View Only:</span> Enquiry #{createdEnquiryId} has been created. Values cannot be edited.
+          <span className="font-medium">View Only:</span> {quotationNumber ? `Quotation #${quotationNumber}` : `Enquiry #${createdEnquiryId}`} has been created. Values cannot be edited.
         </div>
       )}
 
@@ -3655,7 +3517,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         OperId: resolveOperIdFromProcesses(jobData),
         JobBottomPerc: 0,
         JobPrePlan: `H:${dims.height || 0},L:${dims.length || 0},W:${dims.width || 0},OF:${dims.openFlap || 0},PF:${dims.pastingFlap || 0}`,
-        ChkPlanInSpecialSizePaper: false,
+        ChkPlanInSpecialSizePaper: true,
         ChkPlanInStandardSizePaper: false,
         MachineId: '',
         PlanOnlineCoating: '',
@@ -4307,400 +4169,22 @@ Generated with KAM Printing Wizard
         }
       }
 
-      // Download PDF - VERTICAL FORMAT (same as quotations page)
-      const handleDownloadPDFVertical = async () => {
-        try {
-          const allDetailsData = quotationData?.Datails || quotationData?.Details || [{}]
-
-          const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-          const bookingNo = mainData.BookingNo || quotationNumber
-          const pageWidth = pdf.internal.pageSize.getWidth()
-          const pageHeight = pdf.internal.pageSize.getHeight()
-
-          let yPos = 8
-
-          // Header with logo
-          try {
-            const logoBase64 = await loadImageAsBase64(PARKSONS_LOGO_PATH)
-            const logoWidth = 60
-            const logoHeight = logoWidth * (222 / 995)
-            pdf.addImage(logoBase64, 'PNG', 10, yPos, logoWidth, logoHeight)
-            yPos += logoHeight + 5
-          } catch {
-            pdf.setFontSize(8)
-            pdf.setTextColor(150, 150, 150)
-            pdf.text('PARKSONS PACKAGING LTD', pageWidth / 2, yPos + 9, { align: 'center' })
-            yPos += 20
-          }
-
-          // QUOTATION Title
-          pdf.setFontSize(14)
-          pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(0, 0, 0)
-          const titleText = 'QUOTATION'
-          const titleWidth = pdf.getTextWidth(titleText)
-          const titleX = (pageWidth - titleWidth) / 2
-          pdf.text(titleText, titleX, yPos)
-          pdf.setLineWidth(0.4)
-          pdf.line(titleX, yPos + 1, titleX + titleWidth, yPos + 1)
-          yPos += 8
-
-          // Client info
-          pdf.setFontSize(8)
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('Client Name', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(`: ${mainData.ClientName || mainData.LedgerName || ''}`, 38, yPos)
-          yPos += 5
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('To', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(`: ${mainData.MailingName || mainData.LedgerName || ''}`, 38, yPos)
-          yPos += 5
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('Address', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          const address = mainData.Address || mainData.Address1 || ''
-          const addressLines = pdf.splitTextToSize(`: ${address}`, pageWidth - 48)
-          pdf.text(addressLines, 38, yPos)
-          yPos += (addressLines.length * 4) + 1
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('Subject', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(`: ${mainData.EmailSubject || mainData.JobName || ''}`, 38, yPos)
-          yPos += 5
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('Kind Attention', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(`: ${mainData.ConcernPerson || mainData.ContactPerson || ''}`, 38, yPos)
-          yPos += 8
-
-          // Build table data
-          const numItems = Math.max(allDetailsData.length, 4)
-          const colHeaders = ['S.N.']
-          for (let i = 1; i <= numItems; i++) colHeaders.push(String(i))
-
-          const jobNameRow = ['Job name']
-          const sizeRow = ['Size (MM)']
-          const boardSpecsRow = ['Board Specs']
-          const printingRow = ['Printing & Value Addition']
-          const moqRow = ['MOQ']
-          const annualQtyRow = ['Annual Quantity']
-
-          for (let i = 0; i < numItems; i++) {
-            const detail = allDetailsData[i] || {}
-            jobNameRow.push(mainData.JobName || detail.Content_Name || '')
-            sizeRow.push(detail.Job_Size || detail.Job_Size_In_Inches || '')
-            boardSpecsRow.push(detail.Paper || '')
-            printingRow.push(detail.Printing || '')
-            moqRow.push('')
-            annualQtyRow.push(i === 0 ? (priceData.PlanContQty || '') : '')
-          }
-
-          const availableWidth = pageWidth - 20
-          const labelColWidth = 45
-          const dataColWidth = (availableWidth - labelColWidth) / numItems
-
-          autoTable(pdf, {
-            startY: yPos,
-            head: [colHeaders],
-            body: [jobNameRow, sizeRow, boardSpecsRow, printingRow, moqRow, annualQtyRow],
-            theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 7, fontStyle: 'bold', halign: 'center', lineWidth: 0.2, lineColor: [0, 0, 0] },
-            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 6 },
-            columnStyles: { 0: { cellWidth: labelColWidth, fontStyle: 'bold', halign: 'left' }, 1: { cellWidth: dataColWidth }, 2: { cellWidth: dataColWidth }, 3: { cellWidth: dataColWidth }, 4: { cellWidth: dataColWidth } },
-            margin: { left: 10, right: 10 }
-          })
-
-          yPos = (pdf as any).lastAutoTable.finalY
-
-          // Quote section
-          const quoteLabelWidth = 30
-          const quoteSubLabelWidth = 15
-          const quoteDataColWidth = (availableWidth - quoteLabelWidth - quoteSubLabelWidth) / numItems
-
-          const quote1LRow: any[] = [{ content: 'Quote\n(INR/1000)', rowSpan: 4, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, { content: '1L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
-          const quote2LRow: any[] = [{ content: '2L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
-          const quote5LRow: any[] = [{ content: '5L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
-          const quote10LRow: any[] = [{ content: '10L', styles: { fontStyle: 'bold' as const, halign: 'center' as const } }]
-
-          for (let i = 0; i < numItems; i++) {
-            quote1LRow.push('')
-            quote2LRow.push('')
-            quote5LRow.push('')
-            quote10LRow.push('')
-          }
-
-          autoTable(pdf, {
-            startY: yPos,
-            body: [quote1LRow, quote2LRow, quote5LRow, quote10LRow],
-            theme: 'grid',
-            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5 },
-            columnStyles: { 0: { cellWidth: quoteLabelWidth }, 1: { cellWidth: quoteSubLabelWidth, halign: 'center' }, 2: { cellWidth: quoteDataColWidth }, 3: { cellWidth: quoteDataColWidth }, 4: { cellWidth: quoteDataColWidth }, 5: { cellWidth: quoteDataColWidth } },
-            margin: { left: 10, right: 10 }
-          })
-
-          yPos = (pdf as any).lastAutoTable.finalY + 8
-
-          // Packing Spec
-          autoTable(pdf, {
-            startY: yPos,
-            body: [
-              [{ content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }],
-              ['Shipper box size in MM', ''], ['Quantity per shipper box: Packs', ''], ['Shipper box Weight: Gross in KG', ''],
-              ['Pallet size in MM', ''], ['Number of Shipper per pallets: Shippers', ''], ['Quantity per pallet: Packs', ''],
-              ['Pallet Weight: Gross in Kg', ''], ['Pallets per 20 FT FCL', ''], ['Quantity per 20 FT FCL: Packs', ''],
-              ['Pallets per 40 FT FCL', ''], ['Quantity per 40 FT FCL: Packs', ''],
-            ],
-            theme: 'grid',
-            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5, fontStyle: 'bold' as const },
-            columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 80, halign: 'left' as const }, 2: { cellWidth: 40 } },
-            margin: { left: 10 }
-          })
-
-          yPos = (pdf as any).lastAutoTable.finalY + 5
-
-          // Terms
-          autoTable(pdf, {
-            startY: yPos,
-            body: [
-              [{ content: 'Terms &\nConditions', rowSpan: 6, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, 'Delivery Terms', '45Days'],
-              ['Payment Terms', '30Days'], ['Taxes', ''], ['Currency', priceData.CurrencySymbol || ''], ['Lead Time', ''], ['Quote Validity', ''],
-            ],
-            theme: 'grid',
-            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5, fontStyle: 'bold' as const },
-            columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 80, halign: 'left' as const }, 2: { cellWidth: 40 } },
-            margin: { left: 10 }
-          })
-
-          yPos = (pdf as any).lastAutoTable.finalY + 8
-
-          // Footer
-          if (yPos > pageHeight - 35) { pdf.addPage(); yPos = 15 }
-
-          pdf.setFontSize(7)
-          pdf.setFont('helvetica', 'normal')
-          pdf.setTextColor(80, 80, 80)
-          const footerText = mainData.FooterText || 'This quotation is valid for 10 days from the date of issue.'
-          const footerLines = pdf.splitTextToSize(footerText, pageWidth - 20)
-          pdf.text(footerLines, 10, yPos)
-          yPos += (footerLines.length * 3) + 5
-
-          pdf.setFontSize(7)
-          pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(0, 0, 0)
-          pdf.text('Prepared By:', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(mainData.UserName || mainData.SalesEmployeeName || mainData.CreatedByName || '', 32, yPos)
-          yPos += 4
-
-          if (mainData.UserContactNo || mainData.ContactNO) { pdf.text(`Contact: ${mainData.UserContactNo || mainData.ContactNO}`, 10, yPos); yPos += 4 }
-          yPos += 5
-
-          pdf.setFontSize(8)
-          pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(0, 81, 128)
-          pdf.text(mainData.CompanyName || 'Parksons Packaging Ltd.', pageWidth / 2, yPos, { align: 'center' })
-
-          pdf.save(`Quotation-${bookingNo}-Vertical.pdf`)
-          showToast('PDF (Vertical) downloaded successfully', 'success')
-        } catch (error) {
-          clientLogger.error('Failed to generate Vertical PDF:', error)
-          showToast(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
-        }
-      }
-
-      // Download PDF - HORIZONTAL FORMAT (same as quotations page)
-      const handleDownloadPDFHorizontal = async () => {
-        try {
-          const allDetailsData = quotationData?.Datails || quotationData?.Details || [{}]
-
-          const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-          const bookingNo = mainData.BookingNo || quotationNumber
-          const pageWidth = pdf.internal.pageSize.getWidth()
-          const pageHeight = pdf.internal.pageSize.getHeight()
-
-          let yPos = 8
-
-          // Header with logo
-          try {
-            const logoBase64 = await loadImageAsBase64(PARKSONS_LOGO_PATH)
-            const logoWidth = 60
-            const logoHeight = logoWidth * (222 / 995)
-            pdf.addImage(logoBase64, 'PNG', 10, yPos, logoWidth, logoHeight)
-            yPos += logoHeight + 5
-          } catch {
-            pdf.setFontSize(8)
-            pdf.setTextColor(150, 150, 150)
-            pdf.text('PARKSONS PACKAGING LTD', pageWidth / 2, yPos + 9, { align: 'center' })
-            yPos += 20
-          }
-
-          // QUOTATION Title
-          pdf.setFontSize(14)
-          pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(0, 0, 0)
-          const titleText = 'QUOTATION'
-          const titleWidth = pdf.getTextWidth(titleText)
-          const titleX = (pageWidth - titleWidth) / 2
-          pdf.text(titleText, titleX, yPos)
-          pdf.setLineWidth(0.4)
-          pdf.line(titleX, yPos + 1, titleX + titleWidth, yPos + 1)
-          yPos += 8
-
-          // Client info
-          pdf.setFontSize(8)
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('Client Name', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(`: ${mainData.ClientName || mainData.LedgerName || ''}`, 38, yPos)
-          yPos += 5
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('To', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(`: ${mainData.MailingName || mainData.LedgerName || ''}`, 38, yPos)
-          yPos += 5
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('Address', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          const addressH = mainData.Address || mainData.Address1 || ''
-          const addressLinesH = pdf.splitTextToSize(`: ${addressH}`, pageWidth - 48)
-          pdf.text(addressLinesH, 38, yPos)
-          yPos += (addressLinesH.length * 4) + 1
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('Subject', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(`: ${mainData.EmailSubject || mainData.JobName || ''}`, 38, yPos)
-          yPos += 5
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.text('Kind Attention', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(`: ${mainData.ConcernPerson || mainData.ContactPerson || ''}`, 38, yPos)
-          yPos += 8
-
-          // Main table - Horizontal format
-          autoTable(pdf, {
-            startY: yPos,
-            head: [
-              [
-                { content: 'S.N.', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-                { content: 'Job name', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-                { content: 'Size', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-                { content: 'Board Specs', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-                { content: 'Printing & Value Add', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-                { content: 'MOQ', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-                { content: 'Ann. Qty', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-                { content: 'Quote (INR/1000)', colSpan: 4, styles: { halign: 'center' } },
-              ],
-              [
-                { content: '1L', styles: { halign: 'center' } },
-                { content: '2L', styles: { halign: 'center' } },
-                { content: '5L', styles: { halign: 'center' } },
-                { content: '10L', styles: { halign: 'center' } },
-              ]
-            ],
-            body: allDetailsData.map((detail: any, index: number) => [
-              String(index + 1),
-              mainData.JobName || detail.Content_Name || '',
-              detail.Job_Size || detail.Job_Size_In_Inches || '',
-              detail.Paper || '',
-              detail.Printing || '',
-              '',
-              priceData.PlanContQty || '',
-              '', '', '', ''
-            ]),
-            theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 5, fontStyle: 'bold', lineWidth: 0.2, lineColor: [0, 0, 0] },
-            bodyStyles: { fontSize: 5, valign: 'middle', lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 6 },
-            columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 22 }, 2: { cellWidth: 14 }, 3: { cellWidth: 32 }, 4: { cellWidth: 30 }, 5: { cellWidth: 10, halign: 'center' }, 6: { cellWidth: 14, halign: 'center' }, 7: { cellWidth: 12, halign: 'center' }, 8: { cellWidth: 12, halign: 'center' }, 9: { cellWidth: 12, halign: 'center' }, 10: { cellWidth: 12, halign: 'center' } },
-            margin: { left: 10, right: 10 },
-            tableWidth: 'auto'
-          })
-
-          yPos = (pdf as any).lastAutoTable.finalY + 8
-
-          // Packing Spec
-          autoTable(pdf, {
-            startY: yPos,
-            body: [
-              [{ content: 'Packing\nSpec', rowSpan: 12, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, { content: 'Tentative Packing Spec', colSpan: 2, styles: { fontStyle: 'bold' as const, halign: 'center' as const } }],
-              ['Shipper box size in MM', ''], ['Quantity per shipper box: Packs', ''], ['Shipper box Weight: Gross in KG', ''],
-              ['Pallet size in MM', ''], ['Number of Shipper per pallets: Shippers', ''], ['Quantity per pallet: Packs', ''],
-              ['Pallet Weight: Gross in Kg', ''], ['Pallets per 20 FT FCL', ''], ['Quantity per 20 FT FCL: Packs', ''],
-              ['Pallets per 40 FT FCL', ''], ['Quantity per 40 FT FCL: Packs', ''],
-            ],
-            theme: 'grid',
-            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5, fontStyle: 'bold' as const },
-            columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 80, halign: 'left' as const }, 2: { cellWidth: 40 } },
-            margin: { left: 10 }
-          })
-
-          yPos = (pdf as any).lastAutoTable.finalY + 5
-
-          // Terms
-          autoTable(pdf, {
-            startY: yPos,
-            body: [
-              [{ content: 'Terms &\nConditions', rowSpan: 6, styles: { fontStyle: 'bold' as const, valign: 'middle' as const, halign: 'center' as const, fontSize: 6 } }, 'Delivery Terms', '45Days'],
-              ['Payment Terms', '30Days'], ['Taxes', ''], ['Currency', priceData.CurrencySymbol || ''], ['Lead Time', ''], ['Quote Validity', ''],
-            ],
-            theme: 'grid',
-            bodyStyles: { fontSize: 6, lineWidth: 0.2, lineColor: [0, 0, 0], minCellHeight: 5, fontStyle: 'bold' as const },
-            columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 80, halign: 'left' as const }, 2: { cellWidth: 40 } },
-            margin: { left: 10 }
-          })
-
-          yPos = (pdf as any).lastAutoTable.finalY + 8
-
-          // Footer
-          if (yPos > pageHeight - 35) { pdf.addPage(); yPos = 15 }
-
-          pdf.setFontSize(7)
-          pdf.setFont('helvetica', 'normal')
-          pdf.setTextColor(80, 80, 80)
-          const footerText = mainData.FooterText || 'This quotation is valid for 10 days from the date of issue.'
-          const footerLines = pdf.splitTextToSize(footerText, pageWidth - 20)
-          pdf.text(footerLines, 10, yPos)
-          yPos += (footerLines.length * 3) + 5
-
-          pdf.setFontSize(7)
-          pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(0, 0, 0)
-          pdf.text('Prepared By:', 10, yPos)
-          pdf.setFont('helvetica', 'normal')
-          pdf.text(mainData.UserName || mainData.SalesEmployeeName || mainData.CreatedByName || '', 32, yPos)
-          yPos += 4
-
-          if (mainData.UserContactNo || mainData.ContactNO) { pdf.text(`Contact: ${mainData.UserContactNo || mainData.ContactNO}`, 10, yPos); yPos += 4 }
-          yPos += 5
-
-          pdf.setFontSize(8)
-          pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(0, 81, 128)
-          pdf.text(mainData.CompanyName || 'Parksons Packaging Ltd.', pageWidth / 2, yPos, { align: 'center' })
-
-          pdf.save(`Quotation-${bookingNo}-Horizontal.pdf`)
-          showToast('PDF (Horizontal) downloaded successfully', 'success')
-        } catch (error) {
-          clientLogger.error('Failed to generate Horizontal PDF:', error)
-          showToast(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
-        }
-      }
+      // Format date
+      const generatedDate = new Date().toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      })
 
       return (
         <div className="p-3 space-y-3 animate-fade-in max-h-[calc(100vh-200px)] overflow-y-auto">
-          {renderStepHeader("Quotation Details")}
+          {renderStepHeader("Costing Summary")}
 
           {/* Printable Quotation Content */}
-          <div ref={quotationPrintRef} className="bg-white">
+          <div ref={quotationPrintRef} className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
             <style>{`
               @media print {
                 .no-print {
@@ -4709,104 +4193,87 @@ Generated with KAM Printing Wizard
               }
             `}</style>
 
-          {/* Header Section - Blue Card */}
-          <Card className="p-5 bg-[#005180] text-white rounded-lg shadow-md mb-4">
-            {/* Company Name - Top Left in One Row */}
-            <div className="mb-4 pb-4 border-b border-white/20">
-              <div className="text-xl font-semibold tracking-wide">Parksons Packaging Ltd.</div>
+          {/* Job Name Header */}
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <p className="text-[#005180] font-semibold text-base">{priceData.JobName || jobData.jobName || 'N/A'}</p>
+          </div>
+
+          {/* Customer & Order Info Grid */}
+          <div className="p-4 grid grid-cols-2 gap-4">
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Customer</div>
+              <div className="text-gray-900 font-bold text-sm">{jobData.clientName || mainData.LedgerName || 'N/A'}</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Category</div>
+              <div className="text-[#005180] font-bold text-sm">{priceData.CategoryName || detailsData.CategoryName || 'N/A'}</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Order Qty</div>
+              <div className="text-gray-900 font-bold text-xl">{(priceData.PlanContQty || 0).toLocaleString()}</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Paper By</div>
+              <div className="text-gray-900 font-bold text-sm">{detailsData.Paperby || 'N/A'}</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Sheet Size</div>
+              <div className="text-[#005180] font-bold text-sm">{priceData.CutSize || 'N/A'}</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">UPS</div>
+              <div className="text-gray-900 font-bold text-sm">{priceData.TotalUps || 'N/A'}</div>
+            </div>
+          </div>
+
+          {/* Cost Breakdown Section */}
+          <div className="px-4 pb-2">
+            <div className="text-gray-500 text-xs uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span className="w-1 h-1 bg-[#005180] rounded-full"></span>
+              Cost Breakdown (Per 1,000 Units)
             </div>
 
-            {/* Quotation Details */}
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-xs opacity-70 mb-1 uppercase tracking-wider">Booking Number</div>
-                <div className="text-3xl font-bold tracking-tight">{priceData.BookingNo || mainData.BookingNo || quotationNumber}</div>
-              </div>
-              <div className="text-sm opacity-80 font-medium">{priceData.Job_Date || mainData.Job_Date || mainData.EnquiryDate}</div>
-            </div>
-          </Card>
-
-          {/* Client & Job Information */}
-          <Card className="p-4 mb-4 border-2 border-slate-200">
-            <h3 className="font-bold text-[#005180] mb-3 flex items-center gap-2 text-base">
-              <Package className="w-5 h-5" />
-              Client & Job Details
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Job Name</div>
-                <div className="font-bold text-slate-900 text-sm">{priceData.JobName || mainData.JobName || jobData.jobName || 'N/A'}</div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Category</div>
-                <div className="font-bold text-slate-900 text-sm">{priceData.CategoryName || detailsData.CategoryName || 'N/A'}</div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Content Type</div>
-                <div className="font-bold text-slate-900 text-sm">{detailsData.Content_Name || jobData.cartonType || 'N/A'}</div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Paper By</div>
-                <div className="font-bold text-slate-900 text-sm">{detailsData.Paperby || 'N/A'}</div>
-              </div>
-            </div>
-            {mainData.Remark && (
-              <div className="mt-3 pt-3 border-t border-slate-200">
-                <div className="text-xs text-slate-500 mb-1">Remark</div>
-                <div className="text-sm text-slate-700 font-medium">{mainData.Remark}</div>
-              </div>
-            )}
-          </Card>
-
-
-          {/* Pricing Information */}
-          <Card className="p-4 bg-gradient-to-br from-green-50 to-white border-2 border-green-300">
-            <h3 className="font-bold text-green-700 mb-3 flex items-center gap-2 text-base">
-              <Calculator className="w-5 h-5" />
-              Pricing Details
-            </h3>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Quantity</div>
-                  <div className="text-xl font-bold text-slate-900">{(priceData.PlanContQty || 0).toLocaleString()} PCS</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-slate-500 mb-1">Unit Cost (per 1000)</div>
-                  <div className="text-xl font-bold text-[#005180]">₹ {(priceData.UnitCost || priceData.UnitCost1000 || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                </div>
+              {/* Board Cost */}
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-700 text-sm">Board Cost</span>
+                <span className="text-gray-900 font-semibold">₹ {(priceData.BoardCost1000 || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
 
-              {priceData.QuotedCost && (
-                <div className="flex justify-between items-center py-2 border-b border-green-200">
-                  <span className="text-sm text-slate-600">Quoted Cost (per 1000):</span>
-                  <span className="font-bold text-slate-900">₹ {priceData.QuotedCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-              )}
+              {/* Other Material Cost */}
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-700 text-sm">Other Material Cost</span>
+                <span className="text-gray-900 font-semibold">₹ {(priceData.OtherMaterialCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
 
-              {priceData.Amount && (
-                <div className="flex justify-between items-center py-2 border-b border-green-200">
-                  <span className="text-sm text-slate-600">Amount:</span>
-                  <span className="font-bold text-slate-900">₹ {priceData.Amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-              )}
+              {/* Conversion Cost */}
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-700 text-sm">Conversion Cost</span>
+                <span className="text-gray-900 font-semibold">₹ {(priceData.ConversionCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
 
-              {priceData.TaxPercentage !== undefined && (
-                <div className="flex justify-between items-center py-2 border-b border-green-200">
-                  <span className="text-sm text-slate-600">Tax ({priceData.TaxInorExClusive}):</span>
-                  <span className="font-bold text-slate-900">{priceData.TaxPercentage}%</span>
-                </div>
-              )}
+              {/* Profit Margin */}
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-[#005180] text-sm">Profit Margin</span>
+                <span className="text-[#005180] font-semibold">₹ {(priceData.ProfitCost1000 || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
 
-              <div className="pt-3 mt-3 border-t-2 border-green-400">
-                <div className="flex justify-between items-center">
-                  <span className="text-base font-bold text-slate-700">Grand Total:</span>
-                  <span className="text-2xl font-bold text-green-600">₹ {(priceData.GrandTotalCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="text-xs text-slate-500 text-right mt-1">{priceData.CurrencySymbol || 'INR'}</div>
+              {/* Freight Cost */}
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-700 text-sm">Freight Cost</span>
+                <span className="text-gray-900 font-semibold">₹ {(priceData.FreightCost1000 || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
-          </Card>
+          </div>
+
+          {/* Total Cost Section */}
+          <div className="mx-4 mb-4 p-4 bg-[#005180] rounded-xl">
+            <div className="flex justify-between items-center">
+              <span className="text-white/90 font-medium">TOTAL COST / 1,000</span>
+              <span className="text-white text-2xl font-bold">₹ {(priceData.UnitCost1000 || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+
           </div>
 
           {/* Actions - Not printed */}
@@ -4827,30 +4294,6 @@ Generated with KAM Printing Wizard
             >
               Create New Inquiry
             </Button>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1 border-green-600 text-green-600 hover:bg-green-50"
-                onClick={() => {
-                  clientLogger.log('Download PDF (Vertical) button clicked!')
-                  handleDownloadPDFVertical()
-                }}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                PDF (V)
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 border-blue-600 text-blue-600 hover:bg-blue-50"
-                onClick={() => {
-                  clientLogger.log('Download PDF (Horizontal) button clicked!')
-                  handleDownloadPDFHorizontal()
-                }}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                PDF (H)
-              </Button>
-            </div>
           </div>
         </div>
       )

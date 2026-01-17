@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Building2, User, Package, FileText, Paintbrush } from "lucide-react"
 import { saveForm, getProductionUnits, getClients } from "@/lib/api/projects"
+import { useToast } from "@/hooks/use-toast"
 
 // Dropdown options from Master Data
 const DROPDOWN_OPTIONS = {
@@ -500,6 +501,7 @@ interface Client {
 }
 
 export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFormProps) {
+  const { toast } = useToast()
   const [formData, setFormData] = useState({
     // Basic Information
     productionPlantID: "",
@@ -660,7 +662,11 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
       })
 
       if (result.success) {
-        alert(`✅ ${projectType} form submitted successfully!`)
+        toast({
+          title: "Success",
+          description: `${projectType} form submitted successfully!`,
+          variant: "default",
+        })
 
         if (onSubmit) {
           onSubmit(formData)
@@ -668,19 +674,27 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
 
         onClose()
       } else {
-        alert(`❌ Failed to submit ${projectType} form: ${result.error}`)
+        toast({
+          title: "Error",
+          description: `Failed to submit ${projectType} form: ${result.error}`,
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error(`Error submitting ${projectType} form:`, error)
-      alert(`❌ Failed to submit ${projectType} form. Please try again.`)
+      toast({
+        title: "Error",
+        description: `Failed to submit ${projectType} form. Please try again.`,
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="w-full max-w-7xl mx-auto overflow-x-hidden">
+      <form onSubmit={handleSubmit} className="space-y-4 overflow-hidden">
         {/* Header */}
         <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
           <div>
@@ -696,7 +710,7 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
           </CardHeader>
           <CardContent className="pt-2">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
+              <div className="min-w-0">
                 <Label htmlFor="productionPlantID" className="text-sm font-medium">
                   Production Plant
                 </Label>
@@ -705,10 +719,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   onValueChange={(value) => handlePlantChange("productionPlantID", value)}
                   disabled={isLoadingUnits}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="mt-1.5 w-full">
                     <SelectValue placeholder={isLoadingUnits ? "Loading..." : "Select production plant"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {productionUnits.map((unit) => (
                       <SelectItem key={unit.ProductionUnitID} value={String(unit.ProductionUnitID)}>
                         {unit.ProductionUnitName}
@@ -718,7 +732,7 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                 </Select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <Label htmlFor="prepressPlantID" className="text-sm font-medium">
                   Prepress Plant
                 </Label>
@@ -727,10 +741,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   onValueChange={(value) => handlePlantChange("prepressPlantID", value)}
                   disabled={isLoadingUnits}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="mt-1.5 w-full">
                     <SelectValue placeholder={isLoadingUnits ? "Loading..." : "Select prepress plant"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {productionUnits.map((unit) => (
                       <SelectItem key={unit.ProductionUnitID} value={String(unit.ProductionUnitID)}>
                         {unit.ProductionUnitName}
@@ -740,22 +754,22 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                 </Select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <Label htmlFor="customerID" className="text-sm font-medium flex items-center gap-1">
                   <User className="h-4 w-4" />
                   Customer Name
                 </Label>
                 <Select
-                  value={formData.customerID}
+                  value={formData.customerID || undefined}
                   onValueChange={handleCustomerChange}
                   disabled={isLoadingClients}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="mt-1.5 w-full">
                     <SelectValue placeholder={isLoadingClients ? "Loading..." : "Select customer"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {clients.map((client) => (
-                      <SelectItem key={client.LedgerID} value={String(client.LedgerID)}>
+                      <SelectItem key={`customer-${client.LedgerID}`} value={String(client.LedgerID)}>
                         {client.LedgerName}
                       </SelectItem>
                     ))}
@@ -808,12 +822,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.cartonStyle}
                   onValueChange={(value) => handleChange("cartonStyle", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select carton style" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select carton style" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.cartonStyle.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -829,10 +843,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.pkdReqd}
                   onValueChange={(value) => handleChange("pkdReqd", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select Yes/No" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.yesNo.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
@@ -928,12 +942,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                     value={formData.boardType}
                     onValueChange={(value) => handleChange("boardType", value)}
                   >
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select board type" />
+                    <SelectTrigger className="mt-1.5 truncate">
+                      <SelectValue placeholder="Select board type" className="truncate" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       {DROPDOWN_OPTIONS.boardType.map((option) => (
-                        <SelectItem key={option} value={option}>
+                        <SelectItem key={option} value={option} className="truncate">
                           {option}
                         </SelectItem>
                       ))}
@@ -949,12 +963,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                     value={formData.boardMill}
                     onValueChange={(value) => handleChange("boardMill", value)}
                   >
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select mill" />
+                    <SelectTrigger className="mt-1.5 truncate">
+                      <SelectValue placeholder="Select mill" className="truncate" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       {DROPDOWN_OPTIONS.boardMill.map((option) => (
-                        <SelectItem key={option} value={option}>
+                        <SelectItem key={option} value={option} className="truncate">
                           {option}
                         </SelectItem>
                       ))}
@@ -970,12 +984,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                     value={formData.boardBrand}
                     onValueChange={(value) => handleChange("boardBrand", value)}
                   >
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select board brand" />
+                    <SelectTrigger className="mt-1.5 truncate">
+                      <SelectValue placeholder="Select board brand" className="truncate" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       {DROPDOWN_OPTIONS.boardBrand.map((option) => (
-                        <SelectItem key={option} value={option}>
+                        <SelectItem key={option} value={option} className="truncate">
                           {option}
                         </SelectItem>
                       ))}
@@ -999,10 +1013,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.boardNominated}
                   onValueChange={(value) => handleChange("boardNominated", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select Yes/No" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     <SelectItem value="Yes">Yes</SelectItem>
                     <SelectItem value="No">No</SelectItem>
                   </SelectContent>
@@ -1017,10 +1031,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.boardToBoardNominated}
                   onValueChange={(value) => handleChange("boardToBoardNominated", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select Yes/No" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     <SelectItem value="Yes">Yes</SelectItem>
                     <SelectItem value="No">No</SelectItem>
                   </SelectContent>
@@ -1048,12 +1062,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.flutingType}
                   onValueChange={(value) => handleChange("flutingType", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select fluting type" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select fluting type" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.flutingType.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1169,12 +1183,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.frontSideVarnish}
                   onValueChange={(value) => handleChange("frontSideVarnish", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select varnish" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select varnish" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.varnish.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1190,12 +1204,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.backSideVarnish}
                   onValueChange={(value) => handleChange("backSideVarnish", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select varnish" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select varnish" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.varnish.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1211,12 +1225,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.postPrintingLamination}
                   onValueChange={(value) => handleChange("postPrintingLamination", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select lamination" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select lamination" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.postPrintLamination.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1232,10 +1246,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.gravurePrinting}
                   onValueChange={(value) => handleChange("gravurePrinting", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select Yes/No" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.yesNo.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
@@ -1253,10 +1267,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.hotFoilStamping}
                   onValueChange={(value) => handleChange("hotFoilStamping", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select Yes/No" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.yesNo.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
@@ -1274,10 +1288,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.coldFoil}
                   onValueChange={(value) => handleChange("coldFoil", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select Yes/No" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.yesNo.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
@@ -1295,12 +1309,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.embossing}
                   onValueChange={(value) => handleChange("embossing", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select embossing type" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select embossing type" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.embossingType.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1316,12 +1330,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.windowPasting}
                   onValueChange={(value) => handleChange("windowPasting", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select film type" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select film type" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.windowPastingFilm.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1337,10 +1351,10 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.linerPasting}
                   onValueChange={(value) => handleChange("linerPasting", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select Yes/No" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select Yes/No" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.yesNo.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
@@ -1358,12 +1372,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.screenPrinting}
                   onValueChange={(value) => handleChange("screenPrinting", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select screen printing" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select screen printing" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.screenPrinting.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1392,12 +1406,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.variableDataPrinting}
                   onValueChange={(value) => handleChange("variableDataPrinting", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select variable data printing" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select variable data printing" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.variableDataPrinting.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1413,12 +1427,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.cartonPasting}
                   onValueChange={(value) => handleChange("cartonPasting", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select carton pasting" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select carton pasting" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.cartonPasting.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}
@@ -1434,12 +1448,12 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   value={formData.securityFeatures}
                   onValueChange={(value) => handleChange("securityFeatures", value)}
                 >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select security features" />
+                  <SelectTrigger className="mt-1.5 truncate">
+                    <SelectValue placeholder="Select security features" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DROPDOWN_OPTIONS.securityFeatures.map((option) => (
-                      <SelectItem key={option} value={option}>
+                      <SelectItem key={option} value={option} className="truncate">
                         {option}
                       </SelectItem>
                     ))}

@@ -1,20 +1,22 @@
 "use client"
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { CheckCircle2, XCircle, Clock, AlertTriangle, Search, Eye, Mic, Filter, Calendar } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { CheckCircle2, XCircle, Clock, AlertTriangle, Search, Eye, Mic, Calendar } from "lucide-react"
+import {
+  MaterialReactTable,
+  type MRT_ColumnDef,
+} from 'material-react-table'
+import { ThemeProvider } from '@mui/material/styles'
+import { mrtTheme } from '@/lib/mrt-theme'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
@@ -297,13 +299,9 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   const isVerticalHeadUser = isVerticalHead() // Vertical Head user check
 
   const [search, setSearch] = useState("")
-  const [hodFilter, setHodFilter] = useState("all")
-  const [kamFilter, setKamFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [selectedApproval, setSelectedApproval] = useState<(typeof allPendingApprovals)[0] | null>(null)
+  const [selectedApproval, setSelectedApproval] = useState<any | null>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [remark, setRemark] = useState("")
-  const [page, setPage] = useState(1)
-  const itemsPerPage = 20
 
   // API state for quotations
   const [quotationsForApproval, setQuotationsForApproval] = useState<any[]>([])
@@ -493,38 +491,155 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   // Select data source based on showHistory prop
   const currentData = showHistory ? userFilteredHistory : userFilteredPending
 
-  // Get unique HOD and KAM names for filters
-  const hodNames = Array.from(new Set(currentData.map(item => item.hodName).filter((name): name is string => Boolean(name))))
-  const kamNames = Array.from(new Set(currentData.map(item => item.kamName).filter((name): name is string => Boolean(name))))
-
-  // Show all quotations with "Sent to HOD" or "Sent to Vertical Head" status
-  // Filter only by search, type, HOD, and KAM filters
+  // Filter by search
   const filteredApprovals = currentData.filter((approval) => {
-    const matchesType = statusFilter === "all" || (approval as any).type === statusFilter
-
     const matchesSearch =
       approval.customer.toLowerCase().includes(search.toLowerCase()) ||
       approval.id.toLowerCase().includes(search.toLowerCase()) ||
       ((approval as any).job && (approval as any).job.toLowerCase().includes(search.toLowerCase())) ||
-      (approval.kamName && approval.kamName.toLowerCase().includes(search.toLowerCase())) ||
-      (approval.hodName && approval.hodName.toLowerCase().includes(search.toLowerCase()))
-
-    const matchesHod = hodFilter === "all" || approval.hodName === hodFilter
-    const matchesKam = kamFilter === "all" || approval.kamName === kamFilter
-
-    return matchesType && matchesSearch && matchesHod && matchesKam
+      (approval.kamName && approval.kamName.toLowerCase().includes(search.toLowerCase()))
+    return matchesSearch
   })
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredApprovals.length / itemsPerPage)
-  const startIndex = (page - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedApprovals = filteredApprovals.slice(startIndex, endIndex)
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setPage(1)
-  }, [search, hodFilter, kamFilter])
+  // MRT Column definitions
+  const mrtColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    ...(!isKAMUser ? [{
+      accessorKey: 'kamName',
+      header: 'KAM Name',
+      size: 150,
+      Cell: ({ row }: any) => (
+        <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>
+      ),
+    }] : []),
+    {
+      accessorKey: 'type',
+      header: 'Type',
+      size: 130,
+      Cell: ({ row }: any) => (
+        <Badge variant="outline" className="font-semibold">
+          {row.original.type || "Quotation"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'id',
+      header: 'Quotation/Customer',
+      size: 160,
+      Cell: ({ row }: any) => (
+        <div className="leading-[1.15]">
+          <p className="text-sm font-semibold text-primary">{row.original.id}</p>
+          {row.original.inquiryId && (
+            <p className="text-xs text-muted-foreground">Inquiry {row.original.inquiryId}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'customer',
+      header: 'Customer',
+      size: 200,
+      Cell: ({ row }: any) => (
+        <div className="leading-[1.15]">
+          <TruncatedText text={row.original.customer} limit={25} className="text-sm font-medium text-foreground block" />
+          <p className="text-xs text-muted-foreground">Created {row.original.createdDate}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'job',
+      header: 'Details',
+      size: 240,
+      Cell: ({ row }: any) => (
+        row.original.type === "Customer Creation" ? (
+          <div className="leading-[1.15]">
+            <p className="text-sm font-semibold text-foreground">
+              {row.original.productsToManufacture || "N/A"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Credit: {row.original.proposedCreditLimit || "N/A"}
+            </p>
+          </div>
+        ) : (
+          <div className="leading-[1.15]">
+            <TruncatedText text={row.original.job || "N/A"} limit={30} className="text-sm font-semibold text-foreground" />
+            {row.original.validTill && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>Valid till {row.original.validTill}</span>
+              </div>
+            )}
+          </div>
+        )
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      size: 120,
+      Cell: ({ row }: any) => (
+        <Badge variant="outline">{row.original.status}</Badge>
+      ),
+    },
+    {
+      accessorKey: 'actions',
+      header: 'Actions',
+      size: 180,
+      enableSorting: false,
+      Cell: ({ row }: any) => (
+        !showHistory ? (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (row.original.type === 'Quotation') {
+                  handleApprovalAction(row.original.bookingId || row.original.id, 'Disapproved')
+                } else {
+                  alert(`Disapproving ${row.original.id}`)
+                }
+              }}
+              disabled={isUpdatingStatus}
+              className="text-xs bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700 disabled:opacity-50"
+            >
+              <XCircle className="h-3 w-3 mr-1" />
+              {isUpdatingStatus ? 'Wait...' : 'Reject'}
+            </Button>
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (row.original.type === 'Quotation') {
+                  handleApprovalAction(row.original.bookingId || row.original.id, 'Approved')
+                } else {
+                  alert(`Approving ${row.original.id}`)
+                }
+              }}
+              disabled={isUpdatingStatus}
+              className="text-xs bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              {isUpdatingStatus ? 'Wait...' : 'Approve'}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation()
+              setSelectedApproval(row.original)
+              setDetailDialogOpen(true)
+            }}
+            className="text-xs"
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            View
+          </Button>
+        )
+      ),
+    },
+  ], [isKAMUser, showHistory, isUpdatingStatus])
 
   return (
     <div className="space-y-4">
@@ -557,407 +672,243 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
 
       {/* Approvals Table */}
       {!isLoadingQuotations && (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-              <TableRow className="bg-gradient-to-r from-[#003d63] via-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#003d63] hover:via-[#005180] hover:to-[#004875]">
-                {!isKAMUser && (
-                  <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                    <div className="flex items-center justify-between">
-                      <span>KAM Name</span>
-                      <Select value={kamFilter} onValueChange={setKamFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All KAMs</SelectItem>
-                          {kamNames.map(kamName => (
-                            <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                )}
-                <TableHead className="text-white w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center justify-between">
-                    <span>Type</span>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                        <Filter className="h-4 w-4 text-white" />
-                      </SelectTrigger>
-                      <SelectContent align="start" className="min-w-[180px]">
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="Quotation">Quotation</SelectItem>
-                        <SelectItem value="Customer Creation">Customer Creation</SelectItem>
-                      </SelectContent>
-                    </Select>
+        <ThemeProvider theme={mrtTheme}>
+          <MaterialReactTable
+            columns={mrtColumns}
+            data={filteredApprovals}
+            enableTopToolbar={false}
+            enableBottomToolbar={true}
+            enableColumnActions={false}
+            enableColumnFilters={false}
+            enablePagination={true}
+            enableSorting={true}
+            enableGlobalFilter={false}
+            manualPagination={false}
+            initialState={{
+              pagination: { pageSize: 20, pageIndex: 0 },
+            }}
+            muiTablePaperProps={{
+              sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
+            }}
+            muiTableContainerProps={{
+              sx: { maxHeight: '600px' }
+            }}
+            muiTableHeadRowProps={{
+              sx: {
+                backgroundColor: '#005180 !important',
+                '& th': { backgroundColor: '#005180 !important' }
+              }
+            }}
+            muiTableHeadCellProps={{
+              sx: {
+                backgroundColor: '#005180 !important',
+                color: 'white !important',
+                fontWeight: 'bold !important',
+                fontSize: '0.75rem !important',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                padding: '14px 20px !important',
+                borderRight: '1px solid rgba(255,255,255,0.2)',
+                borderBottom: 'none !important',
+                '&:last-child': { borderRight: 'none' },
+                '&:hover': { backgroundColor: '#005180 !important' },
+              }
+            }}
+            muiTableBodyRowProps={({ row }) => ({
+              onClick: () => {
+                setSelectedApproval(row.original)
+                setDetailDialogOpen(true)
+              },
+              sx: {
+                cursor: 'pointer',
+                '&:hover': { backgroundColor: 'rgba(120, 190, 32, 0.2)' },
+                '&:nth-of-type(even)': { backgroundColor: 'rgba(185, 34, 33, 0.05)' },
+              }
+            })}
+            muiTableBodyCellProps={{
+              sx: { fontSize: '0.875rem', padding: '16px' }
+            }}
+            muiPaginationProps={{
+              rowsPerPageOptions: [10, 20, 50],
+              showFirstButton: false,
+              showLastButton: false,
+            }}
+            renderEmptyRowsFallback={() => (
+              <div className="flex flex-col items-center justify-center py-12">
+                <AlertTriangle className="h-12 w-12 text-muted-foreground mb-3" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">No Approvals Found</h3>
+                <p className="text-sm text-muted-foreground">
+                  {search ? 'Try adjusting your search.' : 'There are no pending approvals at the moment.'}
+                </p>
+              </div>
+            )}
+          />
+        </ThemeProvider>
+      )}
+
+      {/* Approval Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>Approval Details</DialogTitle>
+            <DialogDescription>{selectedApproval?.id}</DialogDescription>
+          </DialogHeader>
+          {selectedApproval && (
+            <div className="space-y-4 overflow-y-auto overflow-x-hidden flex-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Customer</Label>
+                  <p className="mt-1 font-medium">{selectedApproval.customer}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Job Name</Label>
+                  <p className="mt-1 font-medium">{selectedApproval.job}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Requested By</Label>
+                  <p className="mt-1">{selectedApproval.requestedBy}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Requested Date</Label>
+                  <p className="mt-1">{selectedApproval.requestedDate}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Approval Level</Label>
+                  <div className="mt-1">
+                    <Badge variant="outline">{selectedApproval.level}</Badge>
                   </div>
-                </TableHead>
-                <TableHead className="text-white w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                  Quotation/Customer
-                </TableHead>
-                <TableHead className="text-white w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                  Customer
-                </TableHead>
-                <TableHead className="text-white w-[240px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                  Details
-                </TableHead>
-                <TableHead className="text-white w-[120px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                  Status
-                </TableHead>
-                <TableHead className="text-white w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedApprovals.map((approval, index) => (
-                    <Dialog key={approval.id}>
-                      <TableRow
-                        className="cursor-pointer border-b border-border/40 bg-white transition-all duration-200 even:bg-[#B92221]/5 hover:bg-[#78BE20]/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
-                      >
-                        {!isKAMUser && (
-                          <DialogTrigger asChild>
-                            <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
-                              <p className="text-sm font-medium text-foreground">{approval.kamName || "N/A"}</p>
-                            </TableCell>
-                          </DialogTrigger>
-                        )}
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
-                            <Badge variant="outline" className="font-semibold">
-                              {(approval as any).type || "Quotation"}
-                            </Badge>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
-                            <div className="leading-[1.15]">
-                              <p className="text-sm font-semibold text-primary">{approval.id}</p>
-                              {approval.inquiryId && (
-                                <p className="text-xs text-muted-foreground">Inquiry {approval.inquiryId}</p>
-                              )}
-                            </div>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
-                            <div className="leading-[1.15]">
-                              <TruncatedText text={approval.customer} limit={25} className="text-sm font-medium text-foreground block" />
-                              <p className="text-xs text-muted-foreground">Created {approval.createdDate}</p>
-                            </div>
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
-                            {approval.type === "Customer Creation" ? (
-                              <div className="leading-[1.15]">
-                                <p className="text-sm font-semibold text-foreground">
-                                  {(approval as any).productsToManufacture || "N/A"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Credit: {(approval as any).proposedCreditLimit || "N/A"}
-                                </p>
-                              </div>
-                            ) : (
-                              <div className="leading-[1.15]">
-                                <TruncatedText text={(approval as any).job || "N/A"} limit={30} className="text-sm font-semibold text-foreground" />
-                                {(approval as any).validTill && (
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Calendar className="h-3.5 w-3.5" />
-                                    <span>Valid till {(approval as any).validTill}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </TableCell>
-                        </DialogTrigger>
-                        <DialogTrigger asChild>
-                          <TableCell onClick={() => setSelectedApproval(approval)} className="py-4">
-                            <Badge variant="outline">{approval.status}</Badge>
-                          </TableCell>
-                        </DialogTrigger>
-                        <TableCell>
-                          {!showHistory ? (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (approval.type === 'Quotation') {
-                                    handleApprovalAction(approval.bookingId || approval.id, 'Disapproved')
-                                  } else {
-                                    alert(`Disapproving ${approval.id}`)
-                                  }
-                                }}
-                                disabled={isUpdatingStatus}
-                                className="text-xs bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <XCircle className="h-3 w-3 mr-1" />
-                                {isUpdatingStatus ? 'Wait...' : 'Reject'}
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (approval.type === 'Quotation') {
-                                    handleApprovalAction(approval.bookingId || approval.id, 'Approved')
-                                  } else {
-                                    alert(`Approving ${approval.id}`)
-                                  }
-                                }}
-                                disabled={isUpdatingStatus}
-                                className="text-xs bg-emerald-600 text-white hover:bg-emerald-700 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                {isUpdatingStatus ? 'Wait...' : 'Approve'}
-                              </Button>
-                            </div>
-                          ) : (
-                            <DialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setSelectedApproval(approval)
-                                }}
-                                className="text-xs"
-                              >
-                                <Eye className="h-3 w-3 mr-1" />
-                                View
-                              </Button>
-                            </DialogTrigger>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-                        <DialogHeader className="flex-shrink-0">
-                          <DialogTitle>Approval Details</DialogTitle>
-                          <DialogDescription>{selectedApproval?.id}</DialogDescription>
-                        </DialogHeader>
-                        {selectedApproval && (
-                          <div className="space-y-4 overflow-y-auto overflow-x-hidden flex-1">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label className="text-muted-foreground">Customer</Label>
-                                <p className="mt-1 font-medium">{selectedApproval.customer}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Job Name</Label>
-                                <p className="mt-1 font-medium">{selectedApproval.job}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Requested By</Label>
-                                <p className="mt-1">{selectedApproval.requestedBy}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Requested Date</Label>
-                                <p className="mt-1">{selectedApproval.requestedDate}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Approval Level</Label>
-                                <div className="mt-1">
-                                  <Badge variant="outline">{selectedApproval.level}</Badge>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Valid Till</Label>
-                                <p className="mt-1">{selectedApproval.validTill}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Urgency</Label>
-                                <div className="mt-1">
-                                  <Badge className={`${getUrgencyBadge(selectedApproval.urgency)} border`}>
-                                    {selectedApproval.urgency}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-
-                            {selectedApproval.kamNote && (
-                              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-                                <Label className="text-sm font-semibold text-blue-900">
-                                  Note from {selectedApproval.requestedBy}
-                                </Label>
-                                <p className="mt-2 text-sm text-blue-800 leading-relaxed">
-                                  {selectedApproval.kamNote}
-                                </p>
-                              </div>
-                            )}
-
-                            {showHistory ? (
-                              // History view - show approval/disapproval details
-                              <div className="space-y-4">
-                                <div className={`rounded-lg border p-4 ${
-                                  selectedApproval.status === "Approved"
-                                    ? "border-emerald-200 bg-emerald-50/50"
-                                    : "border-rose-200 bg-rose-50/50"
-                                }`}>
-                                  <div className="flex items-center gap-2 mb-3">
-                                    {selectedApproval.status === "Approved" ? (
-                                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                                    ) : (
-                                      <XCircle className="h-5 w-5 text-rose-600" />
-                                    )}
-                                    <Label className={`text-sm font-semibold ${
-                                      selectedApproval.status === "Approved"
-                                        ? "text-emerald-900"
-                                        : "text-rose-900"
-                                    }`}>
-                                      {selectedApproval.status} by {(selectedApproval as any).approvedBy}
-                                    </Label>
-                                  </div>
-                                  <div className="grid grid-cols-1 gap-2 mb-3">
-                                    <div>
-                                      <Label className="text-xs text-muted-foreground">Action Date</Label>
-                                      <p className={`text-sm font-medium ${
-                                        selectedApproval.status === "Approved"
-                                          ? "text-emerald-800"
-                                          : "text-rose-800"
-                                      }`}>
-                                        {(selectedApproval as any).approvedDate}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  {(selectedApproval as any).approvalRemark && (
-                                    <div>
-                                      <Label className="text-xs text-muted-foreground">Remark</Label>
-                                      <p className={`mt-1 text-sm leading-relaxed ${
-                                        selectedApproval.status === "Approved"
-                                          ? "text-emerald-800"
-                                          : "text-rose-800"
-                                      }`}>
-                                        {(selectedApproval as any).approvalRemark}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              // Pending view - show action buttons
-                              <>
-                                <div className="space-y-2">
-                                  <Label htmlFor="remark" className="text-sm font-medium">
-                                    Remark <span className="text-muted-foreground">(Optional)</span>
-                                  </Label>
-                                  <Textarea
-                                    id="remark"
-                                    placeholder="Add your remarks or comments here..."
-                                    value={remark}
-                                    onChange={(e) => setRemark(e.target.value)}
-                                    className="min-h-[100px] resize-none"
-                                  />
-                                  <p className="text-xs text-muted-foreground">
-                                    This remark will be attached to your approval/disapproval action
-                                  </p>
-                                </div>
-
-                                <div className="flex justify-end gap-2">
-                                  <Button
-                                    variant="outline"
-                                    className="bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700"
-                                    onClick={() => {
-                                      if (selectedApproval.type === 'Quotation') {
-                                        handleApprovalAction(selectedApproval.bookingId || selectedApproval.id, 'Disapproved')
-                                      } else {
-                                        alert(`Disapproving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
-                                        setRemark("")
-                                      }
-                                    }}
-                                    disabled={isUpdatingStatus}
-                                  >
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    {isUpdatingStatus ? 'Processing...' : 'Disapprove'}
-                                  </Button>
-                                  <Button
-                                    className="bg-emerald-600 text-white hover:bg-emerald-700"
-                                    onClick={() => {
-                                      if (selectedApproval.type === 'Quotation') {
-                                        handleApprovalAction(selectedApproval.bookingId || selectedApproval.id, 'Approved')
-                                      } else {
-                                        alert(`Approving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
-                                        setRemark("")
-                                      }
-                                    }}
-                                    disabled={isUpdatingStatus}
-                                  >
-                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                    {isUpdatingStatus ? 'Processing...' : 'Approve'}
-                                  </Button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                  ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(page - 1)}
-                disabled={page === 1}
-                className="h-8 px-3"
-              >
-                Previous
-              </Button>
-              <div className="hidden md:flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                  <Button
-                    key={pageNum}
-                    variant={page === pageNum ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setPage(pageNum)}
-                    className={`h-8 w-8 ${page === pageNum ? "bg-primary text-primary-foreground" : ""}`}
-                  >
-                    {pageNum}
-                  </Button>
-                ))}
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Valid Till</Label>
+                  <p className="mt-1">{selectedApproval.validTill}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Urgency</Label>
+                  <div className="mt-1">
+                    <Badge className={`${getUrgencyBadge(selectedApproval.urgency)} border`}>
+                      {selectedApproval.urgency}
+                    </Badge>
+                  </div>
+                </div>
               </div>
-              <div className="md:hidden text-sm text-muted-foreground">
-                {page} / {totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(page + 1)}
-                disabled={page === totalPages}
-                className="h-8 px-3"
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
-      )}
 
-      {/* Empty State */}
-      {!isLoadingQuotations && paginatedApprovals.length === 0 && (
-        <Card>
-          <CardContent className="p-8">
-            <div className="text-center">
-              <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">No Approvals Found</h3>
-              <p className="text-sm text-muted-foreground">
-                {search || statusFilter !== 'all' || kamFilter !== 'all' || hodFilter !== 'all'
-                  ? 'Try adjusting your filters to see more results.'
-                  : 'There are no pending approvals at the moment.'}
-              </p>
+              {selectedApproval.kamNote && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+                  <Label className="text-sm font-semibold text-blue-900">
+                    Note from {selectedApproval.requestedBy}
+                  </Label>
+                  <p className="mt-2 text-sm text-blue-800 leading-relaxed">
+                    {selectedApproval.kamNote}
+                  </p>
+                </div>
+              )}
+
+              {showHistory ? (
+                // History view - show approval/disapproval details
+                <div className="space-y-4">
+                  <div className={`rounded-lg border p-4 ${
+                    selectedApproval.status === "Approved"
+                      ? "border-emerald-200 bg-emerald-50/50"
+                      : "border-rose-200 bg-rose-50/50"
+                  }`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      {selectedApproval.status === "Approved" ? (
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-rose-600" />
+                      )}
+                      <Label className={`text-sm font-semibold ${
+                        selectedApproval.status === "Approved"
+                          ? "text-emerald-900"
+                          : "text-rose-900"
+                      }`}>
+                        {selectedApproval.status} by {selectedApproval.approvedBy}
+                      </Label>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 mb-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Action Date</Label>
+                        <p className={`text-sm font-medium ${
+                          selectedApproval.status === "Approved"
+                            ? "text-emerald-800"
+                            : "text-rose-800"
+                        }`}>
+                          {selectedApproval.approvedDate}
+                        </p>
+                      </div>
+                    </div>
+                    {selectedApproval.approvalRemark && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Remark</Label>
+                        <p className={`mt-1 text-sm leading-relaxed ${
+                          selectedApproval.status === "Approved"
+                            ? "text-emerald-800"
+                            : "text-rose-800"
+                        }`}>
+                          {selectedApproval.approvalRemark}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // Pending view - show action buttons
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="remark" className="text-sm font-medium">
+                      Remark <span className="text-muted-foreground">(Optional)</span>
+                    </Label>
+                    <Textarea
+                      id="remark"
+                      placeholder="Add your remarks or comments here..."
+                      value={remark}
+                      onChange={(e) => setRemark(e.target.value)}
+                      className="min-h-[100px] resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This remark will be attached to your approval/disapproval action
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      className="bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700"
+                      onClick={() => {
+                        if (selectedApproval.type === 'Quotation') {
+                          handleApprovalAction(selectedApproval.bookingId || selectedApproval.id, 'Disapproved')
+                        } else {
+                          alert(`Disapproving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
+                          setRemark("")
+                        }
+                      }}
+                      disabled={isUpdatingStatus}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      {isUpdatingStatus ? 'Processing...' : 'Disapprove'}
+                    </Button>
+                    <Button
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() => {
+                        if (selectedApproval.type === 'Quotation') {
+                          handleApprovalAction(selectedApproval.bookingId || selectedApproval.id, 'Approved')
+                        } else {
+                          alert(`Approving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
+                          setRemark("")
+                        }
+                      }}
+                      disabled={isUpdatingStatus}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      {isUpdatingStatus ? 'Processing...' : 'Approve'}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

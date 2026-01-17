@@ -1,12 +1,21 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Filter, SlidersHorizontal, ArrowUpCircle, Share2, Calendar, Mic, CheckCircle2, XCircle, Download, FileText, FileSpreadsheet, ChevronDown } from "lucide-react"
+import { TableSettingsButton } from "@/components/ui/table-settings"
+import { useVoiceInput } from "@/hooks/use-voice-input"
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+  type MRT_ColumnDef,
+  type MRT_ColumnOrderState,
+  type MRT_VisibilityState,
+} from 'material-react-table'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -260,7 +269,11 @@ export function QuotationsContent() {
   const [isSendingForApproval, setIsSendingForApproval] = useState(false)
   const [isDownloadingPDF, setIsDownloadingPDF] = useState<string | null>(null)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false) // Control dialog open state
   const itemsPerPage = 20
+
+  // Voice input hook
+  const { isListening, transcript, startListening, resetTranscript } = useVoiceInput()
 
   // Packing Spec Dialog state
   const [packingSpecDialog, setPackingSpecDialog] = useState<{
@@ -282,102 +295,175 @@ export function QuotationsContent() {
     setMessageDialog({ isOpen: true, title, message, type })
   }
 
-  // Fetch quotations from API
-  const fetchQuotations = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
+  // MUI Theme for Material React Table
+  const muiTheme = useMemo(() => createTheme({
+    palette: {
+      primary: { main: '#005180' },
+      secondary: { main: '#78BE20' },
+    },
+    typography: {
+      fontFamily: 'inherit',
+    },
+  }), [])
 
-        const response = await QuotationsAPI.getQuotations(
-          {
-            FilterSTR: 'All',
-            FromDate: '2024-01-01',
-            ToDate: '2027-12-31',
-          },
-          null
-        )
+  // Column configuration for table settings
+  const tableColumns = [
+    { id: 'hodName', label: 'HOD' },
+    { id: 'kamName', label: 'KAM Name' },
+    { id: 'id', label: 'ID / Inquiry' },
+    { id: 'customer', label: 'Customer' },
+    { id: 'job', label: 'Job & Validity' },
+    { id: 'status', label: 'Status' },
+    { id: 'actions', label: 'Actions' },
+    { id: 'internalStatus', label: 'Internal Status' },
+    { id: 'Source', label: 'Source' },
+  ]
 
+  const defaultColumnVisibility = {
+    hodName: !isKAMUser && !isHODUser,
+    kamName: !isKAMUser,
+    actions: isKAMUser,
+  }
 
-        if (response.success && response.data && response.data.length > 0) {
-          // Debug: Log status breakdown
-          console.log('📊 QUOTATIONS PAGE - Total:', response.data.length)
-          console.log('📊 QUOTATIONS PAGE - Statuses:', [...new Set(response.data.map((item: any) => item.Status))])
-          console.log('📊 QUOTATIONS PAGE - First 10 quotations:', response.data.slice(0, 10).map((item: any) => ({
-            BookingNo: item.BookingNo,
-            Status: item.Status,
-            ClientName: item.ClientName
-          })))
-
-          // Transform API data
-          const transformedData = response.data.map((item: any) => {
-            // Extract numeric values from QuotedCost (remove "INR" and parse)
-            const quotedCostStr = item.QuotedCost || '0'
-            const quotedCost = typeof quotedCostStr === 'string'
-              ? parseFloat(quotedCostStr.replace(/[^\d.]/g, ''))
-              : quotedCostStr
-
-            const finalCost = item.FinalCost || 0
-
-            // Use Margin from API (already a percentage)
-            const marginPercent = item.Margin || 0
-
-            // Calculate validTill: createdDate + 10 days
-            let validTill = '-'
-            if (item.CreatedDate) {
-              try {
-                const createdDate = new Date(item.CreatedDate)
-                const validTillDate = new Date(createdDate)
-                validTillDate.setDate(validTillDate.getDate() + 10)
-
-                // Format as DD-MMM-YYYY
-                const day = String(validTillDate.getDate()).padStart(2, '0')
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                const month = months[validTillDate.getMonth()]
-                const year = validTillDate.getFullYear()
-                validTill = `${day}-${month}-${year}`
-              } catch (e) {
-                validTill = '-'
-              }
-            }
-
-            return {
-              id: item.BookingNo,
-              bookingId: item.BookingID, // Numeric BookingID for API calls
-              inquiryId: item.EnquiryNo || '-',
-              customer: item.ClientName,
-              job: item.JobName,
-              amount: finalCost,
-              quotedCost: quotedCost,
-              quotedCostDisplay: item.QuotedCost || '0 INR',
-              finalCost: finalCost,
-              margin: marginPercent,
-              validTill: validTill,
-              status: item.Status || 'Quoted', // Use Status from API
-              internalStatus: item.IsInternalApproved ? 'Approved' : item.IsSendForInternalApproval ? 'Pending Approval' : 'Not Updated',
-              internalStatusNote: item.RemarkInternalApproved || '',
-              approvalLevel: '-',
-              createdDate: item.CreatedDate,
-              notes: item.QuoteRemark || '',
-              kamName: item.SalesEmployeeName || '-',
-              hodName: '-',
-              history: [],
-              // Raw data for reference
-              rawData: item
-            }
-          })
-
-          setQuotations(transformedData)
-        } else {
-          setError(response.error || 'No quotations found')
-          setQuotations([])
-        }
-      } catch (err: any) {
-        setError(err.message || 'An error occurred while loading quotations')
-        setQuotations([])
-      } finally {
-        setIsLoading(false)
+  // Load column settings from localStorage
+  const [columnVisibility, setColumnVisibility] = useState<MRT_VisibilityState>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('quotations-column-visibility')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) {}
       }
     }
+    return defaultColumnVisibility
+  })
+
+  const [columnOrder, setColumnOrder] = useState<MRT_ColumnOrderState>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('quotations-column-order')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) {}
+      }
+    }
+    return tableColumns.map(col => col.id)
+  })
+
+  const [tableSortColumn, setTableSortColumn] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('quotations-sort-column') || ''
+    }
+    return ''
+  })
+
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('quotations-sort-direction') as 'asc' | 'desc') || 'desc'
+    }
+    return 'desc'
+  })
+
+  // Reset all table settings to default
+  const resetTableSettings = () => {
+    setColumnVisibility(defaultColumnVisibility)
+    setColumnOrder(tableColumns.map(col => col.id))
+    setTableSortColumn('')
+    setTableSortDirection('desc')
+  }
+
+  // Fetch quotations from API
+  const fetchQuotations = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const response = await QuotationsAPI.getQuotations(
+        {
+          FilterSTR: 'All',
+          FromDate: '2024-01-01',
+          ToDate: '2027-12-31',
+        },
+        null
+      )
+
+
+      if (response.success && response.data && response.data.length > 0) {
+        // Debug: Log status breakdown
+        console.log('📊 QUOTATIONS PAGE - Total:', response.data.length)
+        console.log('📊 QUOTATIONS PAGE - Statuses:', [...new Set(response.data.map((item: any) => item.Status))])
+        console.log('📊 QUOTATIONS PAGE - First 10 quotations:', response.data.slice(0, 10).map((item: any) => ({
+          BookingNo: item.BookingNo,
+          Status: item.Status,
+          ClientName: item.ClientName
+        })))
+
+        // Transform API data
+        const transformedData = response.data.map((item: any) => {
+          // Extract numeric values from QuotedCost (remove "INR" and parse)
+          const quotedCostStr = item.QuotedCost || '0'
+          const quotedCost = typeof quotedCostStr === 'string'
+            ? parseFloat(quotedCostStr.replace(/[^\d.]/g, ''))
+            : quotedCostStr
+
+          const finalCost = item.FinalCost || 0
+
+          // Use Margin from API (already a percentage)
+          const marginPercent = item.Margin || 0
+
+          // Calculate validTill: createdDate + 10 days
+          let validTill = '-'
+          if (item.CreatedDate) {
+            try {
+              const createdDate = new Date(item.CreatedDate)
+              const validTillDate = new Date(createdDate)
+              validTillDate.setDate(validTillDate.getDate() + 10)
+
+              // Format as DD-MMM-YYYY
+              const day = String(validTillDate.getDate()).padStart(2, '0')
+              const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+              const month = months[validTillDate.getMonth()]
+              const year = validTillDate.getFullYear()
+              validTill = `${day}-${month}-${year}`
+            } catch (e) {
+              validTill = '-'
+            }
+          }
+
+          return {
+            id: item.BookingNo,
+            bookingId: item.BookingID, // Numeric BookingID for API calls
+            inquiryId: item.EnquiryNo || '-',
+            customer: item.ClientName,
+            job: item.JobName,
+            amount: finalCost,
+            quotedCost: quotedCost,
+            quotedCostDisplay: item.QuotedCost || '0 INR',
+            finalCost: finalCost,
+            margin: marginPercent,
+            validTill: validTill,
+            status: item.Status || 'Quoted', // Use Status from API
+            internalStatus: item.IsInternalApproved ? 'Approved' : item.IsSendForInternalApproval ? 'Pending Approval' : 'Not Updated',
+            internalStatusNote: item.RemarkInternalApproved || '',
+            approvalLevel: '-',
+            createdDate: item.CreatedDate,
+            notes: item.QuoteRemark || '',
+            kamName: item.SalesEmployeeName || '-',
+            hodName: '-',
+            history: [],
+            // Raw data for reference
+            rawData: item
+          }
+        })
+
+        setQuotations(transformedData)
+      } else {
+        setError(response.error || 'No quotations found')
+        setQuotations([])
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while loading quotations')
+      setQuotations([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchQuotations()
@@ -408,8 +494,15 @@ export function QuotationsContent() {
 
       if (response.success) {
         const approvalName = approvalType === 'VerticalHead' ? 'Vertical Head' : 'HOD'
-        showMessage('Success', `Quotation sent to ${approvalName} successfully!\n\nThe quotation will now appear in the ${approvalName} approvals page.`, 'success')
+
+        // Close the dialog first
+        setIsDialogOpen(false)
         setSelectedQuotation(null)
+
+        // Then show success message
+        showMessage('Success', `Quotation sent to ${approvalName} successfully!\n\nThe quotation will now appear in the ${approvalName} approvals page.`, 'success')
+
+        // Refresh quotations list
         await fetchQuotations()
       } else {
         showMessage('Failed', `Failed to send quotation to ${approvalType}: ${response.error}`, 'error')
@@ -536,7 +629,7 @@ export function QuotationsContent() {
       pdf.text(titleText, titleX, yPos, { align: 'center' })
       // Underline
       pdf.setLineWidth(0.4)
-      pdf.line(titleX - titleWidth/2, yPos + 1, titleX + titleWidth/2, yPos + 1)
+      pdf.line(titleX - titleWidth / 2, yPos + 1, titleX + titleWidth / 2, yPos + 1)
 
       yPos += 12
 
@@ -969,7 +1062,7 @@ export function QuotationsContent() {
       pdf.text(titleTextH, titleXH, yPos, { align: 'center' })
       // Underline
       pdf.setLineWidth(0.4)
-      pdf.line(titleXH - titleWidthH/2, yPos + 1, titleXH + titleWidthH/2, yPos + 1)
+      pdf.line(titleXH - titleWidthH / 2, yPos + 1, titleXH + titleWidthH / 2, yPos + 1)
 
       yPos += 12
 
@@ -1556,9 +1649,180 @@ export function QuotationsContent() {
     setCurrentPage(1)
   }, [searchQuery, statusFilter, internalStatusFilter, hodFilter, kamFilter, sortBy])
 
+  // Update search query when voice transcript changes
+  useEffect(() => {
+    if (transcript) {
+      setSearchQuery(transcript)
+      resetTranscript()
+    }
+  }, [transcript, resetTranscript])
+
   const handleOpenQuotation = (quotation: (typeof quotations)[0]) => {
     setSelectedQuotation(quotation)
+    setIsDialogOpen(true)
   }
+
+  // MRT Column definitions - defined here after all functions
+  const mrtColumnsBase = useMemo<MRT_ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'hodName',
+      header: 'HOD',
+      size: 140,
+      Cell: ({ cell }) => <span className="text-sm font-medium">{cell.getValue<string>() || 'N/A'}</span>,
+    },
+    {
+      accessorKey: 'kamName',
+      header: 'KAM Name',
+      size: 140,
+      Cell: ({ cell }) => <span className="text-sm font-medium">{cell.getValue<string>() || 'N/A'}</span>,
+    },
+    {
+      accessorKey: 'id',
+      header: 'ID / Inquiry',
+      size: 150,
+      Cell: ({ row }) => (
+        <div className="space-y-0.5">
+          <p className="text-sm font-semibold text-[#005180]">{row.original.id}</p>
+          <p className="text-xs text-gray-500">Inquiry {row.original.inquiryId}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'customer',
+      header: 'Customer',
+      size: 180,
+      Cell: ({ row }) => (
+        <div>
+          <TruncatedText text={row.original.customer} limit={25} className="text-sm font-medium block" />
+          <p className="text-xs text-gray-500">Created {row.original.createdDate}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'job',
+      header: 'Job & Validity',
+      size: 200,
+      Cell: ({ row }) => (
+        <div className="space-y-0.5">
+          <TruncatedText text={row.original.job} limit={30} className="text-sm font-semibold" />
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>Valid till {row.original.validTill}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      size: 150,
+      filterVariant: 'select',
+      filterSelectOptions: ['Quoted', 'Sent to HOD', 'Approved', 'Sent to Customer', 'Disapproved'],
+      Cell: ({ row }) => (
+        <div>
+          <Badge className={`${getStatusBadge(row.original.status)} border`}>{row.original.status}</Badge>
+          {row.original.status === "Quoted" && (
+            <p className="mt-1 text-xs uppercase tracking-wider text-gray-500">Level {row.original.approvalLevel}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'actions',
+      header: 'Actions',
+      size: 180,
+      enableSorting: false,
+      enableColumnFilter: false,
+      Cell: ({ row }) => {
+        const quotation = row.original
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            {quotation.status === 'Approved' ? (
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 h-7 px-2"
+                  onClick={(e) => { e.stopPropagation(); showMessage('Coming Soon', 'Send to customer feature coming soon', 'info') }}>
+                  <ArrowUpCircle className="h-3 w-3 mr-1" />Send
+                </Button>
+                <Button size="sm" variant="outline" className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 h-7 px-2"
+                  onClick={(e) => { e.stopPropagation(); showMessage('Coming Soon', 'Share feature coming soon', 'info') }}>
+                  <Share2 className="h-3 w-3 mr-1" />Share
+                </Button>
+              </div>
+            ) : quotation.status === 'Sent to HOD' || quotation.status === 'Sent to Vertical Head' ? (
+              <span className="text-xs text-gray-500 italic">Pending</span>
+            ) : quotation.status === 'Disapproved' ? (
+              <span className="text-xs text-rose-600 font-medium">Disapproved</span>
+            ) : (
+              <div className="flex gap-1">
+                {quotation.margin < 5 && (
+                  <Button size="sm" variant="outline" className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 h-7 px-2"
+                    disabled={isSendingForApproval}
+                    onClick={(e) => { e.stopPropagation(); handleSendForApproval(quotation.bookingId, 'VerticalHead') }}>
+                    <ArrowUpCircle className="h-3 w-3 mr-1" />VH
+                  </Button>
+                )}
+                {quotation.margin >= 5 && quotation.margin < 10 && (
+                  <Button size="sm" variant="outline" className="text-xs bg-[#B92221]/10 text-[#B92221] border-[#B92221]/30 h-7 px-2"
+                    disabled={isSendingForApproval}
+                    onClick={(e) => { e.stopPropagation(); handleSendForApproval(quotation.bookingId, 'HOD') }}>
+                    <ArrowUpCircle className="h-3 w-3 mr-1" />HOD
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'internalStatus',
+      header: 'Internal Status',
+      size: 180,
+      filterVariant: 'select',
+      filterSelectOptions: ['Not Updated', 'In Progress', 'Approved', 'Disapproved'],
+      Cell: ({ row }) => {
+        const quotation = row.original
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            {isKAMUser ? (
+              <Select
+                value={internalStatusMap[quotation.id] || quotation.internalStatus}
+                onValueChange={(value) => setInternalStatusMap({ ...internalStatusMap, [quotation.id]: value })}
+              >
+                <SelectTrigger className="h-8 w-full border-gray-300">
+                  <Badge className={`${getInternalStatusBadge(internalStatusMap[quotation.id] || quotation.internalStatus)} border text-xs`}>
+                    {internalStatusMap[quotation.id] || quotation.internalStatus}
+                  </Badge>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Not Updated"><Badge className={`${getInternalStatusBadge("Not Updated")} border text-xs`}>Not Updated</Badge></SelectItem>
+                  <SelectItem value="In Progress"><Badge className={`${getInternalStatusBadge("In Progress")} border text-xs`}>In Progress</Badge></SelectItem>
+                  <SelectItem value="Approved"><Badge className={`${getInternalStatusBadge("Approved")} border text-xs`}>Approved</Badge></SelectItem>
+                  <SelectItem value="Disapproved"><Badge className={`${getInternalStatusBadge("Disapproved")} border text-xs`}>Disapproved</Badge></SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Badge className={`${getInternalStatusBadge(quotation.internalStatus)} border`}>{quotation.internalStatus}</Badge>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'Source',
+      header: 'Source',
+      size: 120,
+      Cell: ({ cell }) => <span className="text-sm text-gray-700">{cell.getValue<string>() || 'KAM APP'}</span>,
+    },
+  ], [isKAMUser, isSendingForApproval, internalStatusMap, showMessage, handleSendForApproval])
+
+  // Sort columns based on columnOrder
+  const mrtColumns = useMemo(() => {
+    const columnsMap = new Map(mrtColumnsBase.map(col => [col.accessorKey, col]))
+    return columnOrder
+      .filter(colId => columnsMap.has(colId))
+      .map(colId => columnsMap.get(colId)!)
+  }, [mrtColumnsBase, columnOrder])
 
   return (
     <div className="section-spacing">
@@ -1593,11 +1857,10 @@ export function QuotationsContent() {
       <Dialog open={messageDialog.isOpen} onOpenChange={(open) => !open && setMessageDialog({ ...messageDialog, isOpen: false })}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle className={`text-center text-lg font-semibold flex items-center justify-center gap-2 ${
-              messageDialog.type === 'success' ? 'text-green-600' :
+            <DialogTitle className={`text-center text-lg font-semibold flex items-center justify-center gap-2 ${messageDialog.type === 'success' ? 'text-green-600' :
               messageDialog.type === 'error' ? 'text-red-600' :
-              'text-[#005180]'
-            }`}>
+                'text-[#005180]'
+              }`}>
               {messageDialog.type === 'success' && <CheckCircle2 className="h-5 w-5" />}
               {messageDialog.type === 'error' && <XCircle className="h-5 w-5" />}
               {messageDialog.title}
@@ -1608,11 +1871,10 @@ export function QuotationsContent() {
           </DialogHeader>
           <div className="flex justify-center pt-4">
             <Button
-              className={`w-24 ${
-                messageDialog.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+              className={`w-24 ${messageDialog.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
                 messageDialog.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
-                'bg-[#005180] hover:bg-[#004875]'
-              } text-white`}
+                  'bg-[#005180] hover:bg-[#004875]'
+                } text-white`}
               onClick={() => setMessageDialog({ ...messageDialog, isOpen: false })}
             >
               OK
@@ -1621,318 +1883,117 @@ export function QuotationsContent() {
         </DialogContent>
       </Dialog>
 
-      <div className="relative w-full flex gap-2 items-center">
+      {/* Custom Search Bar - Matching Enquiries Style */}
+      <div className="relative mb-4 w-full flex gap-3 items-center">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Mic
+            onClick={isListening ? undefined : startListening}
+            className={`pointer-events-auto absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer transition-colors duration-200 z-10 ${
+              isListening ? 'text-[#B92221] animate-pulse' : 'text-[#005180] hover:text-[#004875]'
+            }`}
+          />
+          <Search className="pointer-events-none absolute left-12 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Find your quotations by customer, job, or ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
+            className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
           />
         </div>
-        <Mic
-          onClick={() => showMessage('Coming Soon', 'Voice input feature coming soon', 'info')}
-          className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
+        <TableSettingsButton
+          storageKey="quotations"
+          columns={tableColumns}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnOrder={columnOrder}
+          setColumnOrder={setColumnOrder}
+          sortColumn={tableSortColumn}
+          setSortColumn={setTableSortColumn}
+          sortDirection={tableSortDirection}
+          setSortDirection={setTableSortDirection}
+          onReset={resetTableSettings}
         />
       </div>
 
-      <Card className="surface-elevated overflow-hidden">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gradient-to-r from-[#005180] to-[#003d63] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#003d63]">
-                  {!isKAMUser && !isHODUser && (
-                    <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                      <div className="flex items-center justify-between">
-                        <span>HOD</span>
-                        {!isRestrictedUser && (
-                          <Select value={hodFilter} onValueChange={setHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {hodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                    </TableHead>
-                  )}
-                  {!isKAMUser && (
-                    <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                      <div className="flex items-center justify-between">
-                        <span>KAM Name</span>
-                        <Select value={kamFilter} onValueChange={setKamFilter}>
-                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                            <Filter className="h-4 w-4 text-white" />
-                          </SelectTrigger>
-                          <SelectContent align="start" className="min-w-[150px]">
-                            <SelectItem value="all">All KAMs</SelectItem>
-                            {kamNames.map(kamName => (
-                              <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TableHead>
-                  )}
-                  <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    ID / Inquiry
-                  </TableHead>
-                  <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    Customer
-                  </TableHead>
-                  <TableHead className="w-[240px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    Job & Validity
-                  </TableHead>
-                  <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>Status</span>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[180px]">
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="Quoted">Quoted</SelectItem>
-                          <SelectItem value="Sent to HOD">Sent to HOD</SelectItem>
-                          <SelectItem value="Approved">Approved</SelectItem>
-                          <SelectItem value="Sent to Customer">Sent to Customer</SelectItem>
-                          <SelectItem value="Disapproved">Disapproved</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                  {isKAMUser && (
-                    <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white text-right">
-                      Actions
-                    </TableHead>
-                  )}
-                  <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>Internal Status</span>
-                      <Select value={internalStatusFilter} onValueChange={setInternalStatusFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[180px]">
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="Not Updated">Not Updated</SelectItem>
-                          <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="Approved">Approved</SelectItem>
-                          <SelectItem value="Disapproved">Disapproved</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>Source</span>
-                      <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All Sources</SelectItem>
-                          {sourceNames.map(source => (
-                            <SelectItem key={source} value={source}>{source}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedQuotations.map((quotation, index) => (
-                  <Dialog key={quotation.id}>
-                    <DialogTrigger asChild>
-                      <TableRow
-                        className="group cursor-pointer border-b border-border/40 bg-white transition-all duration-200 even:bg-[#B92221]/5 hover:bg-[#78BE20]/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
-                        onClick={() => handleOpenQuotation(quotation)}
-                      >
-                        {!isKAMUser && !isHODUser && (
-                          <TableCell className="py-4">
-                            <p className="text-sm font-medium text-foreground">{quotation.hodName || "N/A"}</p>
-                          </TableCell>
-                        )}
-                        {!isKAMUser && (
-                          <TableCell className="py-4">
-                            <p className="text-sm font-medium text-foreground">{quotation.kamName || "N/A"}</p>
-                          </TableCell>
-                        )}
-                        <TableCell className="py-4">
-                          <div className="space-y-0.5">
-                            <p className="text-sm font-semibold text-primary">{quotation.id}</p>
-                            <p className="text-xs text-muted-foreground">Inquiry {quotation.inquiryId}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <TruncatedText text={quotation.customer} limit={25} className="text-sm font-medium text-foreground block" />
-                          <p className="text-xs text-muted-foreground">Created {quotation.createdDate}</p>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <div className="space-y-0.5">
-                            <TruncatedText text={quotation.job} limit={30} className="text-sm font-semibold text-foreground" />
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Calendar className="h-3.5 w-3.5" />
-                              <span>Valid till {quotation.validTill}</span>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <Badge className={`${getStatusBadge(quotation.status)} border`}>{quotation.status}</Badge>
-                          {quotation.status === "Quoted" && (
-                            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground/80">
-                              Level {quotation.approvalLevel}
-                            </p>
-                          )}
-                        </TableCell>
-                        {isKAMUser && (
-                          <TableCell className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                            {/* Show different actions based on status */}
-                            {quotation.status === 'Approved' ? (
-                              // Approved quotations: Show Send to Customer and Share only
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 hover:bg-[#78BE20]/20"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    showMessage('Coming Soon', `Send to customer feature coming soon for ${quotation.id}`, 'info')
-                                  }}
-                                >
-                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                  Send to Customer
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    showMessage('Coming Soon', `Share feature coming soon for ${quotation.id}`, 'info')
-                                  }}
-                                >
-                                  <Share2 className="h-3 w-3 mr-1" />
-                                  Share
-                                </Button>
-                              </div>
-                            ) : quotation.status === 'Sent to HOD' || quotation.status === 'Sent to Vertical Head' ? (
-                              // Pending approval: Show status text only
-                              <div className="flex justify-end gap-2 items-center">
-                                <span className="text-xs text-muted-foreground italic">Pending Approval</span>
-                              </div>
-                            ) : quotation.status === 'Disapproved' ? (
-                              // Disapproved: Show status text only
-                              <div className="flex justify-end gap-2 items-center">
-                                <span className="text-xs text-rose-600 font-medium italic">Disapproved</span>
-                              </div>
-                            ) : (
-                              // Other statuses (Costing, Quoted, etc.): Show approval buttons based on margin
-                              <div className="flex justify-end gap-2">
-                                {/* Margin < 5%: Send to Vertical Head */}
-                                {quotation.margin < 5 && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 hover:bg-[#005180]/20"
-                                    disabled={isSendingForApproval}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleSendForApproval(quotation.bookingId, 'VerticalHead')
-                                    }}
-                                  >
-                                    <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                    {isSendingForApproval ? 'Sending...' : 'Send to VH'}
-                                  </Button>
-                                )}
-                                {/* Margin 5% to 10%: Send to HOD */}
-                                {quotation.margin >= 5 && quotation.margin < 10 && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-xs bg-[#B92221]/10 text-[#B92221] border-[#B92221]/30 hover:bg-[#B92221]/20"
-                                    disabled={isSendingForApproval}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleSendForApproval(quotation.bookingId, 'HOD')
-                                    }}
-                                  >
-                                    <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                    {isSendingForApproval ? 'Sending...' : 'Send to HOD'}
-                                  </Button>
-                                )}
-                              </div>
-                            )}
-                          </TableCell>
-                        )}
-                        <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
-                          {isKAMUser ? (
-                            <div className="space-y-2">
-                              <Select
-                                value={internalStatusMap[quotation.id] || quotation.internalStatus}
-                                onValueChange={(value) => {
-                                  setInternalStatusMap({ ...internalStatusMap, [quotation.id]: value })
-                                }}
-                              >
-                                <SelectTrigger className="w-full border-border/60">
-                                  <Badge className={`${getInternalStatusBadge(internalStatusMap[quotation.id] || quotation.internalStatus)} border text-xs`}>
-                                    {internalStatusMap[quotation.id] || quotation.internalStatus}
-                                  </Badge>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Not Updated">
-                                    <Badge className={`${getInternalStatusBadge("Not Updated")} border text-xs`}>
-                                      Not Updated
-                                    </Badge>
-                                  </SelectItem>
-                                  <SelectItem value="In Progress">
-                                    <Badge className={`${getInternalStatusBadge("In Progress")} border text-xs`}>
-                                      In Progress
-                                    </Badge>
-                                  </SelectItem>
-                                  <SelectItem value="Approved">
-                                    <Badge className={`${getInternalStatusBadge("Approved")} border text-xs`}>
-                                      Approved
-                                    </Badge>
-                                  </SelectItem>
-                                  <SelectItem value="Disapproved">
-                                    <Badge className={`${getInternalStatusBadge("Disapproved")} border text-xs`}>
-                                      Disapproved
-                                    </Badge>
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                              {(internalStatusMap[quotation.id] === "In Progress" || (quotation.internalStatus === "In Progress" && !internalStatusMap[quotation.id])) && (
-                                <Input
-                                  placeholder="Enter progress note..."
-                                  value={internalStatusNoteMap[quotation.id] || quotation.internalStatusNote || ""}
-                                  onChange={(e) => {
-                                    setInternalStatusNoteMap({ ...internalStatusNoteMap, [quotation.id]: e.target.value })
-                                  }}
-                                  className="text-xs h-8"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              )}
-                            </div>
-                          ) : (
-                            <Badge className={`${getInternalStatusBadge(quotation.internalStatus)} border`}>
-                              {quotation.internalStatus}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <span className="text-sm text-gray-700">{quotation.Source || 'KAM APP'}</span>
-                        </TableCell>
-                      </TableRow>
-                    </DialogTrigger>
+      {/* Material React Table */}
+      <ThemeProvider theme={muiTheme}>
+        <MaterialReactTable
+          columns={mrtColumns}
+          data={filteredQuotations}
+          enableColumnOrdering={false}
+          enableColumnResizing={false}
+          enableHiding={false}
+          enableGlobalFilter={false}
+          enableColumnFilters={false}
+          enablePagination
+          enableColumnActions={false}
+          enableDensityToggle={false}
+          enableFullScreenToggle={false}
+          enableTopToolbar={false}
+          initialState={{
+            density: 'compact',
+            showGlobalFilter: false,
+            pagination: { pageSize: 10, pageIndex: 0 },
+            columnVisibility,
+          }}
+          state={{
+            columnVisibility,
+            columnOrder,
+            globalFilter: searchQuery,
+            sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
+          }}
+          enableSorting={true}
+          manualSorting={false}
+          onColumnVisibilityChange={setColumnVisibility}
+          onColumnOrderChange={setColumnOrder}
+          muiTablePaperProps={{
+            sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
+          }}
+          muiTableContainerProps={{
+            sx: { maxHeight: '600px' }
+          }}
+          muiTableHeadRowProps={{
+            sx: {
+              backgroundColor: '#005180 !important',
+              '& th': { backgroundColor: '#005180 !important' }
+            }
+          }}
+          muiTableHeadCellProps={{
+            sx: {
+              backgroundColor: '#005180 !important',
+              color: 'white !important',
+              fontWeight: 'bold !important',
+              fontSize: '0.75rem !important',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              padding: '14px 20px !important',
+              borderRight: '1px solid rgba(255,255,255,0.2)',
+              borderBottom: 'none !important',
+              '&:last-child': { borderRight: 'none' },
+              '&:hover': { backgroundColor: '#005180 !important' },
+              '& .MuiTableSortLabel-root': { color: 'white !important' },
+              '& .MuiTableSortLabel-icon': { color: 'white !important' },
+            }
+          }}
+          muiTableBodyRowProps={({ row }) => ({
+            onClick: () => {
+              handleOpenQuotation(row.original)
+              setIsDialogOpen(true)
+            },
+            sx: {
+              cursor: 'pointer',
+              '&:hover': { backgroundColor: 'rgba(120, 190, 32, 0.2)' },
+              '&:nth-of-type(even)': { backgroundColor: 'rgba(185, 34, 33, 0.05)' },
+            }
+          })}
+          muiTableBodyCellProps={{
+            sx: { fontSize: '0.875rem' }
+          }}
+        />
+      </ThemeProvider>
+
+      {/* Quotation Detail Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogContent className="surface-elevated max-w-lg max-h-[85vh] p-0 flex flex-col overflow-hidden">
                       <DialogHeader className="border-b bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-4 flex-shrink-0">
                         <div className="flex items-start justify-between gap-4 pr-8">
@@ -2018,9 +2079,8 @@ export function QuotationsContent() {
                                   return (
                                     <div key={`${selectedQuotation.id}-step-${step.stage}`} className="flex items-start gap-3">
                                       <span
-                                        className={`mt-1 inline-flex h-2.5 w-2.5 rounded-full ${
-                                          isCurrent ? getStatusAccent(selectedQuotation.status) : "bg-gray-400"
-                                        }`}
+                                        className={`mt-1 inline-flex h-2.5 w-2.5 rounded-full ${isCurrent ? getStatusAccent(selectedQuotation.status) : "bg-gray-400"
+                                          }`}
                                       />
                                       <div>
                                         <p className="text-sm font-semibold text-gray-900">{step.stage}</p>
@@ -2116,95 +2176,51 @@ export function QuotationsContent() {
                               </div>
                             )}
 
-                            {/* Download buttons (always visible for everyone) */}
-                            <div className="px-6 py-3 bg-gray-50">
-                              <div className="flex justify-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="flex-1 rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
-                                  disabled={isDownloadingPDF === selectedQuotation.bookingId}
-                                  onClick={() => handleDownloadQuotationVertical(selectedQuotation.bookingId)}
-                                  title="Download PDF - Vertical Format"
-                                >
-                                  <FileText className="mr-1 h-3 w-3" />
-                                  PDF (V)
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="flex-1 rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
-                                  disabled={isDownloadingPDF === selectedQuotation.bookingId}
-                                  onClick={() => handleDownloadQuotationHorizontal(selectedQuotation.bookingId)}
-                                  title="Download PDF - Horizontal Format"
-                                >
-                                  <FileText className="mr-1 h-3 w-3" />
-                                  PDF (H)
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="flex-1 rounded-md border-[#78BE20] text-[#78BE20] hover:bg-[#78BE20]/10 text-xs"
-                                  disabled={isDownloadingPDF === selectedQuotation.bookingId}
-                                  onClick={() => handleDownloadQuotationExcel(selectedQuotation.bookingId)}
-                                  title="Download Excel"
-                                >
-                                  <FileSpreadsheet className="mr-1 h-3 w-3" />
-                                  Excel
-                                </Button>
+                            {/* Download buttons - For KAM users, only show when status is Approved */}
+                            {(!isKAMUser || selectedQuotation.status === "Approved") && (
+                              <div className="px-6 py-3 bg-gray-50">
+                                <div className="flex justify-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
+                                    disabled={isDownloadingPDF === selectedQuotation.bookingId}
+                                    onClick={() => handleDownloadQuotationVertical(selectedQuotation.bookingId)}
+                                    title="Download PDF - Vertical Format"
+                                  >
+                                    <FileText className="mr-1 h-3 w-3" />
+                                    PDF (V)
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
+                                    disabled={isDownloadingPDF === selectedQuotation.bookingId}
+                                    onClick={() => handleDownloadQuotationHorizontal(selectedQuotation.bookingId)}
+                                    title="Download PDF - Horizontal Format"
+                                  >
+                                    <FileText className="mr-1 h-3 w-3" />
+                                    PDF (H)
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 rounded-md border-[#78BE20] text-[#78BE20] hover:bg-[#78BE20]/10 text-xs"
+                                    disabled={isDownloadingPDF === selectedQuotation.bookingId}
+                                    onClick={() => handleDownloadQuotationExcel(selectedQuotation.bookingId)}
+                                    title="Download Excel"
+                                  >
+                                    <FileSpreadsheet className="mr-1 h-3 w-3" />
+                                    Excel
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </>
                         )}
                       </div>
                     </DialogContent>
-                  </Dialog>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="h-8 px-3"
-              >
-                Previous
-              </Button>
-              <div className="hidden md:flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                  >
-                    {page}
-                  </Button>
-                ))}
-              </div>
-              <div className="md:hidden text-sm text-muted-foreground">
-                {currentPage} / {totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="h-8 px-3"
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
+      </Dialog>
     </div>
   )
 }

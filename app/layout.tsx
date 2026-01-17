@@ -4,6 +4,7 @@ import { Suspense } from "react"
 import "./globals.css"
 import { FontSizeProvider } from "@/lib/font-size-context"
 import { SplashScreen } from "@/components/splash-screen"
+import { Toaster } from "@/components/ui/sonner"
 
 export const metadata: Metadata = {
   title: "ParkBuddy",
@@ -31,6 +32,7 @@ export default function RootLayout({
         <FontSizeProvider>
           <Suspense fallback={null}>{children}</Suspense>
         </FontSizeProvider>
+        <Toaster />
       </body>
     </html>
   )

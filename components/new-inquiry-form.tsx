@@ -1278,9 +1278,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     if (!formData.jobName) errors.jobName = true
     if (!formData.quantity || Number(formData.quantity) === 0) errors.quantity = true
     if (!formData.salesPerson) errors.salesPerson = true
-    if (!formData.categoryName) errors.categoryName = true
     if (!formData.plant) errors.plant = true
     if (!formData.unit) errors.unit = true
+    // Category is only required for detailed form (the field is only shown in detailed form)
+    if (formType === 'detailed' && !formData.categoryName) errors.categoryName = true
 
     // Annual Quantity is mandatory for detailed form
     if (formType === 'detailed' && (!formData.annualQuantity || Number(formData.annualQuantity) === 0)) {
@@ -1366,10 +1367,25 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors)
+
+      // Map field names to user-friendly labels
+      const fieldLabels: Record<string, string> = {
+        clientName: 'Customer Name',
+        jobName: 'Job Name',
+        quantity: 'Quantity',
+        salesPerson: 'Sales Person',
+        categoryName: 'Category',
+        plant: 'Production Unit',
+        unit: 'UOM',
+        annualQuantity: 'Annual Quantity',
+      }
+
+      const missingFields = Object.keys(errors).map(key => fieldLabels[key] || key)
+
       toast({
         variant: "destructive",
-        title: "Validation Error",
-        description: "Please fill in all mandatory fields (highlighted in red)",
+        title: "Missing Required Fields",
+        description: `Please fill in: ${missingFields.join(', ')}`,
       })
       return
     }
@@ -1473,7 +1489,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           AnnualQuantity: parseInt(formData.annualQuantity) || parseInt(formData.quantity) || 0,
           PlantID: getProductionUnitID(),
           IsDetailed: 1,
-          Source: 'KAM APP',
+          Source: 'parkbuddy',
           Quantity: String(parseInt(formData.quantity) || 0),
         }
 
@@ -1544,7 +1560,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         })) : []
 
         const detailedEnquiryData = {
-          MainData: [{ ...mainData, Source: 'KAM APP' }],
+          MainData: [{ ...mainData, Source: 'parkbuddy' }],
           DetailsData: detailsData,
           ProcessData: processData,
           Prefix: "EQ",
@@ -1552,7 +1568,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           AnnualQuantity: parseInt(formData.annualQuantity || formData.quantity) || 0,
           IsEdit: "false",
           IsDetailed: 1,
-          Source: 'KAM APP',
+          Source: 'parkbuddy',
           LayerDetailArr: [],
           JsonObjectsUserApprovalProcessArray: [{
             ProductCode: mainData.ProductCode,
@@ -1573,7 +1589,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             SalesType: mainData.SalesType,
             Quantity: String(parseInt(formData.quantity) || 0),
             AnnualQuantity: parseInt(formData.annualQuantity || formData.quantity) || 0,
-            Source: 'KAM APP',
+            Source: 'parkbuddy',
           }],
         }
 
@@ -1910,9 +1926,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     }
                   }}
                   onWheel={(e) => e.currentTarget.blur()}
-                  className={`h-10 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.annualQuantity ? "border-red-500" : ""}`}
+                  className={`h-10 ${validationErrors.annualQuantity ? "border-red-500" : ""}`}
                   placeholder="Enter annual quantity"
-                  required
                 />
               </div>
             )}
@@ -1922,7 +1937,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 UOM <span className="text-red-500">*</span>
               </Label>
               <Select value={formData.unit} onValueChange={(value) => handleInputChange("unit", value)}>
-                <SelectTrigger id="unit" className="h-10">
+                <SelectTrigger id="unit" className={`h-10 ${validationErrors.unit ? "border-red-500" : ""}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2073,7 +2088,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                   }
                 }}
               >
-                <SelectTrigger id="contentCategory" className="text-sm h-10">
+                <SelectTrigger id="contentCategory" className={`text-sm h-10 ${validationErrors.categoryName ? "border-red-500" : ""}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2388,7 +2403,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                                 }}
                                 onWheel={(e) => e.currentTarget.blur()}
                                 className="text-sm h-10"
-                                required
                               />
                             </div>
                           )
@@ -2415,7 +2429,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
                                 onWheel={(e) => e.currentTarget.blur()}
                                 className="text-sm h-10"
-                                required
                               />
                             </div>
                           )
@@ -2487,7 +2500,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
                                 onWheel={(e) => e.currentTarget.blur()}
                                 className="text-sm h-10"
-                                required
                               />
                             </div>
                           )
@@ -2579,7 +2591,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       handlePlanDetailChange('ItemPlanMill', '')
                       handlePlanDetailChange('ItemPlanFinish', '')
                     }}
-                    required
                   >
                     <SelectTrigger id="itemPlanQuality" className="text-sm h-10 w-full">
                       <SelectValue className="truncate block overflow-hidden text-ellipsis" placeholder="Select board" />
@@ -2631,7 +2642,6 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       handlePlanDetailChange('ItemPlanFinish', '')
                     }}
                     disabled={!planDetails.ItemPlanQuality}
-                    required
                   >
                     <SelectTrigger id="itemPlanGsm" className="text-sm h-10 w-full">
                       <SelectValue className="truncate" />

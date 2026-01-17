@@ -1,14 +1,19 @@
 
 "use client"
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, SlidersHorizontal, Filter, Clock, Mic, CalendarIcon, Pencil } from "lucide-react"
+import { TableSettingsButton } from "@/components/ui/table-settings"
 import { useVoiceInput } from "@/hooks/use-voice-input"
+import {
+  MaterialReactTable,
+  type MRT_ColumnDef,
+} from 'material-react-table'
+import { ThemeProvider } from '@mui/material/styles'
+import { mrtTheme } from '@/lib/mrt-theme'
 import {
   Dialog,
   DialogContent,
@@ -16,7 +21,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
@@ -275,12 +279,73 @@ export function InquiriesContent() {
   // Email body state
   const [emailBodies, setEmailBodies] = useState<Record<string, string>>({}) // Store email bodies by inquiry ID
   const [fullEmailDialogOpen, setFullEmailDialogOpen] = useState(false)
-  const [selectedEmail, setSelectedEmail] = useState<{id: string, body: string} | null>(null)
+  const [selectedEmail, setSelectedEmail] = useState<{ id: string, body: string } | null>(null)
 
   // Edit inquiry state
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingInquiry, setEditingInquiry] = useState<any>(null)
   const [loadingEnquiryDetails, setLoadingEnquiryDetails] = useState(false)
+
+  // Column configuration for table settings
+  const tableColumns = useMemo(() => [
+    { id: 'hod', label: 'HOD' },
+    { id: 'kam', label: 'KAM Name' },
+    { id: 'id', label: 'ID / Customer' },
+    { id: 'job', label: 'Job Name' },
+    { id: 'jobType', label: 'Job Type' },
+    { id: 'category', label: 'Category' },
+    { id: 'quantity', label: 'Quantity' },
+    { id: 'productionUnit', label: 'Production Unit' },
+    { id: 'status', label: 'Status' },
+    { id: 'source', label: 'Source' },
+    { id: 'date', label: 'Date Range' },
+  ], [])
+
+  const defaultColumnVisibility = useMemo(() => ({
+    hod: !isKAMUser && !isHODUser,
+    kam: !isKAMUser,
+  }), [isKAMUser, isHODUser])
+
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('inquiries-column-visibility')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) { }
+      }
+    }
+    return defaultColumnVisibility
+  })
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('inquiries-column-order')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) { }
+      }
+    }
+    return tableColumns.map(col => col.id)
+  })
+
+  const [tableSortColumn, setTableSortColumn] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('inquiries-sort-column') || ''
+    }
+    return ''
+  })
+
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('inquiries-sort-direction') as 'asc' | 'desc') || 'desc'
+    }
+    return 'desc'
+  })
+
+  const resetTableSettings = useCallback(() => {
+    setColumnVisibility(defaultColumnVisibility)
+    setColumnOrder(tableColumns.map(col => col.id))
+    setTableSortColumn('')
+    setTableSortDirection('desc')
+  }, [defaultColumnVisibility, tableColumns])
 
   // Fetch inquiries from API
   useEffect(() => {
@@ -616,505 +681,363 @@ export function InquiriesContent() {
     setCurrentPage(1)
   }, [searchQuery, statusFilter, priorityFilter, hodFilter, kamFilter, sortBy])
 
+  // State for detail dialog
+  const [selectedInquiry, setSelectedInquiry] = useState<any>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+
+  // MRT Column Definitions
+  const mrtColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'hodName',
+      header: 'HOD',
+      size: 160,
+      Cell: ({ row }) => (
+        <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>
+      ),
+    },
+    {
+      accessorKey: 'kamName',
+      header: 'KAM Name',
+      size: 160,
+      Cell: ({ row }) => (
+        <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>
+      ),
+    },
+    {
+      accessorKey: 'id',
+      header: 'ID / Customer',
+      size: 200,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <p className="text-sm font-semibold text-primary">{row.original.id}</p>
+          <TruncatedText text={row.original.customer} limit={25} className="text-sm font-medium text-foreground/80" />
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'job',
+      header: 'Job Name',
+      size: 220,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <TruncatedText text={row.original.job} limit={30} className="text-sm font-semibold text-foreground" />
+          <p className="text-xs text-muted-foreground">SKU {row.original.sku}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'jobType',
+      header: 'Job Type',
+      size: 160,
+      Cell: ({ row }) => (
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          {row.original.jobType}
+        </p>
+      ),
+    },
+    {
+      accessorKey: 'categoryName',
+      header: 'Category',
+      size: 180,
+      Cell: ({ row }) => (
+        <p className="text-xs text-muted-foreground">
+          {row.original.categoryName || '-'}
+        </p>
+      ),
+    },
+    {
+      accessorKey: 'quantityRange',
+      header: 'Quantity',
+      size: 140,
+      Cell: ({ row }) => (
+        <p className="text-sm font-medium">
+          {row.original.quantityRange} <span className="text-xs text-muted-foreground">{row.original.unit}</span>
+        </p>
+      ),
+    },
+    {
+      accessorKey: 'productionUnitName',
+      header: 'Production Unit',
+      size: 180,
+      Cell: ({ row }) => (
+        <p className="text-xs text-muted-foreground">
+          {row.original.productionUnitName || '-'}
+        </p>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      size: 150,
+      Cell: ({ row }) => (
+        <Badge className={`${getStatusBadge(row.original.status)} border`}>{row.original.status}</Badge>
+      ),
+    },
+    {
+      accessorKey: 'Source',
+      header: 'Source',
+      size: 140,
+      Cell: ({ row }) => (
+        <span className="text-sm text-gray-700">{row.original.Source || 'KAM APP'}</span>
+      ),
+    },
+    {
+      accessorKey: 'date',
+      header: 'Date',
+      size: 180,
+      Cell: ({ row }) => (
+        <div className="flex items-center gap-1.5">
+          <CalendarIcon className="h-4 w-4 text-[#005180]" />
+          <span className="text-sm font-medium text-gray-700">{row.original.date}</span>
+        </div>
+      ),
+    },
+  ], [])
+
   return (
     <div className="section-spacing">
-      <div className="relative w-full flex gap-2 items-center">
+      <div className="relative w-full flex gap-3 items-center">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Mic
+            onClick={isListening ? undefined : startListening}
+            className={`pointer-events-auto absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer transition-colors duration-200 z-10 ${isListening ? 'text-[#B92221] animate-pulse' : 'text-[#005180] hover:text-[#004875]'
+              }`}
+          />
+          <Search className="pointer-events-none absolute left-12 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Find your enquiries by customer, job, or SKU..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
+            className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
           />
         </div>
-        <Mic
-          onClick={isListening ? undefined : startListening}
-          className={`h-6 w-6 cursor-pointer transition-colors duration-200 flex-shrink-0 ${
-            isListening
-              ? 'text-[#B92221] animate-pulse'
-              : 'text-[#005180] hover:text-[#004875]'
-          }`}
+        <TableSettingsButton
+          storageKey="inquiries"
+          columns={tableColumns}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnOrder={columnOrder}
+          setColumnOrder={setColumnOrder}
+          sortColumn={tableSortColumn}
+          setSortColumn={setTableSortColumn}
+          sortDirection={tableSortDirection}
+          setSortDirection={setTableSortDirection}
+          onReset={resetTableSettings}
         />
       </div>
 
-      <Card className="surface-elevated overflow-hidden relative">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto relative z-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gradient-to-r from-[#005180] to-[#003d63] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#003d63]">
-                  {!isKAMUser && !isHODUser && (
-                    <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                      <div className="flex items-center justify-between">
-                        <span>HOD</span>
-                        {!isRestrictedUser && (
-                          <Select value={hodFilter} onValueChange={setHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {hodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                    </TableHead>
-                  )}
-                  {!isKAMUser && (
-                    <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                      <div className="flex items-center justify-between">
-                        <span>KAM Name</span>
-                        <Select value={kamFilter} onValueChange={setKamFilter}>
-                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                            <Filter className="h-4 w-4 text-white" />
-                          </SelectTrigger>
-                          <SelectContent align="start" className="min-w-[150px]">
-                            <SelectItem value="all">All KAMs</SelectItem>
-                            {kamNames.map(kamName => (
-                              <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TableHead>
-                  )}
-                  <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    ID / Customer
-                  </TableHead>
-                  <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    Job Name
-                  </TableHead>
-                  <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    Job Type
-                  </TableHead>
-                  <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    Category
-                  </TableHead>
-                  <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    Quantity
-                  </TableHead>
-                  <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    Production Unit
-                  </TableHead>
-                  <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>Status</span>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="Pending">Pending</SelectItem>
-                          <SelectItem value="Costing">Costing</SelectItem>
-                          <SelectItem value="Approved">Approved</SelectItem>
-                          <SelectItem value="Quoted">Quoted</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>Source</span>
-                      <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All Sources</SelectItem>
-                          {sourceNames.map(source => (
-                            <SelectItem key={source} value={source}>{source}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                    <div className="flex items-center justify-between">
-                      <span>Date Range</span>
-                      <Dialog open={dateFilterOpen} onOpenChange={setDateFilterOpen}>
-                        <DialogTrigger asChild>
-                          <button className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all">
-                            <CalendarIcon className="h-4 w-4 text-white" />
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[500px]">
-                          <DialogHeader>
-                            <DialogTitle className="text-[#005180]">Filter Enquiries by Date</DialogTitle>
-                            <DialogDescription>
-                              Select a date range to filter the enquiries list
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-6 py-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="from-date" className="text-sm font-medium text-[#005180]">
-                                From Date
-                              </Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    id="from-date"
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !fromDate && "text-muted-foreground"
-                                    )}
-                                  >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {fromDate ? format(fromDate, "PPP") : <span>Pick a date</span>}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={fromDate}
-                                    onSelect={setFromDate}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            </div>
+      <ThemeProvider theme={mrtTheme}>
+        <MaterialReactTable
+          columns={mrtColumns}
+          data={sortedInquiries}
+          enableTopToolbar={false}
+          enableBottomToolbar={true}
+          enableColumnActions={false}
+          enableColumnFilters={false}
+          enablePagination={true}
+          enableSorting={true}
+          enableGlobalFilter={false}
+          manualPagination={false}
+          initialState={{
+            pagination: { pageSize: 20, pageIndex: 0 },
+            columnVisibility: {
+              hodName: !isKAMUser && !isHODUser,
+              kamName: !isKAMUser,
+            },
+          }}
+          muiTablePaperProps={{
+            sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
+          }}
+          muiTableContainerProps={{
+            sx: { maxHeight: '600px' }
+          }}
+          muiTableHeadRowProps={{
+            sx: {
+              backgroundColor: '#005180 !important',
+              '& th': { backgroundColor: '#005180 !important' }
+            }
+          }}
+          muiTableHeadCellProps={{
+            sx: {
+              backgroundColor: '#005180 !important',
+              color: 'white !important',
+              fontWeight: 'bold !important',
+              fontSize: '0.75rem !important',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              padding: '14px 20px !important',
+              borderRight: '1px solid rgba(255,255,255,0.2)',
+              borderBottom: 'none !important',
+              '&:last-child': { borderRight: 'none' },
+              '&:hover': { backgroundColor: '#005180 !important' },
+            }
+          }}
+          muiTableBodyRowProps={({ row }) => ({
+            onClick: () => {
+              setSelectedInquiry(row.original)
+              setDetailDialogOpen(true)
+            },
+            sx: {
+              cursor: 'pointer',
+              '&:hover': { backgroundColor: 'rgba(120, 190, 32, 0.2)' },
+              '&:nth-of-type(even)': { backgroundColor: 'rgba(185, 34, 33, 0.05)' },
+            }
+          })}
+          muiTableBodyCellProps={{
+            sx: { fontSize: '0.875rem', padding: '16px' }
+          }}
+          muiPaginationProps={{
+            rowsPerPageOptions: [10, 20, 50],
+            showFirstButton: false,
+            showLastButton: false,
+          }}
+          renderEmptyRowsFallback={() => (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-sm text-muted-foreground">No enquiries found</p>
+            </div>
+          )}
+        />
+      </ThemeProvider>
 
-                            <div className="space-y-2">
-                              <Label htmlFor="to-date" className="text-sm font-medium text-[#005180]">
-                                To Date
-                              </Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    id="to-date"
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !toDate && "text-muted-foreground"
-                                    )}
-                                  >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {toDate ? format(toDate, "PPP") : <span>Pick a date</span>}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={toDate}
-                                    onSelect={setToDate}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            </div>
+      {/* Inquiry Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="border-b-0 bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-5 flex-shrink-0 text-center">
+            <DialogTitle className="text-xl font-bold text-gray-900">{selectedInquiry?.job}</DialogTitle>
+            <DialogDescription className="text-sm font-semibold text-gray-600">{selectedInquiry?.id}</DialogDescription>
+          </DialogHeader>
+          {selectedInquiry && (
+            <div className="space-y-0 overflow-y-auto overflow-x-hidden flex-1">
+              {/* Customer Section */}
+              <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Customer</Label>
+                <p className="text-base font-semibold text-gray-900">{selectedInquiry.customer}</p>
+              </div>
 
-                            <div className="flex items-center justify-between pt-2">
-                              <div className="text-sm text-muted-foreground">
-                                {isLoading ? 'Loading...' : `${inquiries.length} inquiries found`}
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  onClick={() => {
-                                    setFromDate(new Date(2025, 0, 1))
-                                    setToDate(new Date(2026, 11, 31))
-                                  }}
-                                  variant="outline"
-                                >
-                                  Reset
-                                </Button>
-                                <Button
-                                  onClick={() => setDateFilterOpen(false)}
-                                  className="bg-[#005180] hover:bg-[#004875] text-white"
-                                >
-                                  Apply
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={14} className="h-32 text-center">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#005180] border-t-transparent"></div>
-                        <p className="text-sm text-muted-foreground">Loading enquiries...</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : error ? (
-                  <TableRow>
-                    <TableCell colSpan={14} className="h-32 text-center">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <p className="text-sm text-[#B92221] font-medium">Failed to load inquiries</p>
-                        <p className="text-xs text-muted-foreground">{error}</p>
+              {/* Row 1: Status & Priority */}
+              <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Status</Label>
+                  <Badge className={`${getStatusBadge(selectedInquiry.status)} border text-sm px-3 py-1`}>{selectedInquiry.status}</Badge>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Priority</Label>
+                  <Badge className={`${getPriorityBadge(selectedInquiry.priority)} border capitalize text-sm px-3 py-1`}>
+                    {selectedInquiry.priority}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Row 2: KAM Name & Clarification */}
+              <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                {!isKAMUser && (
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">KAM Name</Label>
+                    <p className="text-base font-semibold text-gray-900">{selectedInquiry.kamName || "N/A"}</p>
+                  </div>
+                )}
+                <div className={!isKAMUser ? "" : "col-span-2"}>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Clarification</Label>
+                  <p className="text-base font-semibold text-gray-900">{selectedInquiry.clarificationStatus}</p>
+                </div>
+              </div>
+
+              {/* Row 3: Job Type & SKU */}
+              <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Job Type</Label>
+                  <p className="text-sm font-bold uppercase tracking-wider text-[#005180]">{selectedInquiry.jobType}</p>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">SKU</Label>
+                  <p className="text-base font-semibold text-gray-900">{selectedInquiry.sku}</p>
+                </div>
+              </div>
+
+              {/* Row 4: Quantity & Category */}
+              <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Quantity</Label>
+                  <p className="text-base font-semibold text-gray-900">{selectedInquiry.quantityRange} <span className="text-xs text-muted-foreground">{selectedInquiry.unit}</span></p>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Category</Label>
+                  <p className="text-base font-semibold text-gray-900">{selectedInquiry.categoryName || '-'}</p>
+                </div>
+              </div>
+
+              {/* Row 5: Date & Due Date */}
+              <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Date</Label>
+                  <p className="text-base font-semibold text-gray-900">{selectedInquiry.date}</p>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Due Date</Label>
+                  <p className="text-base font-semibold text-gray-900">{selectedInquiry.dueDate}</p>
+                </div>
+              </div>
+
+              {/* Email Body Section - Only show if Source is "Email Scraper" */}
+              {selectedInquiry.Source === "Email Scraper" && (
+                <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                  <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Email Body</Label>
+                  {emailBodies[selectedInquiry.id] ? (
+                    <div className="space-y-2">
+                      <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">
+                        {getEmailPreview(emailBodies[selectedInquiry.id])}
+                      </p>
+                      {emailBodies[selectedInquiry.id].split('\n').filter((l: string) => l.trim()).length > 2 && (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.location.reload()}
-                          className="mt-2"
+                          onClick={() => {
+                            setSelectedEmail({ id: selectedInquiry.id, body: emailBodies[selectedInquiry.id] })
+                            setFullEmailDialogOpen(true)
+                          }}
+                          className="text-xs"
                         >
-                          Retry
+                          Read Full Email
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : paginatedInquiries.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={14} className="h-32 text-center">
-                      <p className="text-sm text-muted-foreground">No enquiries found</p>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedInquiries.map((inquiry, index) => (
-                  <Dialog key={inquiry.id}>
-                    <DialogTrigger asChild>
-                      <TableRow
-                        className="group cursor-pointer border-b border-border/40 bg-white transition-all duration-200 even:bg-[#B92221]/5 hover:bg-[#78BE20]/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
-                      >
-                        {!isKAMUser && !isHODUser && (
-                          <TableCell className="py-4">
-                            <p className="text-sm font-medium text-foreground">{inquiry.hodName || "N/A"}</p>
-                          </TableCell>
-                        )}
-                        {!isKAMUser && (
-                          <TableCell className="py-4">
-                            <p className="text-sm font-medium text-foreground">{inquiry.kamName || "N/A"}</p>
-                          </TableCell>
-                        )}
-                        <TableCell className="whitespace-nowrap py-4">
-                          <div className="leading-[1.15]">
-                            <p className="text-sm font-semibold text-primary">{inquiry.id}</p>
-                            <TruncatedText text={inquiry.customer} limit={25} className="text-sm font-medium text-foreground/80" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <div className="leading-[1.15]">
-                            <TruncatedText text={inquiry.job} limit={30} className="text-sm font-semibold text-foreground" />
-                            <p className="text-xs text-muted-foreground">SKU {inquiry.sku}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                            {inquiry.jobType}
-                          </p>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <p className="text-xs text-muted-foreground">
-                            {inquiry.categoryName || '-'}
-                          </p>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <p className="text-sm font-medium">
-                            {inquiry.quantityRange} <span className="text-xs text-muted-foreground">{inquiry.unit}</span>
-                          </p>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <p className="text-xs text-muted-foreground">
-                            {inquiry.productionUnitName || '-'}
-                          </p>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <Badge className={`${getStatusBadge(inquiry.status)} border`}>{inquiry.status}</Badge>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <span className="text-sm text-gray-700">{inquiry.Source || 'KAM APP'}</span>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <div className="flex items-center gap-1.5">
-                            <CalendarIcon className="h-4 w-4 text-[#005180]" />
-                            <span className="text-sm font-medium text-gray-700">{inquiry.date}</span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    </DialogTrigger>
-                    <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
-                      <DialogHeader className="border-b-0 bg-gradient-to-r from-slate-100 to-gray-100 px-6 py-5 flex-shrink-0 text-center">
-                        <DialogTitle className="text-xl font-bold text-gray-900">{inquiry.job}</DialogTitle>
-                        <DialogDescription className="text-sm font-semibold text-gray-600">{inquiry.id}</DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-0 overflow-y-auto overflow-x-hidden flex-1">
-                        {/* Customer Section */}
-                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Customer</Label>
-                          <p className="text-base font-semibold text-gray-900">{inquiry.customer}</p>
-                        </div>
-
-                        {/* Row 1: Status & Priority */}
-                        <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
-                          <div>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Status</Label>
-                            <Badge className={`${getStatusBadge(inquiry.status)} border text-sm px-3 py-1`}>{inquiry.status}</Badge>
-                          </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Priority</Label>
-                            <Badge className={`${getPriorityBadge(inquiry.priority)} border capitalize text-sm px-3 py-1`}>
-                              {inquiry.priority}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        {/* Row 2: KAM Name & Clarification */}
-                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
-                          {!isKAMUser && (
-                            <div>
-                              <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">KAM Name</Label>
-                              <p className="text-base font-semibold text-gray-900">{inquiry.kamName || "N/A"}</p>
-                            </div>
-                          )}
-                          <div className={!isKAMUser ? "" : "col-span-2"}>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Clarification</Label>
-                            <p className="text-base font-semibold text-gray-900">{inquiry.clarificationStatus}</p>
-                          </div>
-                        </div>
-
-                        {/* Row 3: Job Type & SKU */}
-                        <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
-                          <div>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Job Type</Label>
-                            <p className="text-sm font-bold uppercase tracking-wider text-[#005180]">{inquiry.jobType}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">SKU</Label>
-                            <p className="text-base font-semibold text-gray-900">{inquiry.sku}</p>
-                          </div>
-                        </div>
-
-                        {/* Row 4: Quantity & Unit */}
-                        <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
-                          <div>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Quantity</Label>
-                            <p className="text-base font-semibold text-gray-900">{inquiry.quantityRange} <span className="text-xs text-muted-foreground">{inquiry.unit}</span></p>
-                          </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Category</Label>
-                            <p className="text-base font-semibold text-gray-900">{inquiry.categoryName || '-'}</p>
-                          </div>
-                        </div>
-
-                        {/* Row 5: Date & Due Date */}
-                        <div className="bg-white px-6 py-4 border-b border-gray-200 grid grid-cols-2 gap-6">
-                          <div>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Date</Label>
-                            <p className="text-base font-semibold text-gray-900">{inquiry.date}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Due Date</Label>
-                            <p className="text-base font-semibold text-gray-900">{inquiry.dueDate}</p>
-                          </div>
-                        </div>
-
-                        {/* Email Body Section - Only show if Source is "Email Scraper" */}
-                        {inquiry.Source === "Email Scraper" && (
-                          <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Email Body</Label>
-                            {emailBodies[inquiry.id] ? (
-                              <div className="space-y-2">
-                                <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">
-                                  {getEmailPreview(emailBodies[inquiry.id])}
-                                </p>
-                                {emailBodies[inquiry.id].split('\n').filter((l: string) => l.trim()).length > 2 && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedEmail({ id: inquiry.id, body: emailBodies[inquiry.id] })
-                                      setFullEmailDialogOpen(true)
-                                    }}
-                                    className="text-xs"
-                                  >
-                                    Read Full Email
-                                  </Button>
-                                )}
-                              </div>
-                            ) : (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => fetchEmailBody(inquiry)}
-                                className="bg-[#005180] hover:bg-[#004170] text-white"
-                              >
-                                View Email Body
-                              </Button>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Notes Section */}
-                        <div className="bg-white px-6 py-4">
-                          <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Notes</Label>
-                          <TruncatedText text={inquiry.notes} limit={200} className="text-sm leading-relaxed text-gray-700 block" />
-                        </div>
-                      </div>
-
-                      {/* Dialog Footer with Edit Button - Only show for unapproved and non-quoted inquiries */}
-                      {inquiry.status !== 'Approved' && inquiry.status !== 'approved' &&
-                       inquiry.status !== 'Quoted' && inquiry.status !== 'quoted' && (
-                        <DialogFooter className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex-shrink-0">
-                          <Button
-                            onClick={() => handleEditInquiry(inquiry)}
-                            disabled={loadingEnquiryDetails}
-                            className="bg-[#005180] hover:bg-[#004170] text-white"
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            {loadingEnquiryDetails ? 'Loading...' : 'Edit Enquiry'}
-                          </Button>
-                        </DialogFooter>
                       )}
-                    </DialogContent>
-                  </Dialog>
-                ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="h-8 px-3"
-              >
-                Previous
-              </Button>
-              <div className="hidden md:flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                  >
-                    {page}
-                  </Button>
-                ))}
+                    </div>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => fetchEmailBody(selectedInquiry)}
+                      className="bg-[#005180] hover:bg-[#004170] text-white"
+                    >
+                      View Email Body
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* Notes Section */}
+              <div className="bg-white px-6 py-4">
+                <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Notes</Label>
+                <TruncatedText text={selectedInquiry.notes} limit={200} className="text-sm leading-relaxed text-gray-700 block" />
               </div>
-              <div className="md:hidden text-sm text-muted-foreground">
-                {currentPage} / {totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="h-8 px-3"
-              >
-                Next
-              </Button>
             </div>
-          </div>
-        )}
-      </Card>
+          )}
+
+          {/* Dialog Footer with Edit Button */}
+          {selectedInquiry && selectedInquiry.status !== 'Approved' && selectedInquiry.status !== 'approved' &&
+            selectedInquiry.status !== 'Quoted' && selectedInquiry.status !== 'quoted' && (
+              <DialogFooter className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex-shrink-0">
+                <Button
+                  onClick={() => handleEditInquiry(selectedInquiry)}
+                  disabled={loadingEnquiryDetails}
+                  className="bg-[#005180] hover:bg-[#004170] text-white"
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  {loadingEnquiryDetails ? 'Loading...' : 'Edit Enquiry'}
+                </Button>
+              </DialogFooter>
+            )}
+        </DialogContent>
+      </Dialog>
 
       {/* Full Email Body Dialog */}
       <Dialog open={fullEmailDialogOpen} onOpenChange={setFullEmailDialogOpen}>

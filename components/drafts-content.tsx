@@ -2,12 +2,18 @@
 
 import { useMemo, useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Loader2, AlertCircle, RefreshCw, Trash2, Edit2, FileText, Filter, Mic, MicOff } from "lucide-react"
+import { Search, Loader2, AlertCircle, RefreshCw, Trash2, Edit2, FileText, Mic, MicOff } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+  type MRT_ColumnDef,
+} from 'material-react-table'
+import { ThemeProvider } from '@mui/material/styles'
+import { mrtTheme } from '@/lib/mrt-theme'
 import {
   Dialog,
   DialogContent,
@@ -16,11 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,10 +45,6 @@ export function DraftsContent() {
   const [error, setError] = useState<string | null>(null)
   const [usingMockData, setUsingMockData] = useState(false)
 
-  // Column filter states
-  const [nameFilter, setNameFilter] = useState("")
-  const [moduleFilter, setModuleFilter] = useState("")
-
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [draftToDelete, setDraftToDelete] = useState<DraftRecord | null>(null)
@@ -68,7 +65,6 @@ export function DraftsContent() {
     setError(null)
     setUsingMockData(false)
     try {
-      // First, cleanup old drafts (older than 7 days)
       const cleanupResult = await deleteOldDrafts(7)
       if (cleanupResult.deletedCount > 0) {
         clientLogger.log(`[Drafts Cleanup] Deleted ${cleanupResult.deletedCount} old drafts`)
@@ -78,14 +74,12 @@ export function DraftsContent() {
       if (result.success && result.data) {
         setDraftRecords(result.data)
       } else {
-        // Fallback to mock data if API fails
         clientLogger.warn('API failed, using mock data:', result.error)
         setDraftRecords(getMockDrafts())
         setUsingMockData(true)
         setError(`API Error: ${result.error} (showing sample data)`)
       }
-    } catch (err) {
-      // Fallback to mock data on error
+    } catch (err: any) {
       clientLogger.warn('Error fetching drafts, using mock data:', err)
       setDraftRecords(getMockDrafts())
       setUsingMockData(true)
@@ -99,7 +93,6 @@ export function DraftsContent() {
     fetchDrafts()
   }, [fetchDrafts])
 
-  // Initialize speech recognition
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -134,7 +127,6 @@ export function DraftsContent() {
     }
   }, [toast])
 
-  // Handle voice search
   const handleVoiceSearch = () => {
     if (!recognition) {
       toast({
@@ -165,30 +157,22 @@ export function DraftsContent() {
 
   const filteredDrafts = useMemo(() => {
     return draftRecords.filter((record) => {
-      // Apply column filters
-      const matchesName = nameFilter === "" || record.DraftName?.toLowerCase().includes(nameFilter.toLowerCase())
-      const matchesModule = moduleFilter === "" || record.Module?.toLowerCase().includes(moduleFilter.toLowerCase())
-
-      // Apply global search
       const query = searchQuery.trim().toLowerCase()
       const matchesSearch = query === "" || (
         record.DraftName?.toLowerCase().includes(query) ||
         record.Module?.toLowerCase().includes(query) ||
         record.DraftID?.toString().includes(query)
       )
-
-      return matchesName && matchesModule && matchesSearch
+      return matchesSearch
     })
-  }, [searchQuery, draftRecords, nameFilter, moduleFilter])
+  }, [searchQuery, draftRecords])
 
-  // Handle load draft
   const handleLoadDraft = async (draft: DraftRecord) => {
     try {
       clientLogger.log('[Draft Load] Loading draft:', draft.DraftID)
       const result = await loadDraft(draft.DraftID)
       clientLogger.log('[Draft Load] API response:', result)
 
-      // Response format: { success: true, data: { DraftData: {...}, DraftID: ..., etc } }
       if (result && result.success && result.data && result.data.DraftData) {
         const draftData = result.data.DraftData
         const draftId = result.data.DraftID
@@ -196,21 +180,16 @@ export function DraftsContent() {
         clientLogger.log('[Draft Load] Draft ID:', draftId)
         clientLogger.log('[Draft Load] Draft data FormType:', draftData.FormType)
 
-        // Add the DraftID to the draft data so it can be used for updates
         const draftDataWithId = {
           ...draftData,
-          LoadedDraftID: draftId  // Add the original draft ID
+          LoadedDraftID: draftId
         }
 
-        // Check FormType to determine which form to navigate to
         if (draftData.FormType === 'DynamicFill') {
-          // Navigate to AI Chat with draft data
-          // Store draft data in sessionStorage for the chat to pick up
           sessionStorage.setItem('loadedDraft', JSON.stringify(draftDataWithId))
           clientLogger.log('[Draft Load] Navigating to Dynamic Fill with Draft ID:', draftId)
           router.push('/inquiries/new?mode=dynamic&loadDraft=true')
         } else if (draftData.FormType === 'ManualForm') {
-          // Navigate to Manual Form with draft data
           sessionStorage.setItem('loadedDraft', JSON.stringify(draftDataWithId))
           clientLogger.log('[Draft Load] Navigating to Manual Form with Draft ID:', draftId)
           router.push('/inquiries/new?mode=manual&loadDraft=true')
@@ -240,7 +219,6 @@ export function DraftsContent() {
     }
   }
 
-  // Handle delete draft
   const handleDeleteClick = (draft: DraftRecord) => {
     setDraftToDelete(draft)
     setDeleteDialogOpen(true)
@@ -256,7 +234,6 @@ export function DraftsContent() {
         title: "Success",
         description: "Draft deleted successfully",
       })
-      // Refresh the drafts list
       fetchDrafts()
       setDeleteDialogOpen(false)
       setDraftToDelete(null)
@@ -271,7 +248,6 @@ export function DraftsContent() {
     }
   }
 
-  // Handle rename draft
   const handleRenameClick = (draft: DraftRecord) => {
     setDraftToRename(draft)
     setNewDraftName(draft.DraftName)
@@ -288,7 +264,6 @@ export function DraftsContent() {
         title: "Success",
         description: "Draft renamed successfully",
       })
-      // Refresh the drafts list
       fetchDrafts()
       setRenameDialogOpen(false)
       setDraftToRename(null)
@@ -303,6 +278,157 @@ export function DraftsContent() {
       setIsRenaming(false)
     }
   }
+
+  // Define MRT columns
+  const columns = useMemo<MRT_ColumnDef<DraftRecord>[]>(
+    () => [
+      {
+        accessorKey: 'DraftID',
+        header: 'DRAFT ID',
+        size: 100,
+      },
+      {
+        accessorKey: 'DraftName',
+        header: 'DRAFT NAME',
+        size: 200,
+      },
+      {
+        accessorKey: 'Module',
+        header: 'MODULE',
+        size: 120,
+        Cell: ({ cell }) => (
+          <span className="uppercase tracking-wide text-sm font-semibold text-muted-foreground">
+            {cell.getValue<string>()}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'IsAutoSave',
+        header: 'AUTO SAVE',
+        size: 100,
+        Cell: ({ cell }) => (
+          <Badge
+            variant="outline"
+            className={`${cell.getValue<boolean>()
+                ? 'bg-green-10 text-green-700 border-green-40'
+                : 'bg-blue-10 text-blue border-blue-40'
+              } text-xs font-semibold uppercase`}
+          >
+            {cell.getValue<boolean>() ? 'Auto' : 'Manual'}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: 'UpdatedAt',
+        header: 'LAST UPDATED',
+        size: 150,
+        Cell: ({ cell }) => (
+          <span className="text-sm font-medium">
+            {new Date(cell.getValue<string>()).toLocaleString('en-IN', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'ACTIONS',
+        size: 180,
+        Cell: ({ row }) => (
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleLoadDraft(row.original)
+              }}
+              className="h-8 px-2 text-[#005180] hover:text-[#005180] hover:bg-[#005180]/10"
+              title="Load draft"
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              Load
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRenameClick(row.original)
+              }}
+              className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              title="Rename draft"
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDeleteClick(row.original)
+              }}
+              className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="Delete draft"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [handleLoadDraft, handleRenameClick, handleDeleteClick]
+  )
+
+  // Create MRT table instance
+  const table = useMaterialReactTable({
+    columns,
+    data: filteredDrafts,
+    enableColumnOrdering: false,
+    enableSorting: true,
+    enablePagination: true,
+    enableColumnFilters: false,
+    enableGlobalFilter: false,
+    enableDensityToggle: false,
+    enableFullScreenToggle: false,
+    enableHiding: false,
+    initialState: {
+      density: 'comfortable',
+      pagination: { pageSize: 20, pageIndex: 0 },
+    },
+    muiTableHeadCellProps: {
+      sx: {
+        backgroundColor: '#005180',
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: '0.75rem',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        padding: '14px 20px',
+        borderRight: '1px solid rgba(255, 255, 255, 0.2)',
+        '&:last-child': {
+          borderRight: 'none',
+        },
+      },
+    },
+    muiTableBodyRowProps: ({ row }) => ({
+      sx: {
+        backgroundColor: row.index % 2 === 0 ? 'white' : 'rgba(185, 34, 33, 0.05)',
+        '&:hover': {
+          backgroundColor: 'rgba(120, 190, 32, 0.2)',
+        },
+      },
+    }),
+    muiTableBodyCellProps: {
+      sx: {
+        padding: '16px',
+      },
+    },
+  })
 
   return (
     <div className="space-y-4">
@@ -355,153 +481,9 @@ export function DraftsContent() {
               </Button>
             </div>
           ) : (
-            <Table>
-              <TableHeader className="bg-[#005180]">
-                <TableRow className="[&_th]:text-white [&_th]:font-semibold hover:bg-[#005180]">
-                  <TableHead className="w-[100px]">DRAFT ID</TableHead>
-                  <TableHead className="w-[200px]">
-                    <div className="flex items-center gap-2">
-                      <span>DRAFT NAME</span>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="text-white/70 hover:text-white transition-colors">
-                            <Filter className="h-4 w-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-3" align="start">
-                          <div className="space-y-2">
-                            <label className="text-xs font-medium text-muted-foreground">Filter by name</label>
-                            <Input
-                              value={nameFilter}
-                              onChange={(e) => setNameFilter(e.target.value)}
-                              placeholder="Type to filter..."
-                              className="h-8"
-                              autoFocus
-                            />
-                            {nameFilter && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setNameFilter("")}
-                                className="w-full h-7 text-xs"
-                              >
-                                Clear filter
-                              </Button>
-                            )}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[120px]">
-                    <div className="flex items-center gap-2">
-                      <span>MODULE</span>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="text-white/70 hover:text-white transition-colors">
-                            <Filter className="h-4 w-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-3" align="start">
-                          <div className="space-y-2">
-                            <label className="text-xs font-medium text-muted-foreground">Filter by module</label>
-                            <Input
-                              value={moduleFilter}
-                              onChange={(e) => setModuleFilter(e.target.value)}
-                              placeholder="Type to filter..."
-                              className="h-8"
-                              autoFocus
-                            />
-                            {moduleFilter && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setModuleFilter("")}
-                                className="w-full h-7 text-xs"
-                              >
-                                Clear filter
-                              </Button>
-                            )}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[100px]">AUTO SAVE</TableHead>
-                  <TableHead className="w-[150px]">LAST UPDATED</TableHead>
-                  <TableHead className="w-[180px] text-center">ACTIONS</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredDrafts.map((draft) => (
-                  <TableRow key={draft.DraftID} className="transition-colors">
-                    <TableCell className="font-semibold text-blue">{draft.DraftID}</TableCell>
-                    <TableCell className="font-medium">{draft.DraftName}</TableCell>
-                    <TableCell className="uppercase tracking-wide text-sm font-semibold text-muted-foreground">
-                      {draft.Module}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`${draft.IsAutoSave ? 'bg-green-10 text-green-700 border-green-40' : 'bg-blue-10 text-blue border-blue-40'} text-xs font-semibold uppercase`}
-                      >
-                        {draft.IsAutoSave ? 'Auto' : 'Manual'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm font-medium">
-                        {new Date(draft.UpdatedAt).toLocaleString('en-IN', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleLoadDraft(draft)}
-                          className="h-8 px-2 text-[#005180] hover:text-[#005180] hover:bg-[#005180]/10"
-                          title="Load draft"
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          Load
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRenameClick(draft)}
-                          className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          title="Rename draft"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteClick(draft)}
-                          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Delete draft"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredDrafts.length === 0 && !loading && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                      {searchQuery ? 'No draft inquiries match your search.' : 'No draft inquiries found.'}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <ThemeProvider theme={mrtTheme}>
+              <MaterialReactTable table={table} />
+            </ThemeProvider>
           )}
         </CardContent>
       </Card>

@@ -465,8 +465,9 @@ function parseOptions(text: string): { cleanText: string; options: string[] } {
   const matches = [...text.matchAll(optionRegex)]
 
   if (matches.length >= 2) {
-    // Found multiple numbered options - clean each option to remove IDs
-    const options = matches.map(match => cleanOptionText(match[2].trim()))
+    // Found multiple numbered options - just clean each option to remove IDs
+    // Don't add number prefix since API already provides it
+    const options = matches.map(match => match[0].trim())
 
     // Remove duplicates while preserving order
     const uniqueOptions = [...new Set(options)]
@@ -718,15 +719,15 @@ export function AICostingChat({
 
           // Check if the message contains "select" or is asking about plant/customer/category (case-insensitive)
           const shouldShowButtons = /select/i.test(aiResponseText) ||
-                                    /which\s+plant/i.test(aiResponseText) ||
-                                    /which\s+customer/i.test(aiResponseText) ||
-                                    /which\s+category/i.test(aiResponseText) ||
-                                    /\*\*Customers:\*\*/i.test(aiResponseText) ||
-                                    /Categories:/i.test(aiResponseText)
+            /which\s+plant/i.test(aiResponseText) ||
+            /which\s+customer/i.test(aiResponseText) ||
+            /which\s+category/i.test(aiResponseText) ||
+            /\*\*Customers:\*\*/i.test(aiResponseText) ||
+            /Categories:/i.test(aiResponseText)
 
           // Check if this is a YES/NO confirmation message (estimation confirmation)
           const isYesNoConfirmation = /Reply with:\s*\n?\s*YES\s+[–-]\s+Save/i.test(aiResponseText) ||
-                                      /YES\s+[–-]\s+Save.*NO\s+[–-]\s+Discard/i.test(aiResponseText)
+            /YES\s+[–-]\s+Save.*NO\s+[–-]\s+Discard/i.test(aiResponseText)
 
           // Check if multi-select should be enabled for processes
           const isMultiSelect = /select\s+processes/i.test(aiResponseText)
@@ -741,8 +742,8 @@ export function AICostingChat({
 
           // Check if this is a Job Specification Summary message with Confirm/Modify options
           const isJobSpecSummary = /Job Specification Summary/i.test(aiResponseText) &&
-                                   (/Confirm.*Generate.*Costing/i.test(aiResponseText) ||
-                                    /Modify.*Details/i.test(aiResponseText))
+            (/Confirm.*Generate.*Costing/i.test(aiResponseText) ||
+              /Modify.*Details/i.test(aiResponseText))
 
           if (isJobSpecSummary) {
             // Remove everything from the dashes line onwards (including "Please review..." and numbered options)
@@ -761,16 +762,16 @@ export function AICostingChat({
           if (response.data) {
             // Try to find BookingID in various places in the response
             extractedBookingId = response.data.BookingID ||
-                                 response.data.bookingId ||
-                                 response.data.booking_id ||
-                                 response.data.QuotationID ||
-                                 response.data.quotationId
+              response.data.bookingId ||
+              response.data.booking_id ||
+              response.data.QuotationID ||
+              response.data.quotationId
 
             // Also check if it's nested in data object
             if (!extractedBookingId && response.data.data) {
               extractedBookingId = response.data.data.BookingID ||
-                                   response.data.data.bookingId ||
-                                   response.data.data.QuotationID
+                response.data.data.bookingId ||
+                response.data.data.QuotationID
             }
 
             // Check if the response text contains BookingID pattern
@@ -1637,66 +1638,63 @@ export function AICostingChat({
           {messages.map((message, index) => {
             const isCosting = isCostingSummary(message.content)
             return (
-            <div
-              key={message.id}
-              className="message-fade-in"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} w-full pr-2`}>
-                <div className={`relative group ${message.sender === "user" ? "max-w-[85%] md:max-w-[40%]" : "max-w-[95%] md:max-w-[40%]"} ${isCosting ? 'w-full' : ''}`}>
-                  <div
-                    className={`rounded-2xl text-base leading-relaxed whitespace-pre-wrap break-words overflow-hidden cursor-pointer transition-all active:scale-95 ${
-                      isCosting ? 'p-0 bg-transparent shadow-none w-full' : 'px-4 py-3 shadow-sm'
-                    } ${
-                      message.sender === "user"
-                        ? "bg-blue text-white"
-                        : isCosting ? '' : "bg-blue-5 text-foreground"
-                    } ${copiedMessageId === message.id ? "ring-2 ring-green-500" : ""}`}
-                    style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-                    onMouseDown={() => handleLongPressStart(message.content, message.id)}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
-                    onTouchStart={() => handleLongPressStart(message.content, message.id)}
-                    onTouchEnd={handleLongPressEnd}
-                    onTouchCancel={handleLongPressEnd}
-                  >
-                    {/* Check if this is a costing summary - render as table */}
-                    {isCosting ? renderCostingSummary(message.content) : renderTextWithBold(message.content)}
-                  </div>
-
-                  {/* Show "Copied" badge when copied */}
-                  {copiedMessageId === message.id && (
-                    <div className="absolute -top-3 -right-2 flex items-center gap-1 bg-green-500 text-white px-2 py-1 rounded-full shadow-md text-xs font-medium">
-                      <Check className="h-3 w-3" />
-                      <span>Copied</span>
+              <div
+                key={message.id}
+                className="message-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} w-full pr-2`}>
+                  <div className={`relative group ${message.sender === "user" ? "max-w-[85%] md:max-w-[40%]" : "max-w-[95%] md:max-w-[40%]"} ${isCosting ? 'w-full' : ''}`}>
+                    <div
+                      className={`rounded-2xl text-base leading-relaxed whitespace-pre-wrap break-words overflow-hidden cursor-pointer transition-all active:scale-95 ${isCosting ? 'p-0 bg-transparent shadow-none w-full' : 'px-4 py-3 shadow-sm'
+                        } ${message.sender === "user"
+                          ? "bg-blue text-white"
+                          : isCosting ? '' : "bg-blue-5 text-foreground"
+                        } ${copiedMessageId === message.id ? "ring-2 ring-green-500" : ""}`}
+                      style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                      onMouseDown={() => handleLongPressStart(message.content, message.id)}
+                      onMouseUp={handleLongPressEnd}
+                      onMouseLeave={handleLongPressEnd}
+                      onTouchStart={() => handleLongPressStart(message.content, message.id)}
+                      onTouchEnd={handleLongPressEnd}
+                      onTouchCancel={handleLongPressEnd}
+                    >
+                      {/* Check if this is a costing summary - render as table */}
+                      {isCosting ? renderCostingSummary(message.content) : renderTextWithBold(message.content)}
                     </div>
-                  )}
+
+                    {/* Show "Copied" badge when copied */}
+                    {copiedMessageId === message.id && (
+                      <div className="absolute -top-3 -right-2 flex items-center gap-1 bg-green-500 text-white px-2 py-1 rounded-full shadow-md text-xs font-medium">
+                        <Check className="h-3 w-3" />
+                        <span>Copied</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Display option buttons only when message contains "select" */}
-              {message.options && message.options.length > 0 && (
-                <div className={`mt-3 ml-0 ${
-                  // Check if it's YES/NO or CONFIRM/MODIFY buttons - show in row
-                  (message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
-                  (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))
-                    ? 'flex flex-row gap-3'
-                    : 'flex flex-col gap-2 max-w-[95%] md:max-w-[40%]'
-                }`}>
-                  {message.options.map((option, optionIndex) => {
-                    const isMultiSelect = message.allowMultiSelect || false
-                    const isSelected = isMultiSelect && (selectedOptions[message.id] || []).includes(option)
-                    const isYesNo = message.options?.length === 2 && message.options.includes('YES') && message.options.includes('NO')
-                    const isConfirmModify = message.options?.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY')
+                {/* Display option buttons only when message contains "select" */}
+                {message.options && message.options.length > 0 && (
+                  <div className={`mt-3 ml-0 ${
+                    // Check if it's YES/NO or CONFIRM/MODIFY buttons - show in row
+                    (message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
+                      (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))
+                      ? 'flex flex-row gap-3'
+                      : 'flex flex-col gap-2 max-w-[95%] md:max-w-[40%]'
+                    }`}>
+                    {message.options.map((option, optionIndex) => {
+                      const isMultiSelect = message.allowMultiSelect || false
+                      const isSelected = isMultiSelect && (selectedOptions[message.id] || []).includes(option)
+                      const isYesNo = message.options?.length === 2 && message.options.includes('YES') && message.options.includes('NO')
+                      const isConfirmModify = message.options?.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY')
 
-                    return (
-                      <Button
-                        key={`${message.id}-option-${optionIndex}`}
-                        variant={isSelected ? "default" : "outline"}
-                        onClick={() => handleOptionSelect(option, message.id, isMultiSelect)}
-                        disabled={isTyping}
-                        className={`justify-center text-center h-auto py-2 px-4 text-xs sm:text-sm sm:py-3 sm:px-6 transition-all ${
-                          isYesNo
+                      return (
+                        <Button
+                          key={`${message.id}-option-${optionIndex}`}
+                          variant={isSelected ? "default" : "outline"}
+                          onClick={() => handleOptionSelect(option, message.id, isMultiSelect)}
+                          disabled={isTyping}
+                          className={`justify-center text-center h-auto py-2 px-4 text-xs sm:text-sm sm:py-3 sm:px-6 transition-all ${isYesNo
                             ? option === 'YES'
                               ? 'bg-transparent text-green-600 hover:bg-green-50 border-2 border-green-600'
                               : 'bg-transparent text-red-600 hover:bg-red-50 border-2 border-red-600'
@@ -1707,62 +1705,62 @@ export function AICostingChat({
                               : isSelected
                                 ? "bg-primary text-primary-foreground border-primary"
                                 : "hover:bg-primary/10 hover:border-primary w-full justify-start text-left"
-                        }`}
+                            }`}
+                        >
+                          <span>{option === 'CONFIRM' ? 'Confirm' : option === 'MODIFY' ? 'Modify' : option}</span>
+                        </Button>
+                      )
+                    })}
+
+                    {/* Submit button for multi-select */}
+                    {message.allowMultiSelect && (selectedOptions[message.id] || []).length > 0 && (
+                      <Button
+                        onClick={() => handleMultiSelectSubmit(message.id)}
+                        disabled={isTyping}
+                        className="mt-2 bg-primary text-white hover:bg-primary/90 w-full py-2 text-xs sm:text-sm sm:py-3"
                       >
-                        {!isYesNo && !isConfirmModify && <span className="font-semibold mr-1 sm:mr-2 text-primary">{optionIndex + 1}.</span>}
-                        <span>{option === 'CONFIRM' ? 'Confirm' : option === 'MODIFY' ? 'Modify' : option}</span>
+                        Submit Selected ({(selectedOptions[message.id] || []).length})
                       </Button>
-                    )
-                  })}
+                    )}
+                  </div>
+                )}
 
-                  {/* Submit button for multi-select */}
-                  {message.allowMultiSelect && (selectedOptions[message.id] || []).length > 0 && (
+                {/* PDF Download buttons when quotation is created */}
+                {message.bookingId && (
+                  <div className="flex gap-2 mt-3 ml-0">
                     <Button
-                      onClick={() => handleMultiSelectSubmit(message.id)}
-                      disabled={isTyping}
-                      className="mt-2 bg-primary text-white hover:bg-primary/90 w-full py-2 text-xs sm:text-sm sm:py-3"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadQuotationVertical(message.bookingId)}
+                      disabled={isDownloadingPDF === `${message.bookingId}-v`}
+                      className="flex items-center gap-1 text-xs"
                     >
-                      Submit Selected ({(selectedOptions[message.id] || []).length})
+                      {isDownloadingPDF === `${message.bookingId}-v` ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <FileText className="h-3 w-3" />
+                      )}
+                      PDF (V)
                     </Button>
-                  )}
-                </div>
-              )}
-
-              {/* PDF Download buttons when quotation is created */}
-              {message.bookingId && (
-                <div className="flex gap-2 mt-3 ml-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownloadQuotationVertical(message.bookingId)}
-                    disabled={isDownloadingPDF === `${message.bookingId}-v`}
-                    className="flex items-center gap-1 text-xs"
-                  >
-                    {isDownloadingPDF === `${message.bookingId}-v` ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <FileText className="h-3 w-3" />
-                    )}
-                    PDF (V)
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownloadQuotationHorizontal(message.bookingId)}
-                    disabled={isDownloadingPDF === `${message.bookingId}-h`}
-                    className="flex items-center gap-1 text-xs"
-                  >
-                    {isDownloadingPDF === `${message.bookingId}-h` ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <FileText className="h-3 w-3" />
-                    )}
-                    PDF (H)
-                  </Button>
-                </div>
-              )}
-            </div>
-          )})}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadQuotationHorizontal(message.bookingId)}
+                      disabled={isDownloadingPDF === `${message.bookingId}-h`}
+                      className="flex items-center gap-1 text-xs"
+                    >
+                      {isDownloadingPDF === `${message.bookingId}-h` ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <FileText className="h-3 w-3" />
+                      )}
+                      PDF (H)
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
 
 
           {isTyping && (

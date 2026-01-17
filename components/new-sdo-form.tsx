@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Building2, User, Package, FileText } from "lucide-react"
 import { saveForm, getProductionUnits, getClients } from "@/lib/api/projects"
+import { useToast } from "@/hooks/use-toast"
 
 // Dropdown options data
 const SDO_DROPDOWN_OPTIONS = {
@@ -171,6 +172,7 @@ interface Client {
 }
 
 export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
+  const { toast } = useToast()
   const [formData, setFormData] = useState({
     // Basic Information
     productionPlantID: "",
@@ -334,7 +336,11 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
       })
 
       if (result.success) {
-        alert("✅ SDO form submitted successfully!")
+        toast({
+          title: "Success",
+          description: "SDO form submitted successfully!",
+          variant: "default",
+        })
 
         if (onSubmit) {
           onSubmit(formData)
@@ -342,11 +348,19 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
 
         onClose()
       } else {
-        alert(`❌ Failed to submit SDO form: ${result.error}`)
+        toast({
+          title: "Error",
+          description: `Failed to submit SDO form: ${result.error}`,
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error submitting SDO form:", error)
-      alert("❌ Failed to submit SDO form. Please try again.")
+      toast({
+        title: "Error",
+        description: "Failed to submit SDO form. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -364,20 +378,20 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
     options: string[]
     placeholder?: string
   }) => (
-    <div>
-      <Label htmlFor={field} className="text-sm font-medium">
+    <div className="min-w-0">
+      <Label htmlFor={field} className="text-sm font-medium truncate block">
         {label}
       </Label>
       <Select
         value={formData[field as keyof typeof formData] as string}
         onValueChange={(value) => handleChange(field, value)}
       >
-        <SelectTrigger className="mt-1.5">
-          <SelectValue placeholder={placeholder} />
+        <SelectTrigger className="mt-1.5 truncate">
+          <SelectValue placeholder={placeholder} className="truncate" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-60 overflow-y-auto">
           {options.map((option) => (
-            <SelectItem key={option} value={option}>
+            <SelectItem key={option} value={option} className="truncate">
               {option}
             </SelectItem>
           ))}
@@ -387,8 +401,8 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
   )
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-6">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="w-full max-w-5xl mx-auto p-6 overflow-x-hidden">
+      <form onSubmit={handleSubmit} className="space-y-6 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -406,7 +420,7 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
+              <div className="min-w-0">
                 <Label htmlFor="productionPlantID" className="text-sm font-medium">
                   Production Plant
                 </Label>
@@ -415,10 +429,10 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
                   onValueChange={(value) => handlePlantChange("productionPlantID", value)}
                   disabled={isLoadingUnits}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="mt-1.5 w-full">
                     <SelectValue placeholder={isLoadingUnits ? "Loading..." : "Select production plant"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {productionUnits.map((unit) => (
                       <SelectItem key={unit.ProductionUnitID} value={String(unit.ProductionUnitID)}>
                         {unit.ProductionUnitName}
@@ -428,7 +442,7 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
                 </Select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <Label htmlFor="prepressPlantID" className="text-sm font-medium">
                   Prepress Plant
                 </Label>
@@ -437,10 +451,10 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
                   onValueChange={(value) => handlePlantChange("prepressPlantID", value)}
                   disabled={isLoadingUnits}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="mt-1.5 w-full">
                     <SelectValue placeholder={isLoadingUnits ? "Loading..." : "Select prepress plant"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {productionUnits.map((unit) => (
                       <SelectItem key={unit.ProductionUnitID} value={String(unit.ProductionUnitID)}>
                         {unit.ProductionUnitName}
@@ -450,22 +464,22 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
                 </Select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <Label htmlFor="customerID" className="text-sm font-medium flex items-center gap-1">
                   <User className="h-4 w-4" />
                   Customer Name
                 </Label>
                 <Select
-                  value={formData.customerID}
+                  value={formData.customerID || undefined}
                   onValueChange={handleCustomerChange}
                   disabled={isLoadingClients}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="mt-1.5 w-full">
                     <SelectValue placeholder={isLoadingClients ? "Loading..." : "Select customer"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {clients.map((client) => (
-                      <SelectItem key={client.LedgerID} value={String(client.LedgerID)}>
+                      <SelectItem key={`customer-${client.LedgerID}`} value={String(client.LedgerID)}>
                         {client.LedgerName}
                       </SelectItem>
                     ))}

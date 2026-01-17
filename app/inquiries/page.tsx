@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MessageSquare, FileText, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
 import { canCreate, isHOD } from "@/lib/permissions"
@@ -21,7 +20,6 @@ export default function InquiriesPage() {
   const router = useRouter()
   const [showFAB, setShowFAB] = useState(false)
   const [isHODUser, setIsHODUser] = useState(false)
-  const [showInquiryTypeDialog, setShowInquiryTypeDialog] = useState(false)
   const [showNewInquiryDialog, setShowNewInquiryDialog] = useState(false)
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
   const [formData, setFormData] = useState({
@@ -44,21 +42,8 @@ export default function InquiriesPage() {
   }, [])
 
   const handleNewInquiry = () => {
-    setShowInquiryTypeDialog(true)
-  }
-
-  const handleInquiryTypeSelection = (type: "manual" | "chat" | "dynamic") => {
-    setShowInquiryTypeDialog(false)
-    if (type === "manual") {
-      // Navigate to manual inquiry form page
-      router.push("/inquiries/new?mode=manual")
-    } else if (type === "dynamic") {
-      // Navigate to dynamic fill costing wizard
-      router.push("/inquiries/new?mode=dynamic")
-    } else {
-      // Navigate to main chat page with autoStart parameter to begin "I want costing" chat
-      router.push("/?autoStart=true")
-    }
+    // Navigate directly to manual form
+    router.push("/inquiries/new?mode=manual")
   }
 
   const handleExport = () => {
@@ -114,62 +99,6 @@ export default function InquiriesPage() {
         {showFAB && <FloatingActionButton actions={actions} />}
         <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
-
-      {/* Inquiry Type Selection Dialog */}
-      <Dialog open={showInquiryTypeDialog} onOpenChange={setShowInquiryTypeDialog}>
-        <DialogContent className="max-w-sm p-6 bg-white">
-          <DialogHeader className="space-y-1">
-            <DialogTitle className="text-xl font-semibold text-center text-[#005180]">Create New Enquiry</DialogTitle>
-            <DialogDescription className="text-center text-sm text-gray-600">
-              Choose how you would like to create the enquiry
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-3 pt-4">
-            <Button
-              onClick={() => handleInquiryTypeSelection("chat")}
-              variant="outline"
-              className="h-auto py-4 flex items-center justify-start gap-3 border-2 border-[#78BE20] text-[#78BE20] hover:bg-[#78BE20]/10 transition-all duration-200 shadow-sm hover:shadow-md"
-            >
-              <div className="bg-[#78BE20]/10 p-2 rounded">
-                <MessageSquare className="h-5 w-5" />
-              </div>
-              <div className="text-left flex-1">
-                <p className="font-semibold">Chat with Parkbuddy</p>
-                <p className="text-xs text-[#78BE20]/70">Use intelligent chat engine</p>
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => handleInquiryTypeSelection("manual")}
-              variant="outline"
-              className="h-auto py-4 flex items-center justify-start gap-3 border-2 border-[#B92221] text-[#B92221] hover:bg-[#B92221]/10 transition-all duration-200 shadow-sm hover:shadow-md"
-            >
-              <div className="bg-[#B92221]/10 p-2 rounded">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div className="text-left flex-1">
-                <p className="font-semibold">Manual Form</p>
-                <p className="text-xs text-[#B92221]/70">Fill out form manually</p>
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => handleInquiryTypeSelection("dynamic")}
-              variant="outline"
-              className="h-auto py-4 flex items-center justify-start gap-3 border-2 border-[#005180] text-[#005180] hover:bg-[#005180]/10 transition-all duration-200 shadow-sm hover:shadow-md"
-            >
-              <div className="bg-[#005180]/10 p-2 rounded">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div className="text-left flex-1">
-                <p className="font-semibold">Dynamic Fill</p>
-                <p className="text-xs text-[#005180]/70">Complete costing wizard</p>
-              </div>
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* New Enquiry Dialog */}
       <Dialog open={showNewInquiryDialog} onOpenChange={setShowNewInquiryDialog}>

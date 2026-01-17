@@ -1301,6 +1301,9 @@ Question: ${message.trim()}
                 <div className="space-y-2">
                   {filteredItems.map((item, index) => {
                     const rate = item.Rate || item.rate || item.EstimationRate || item.estimationRate || null
+                    // Remove sheet size from item name (patterns like "(31x43)", "(31X43)", "(31 x 43)")
+                    const rawName = item.ItemName || item.itemName || item.Name || '-'
+                    const displayName = rawName.replace(/\s*\(\s*\d+\.?\d*\s*[xX×]\s*\d+\.?\d*\s*\)/g, '').trim()
                     return (
                       <div
                         key={item.ItemID || item.itemId || index}
@@ -1308,7 +1311,7 @@ Question: ${message.trim()}
                       >
                         <div className="flex items-start justify-between">
                           <p className="font-medium text-sm text-gray-900 flex-1">
-                            {item.ItemName || item.itemName || item.Name || '-'}
+                            {displayName || '-'}
                           </p>
                           {rate && (
                             <span className="bg-[#005180] text-white px-2 py-0.5 rounded text-xs font-medium ml-2">

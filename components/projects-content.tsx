@@ -1,20 +1,23 @@
 "use client"
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
-import { CheckCircle2, Clock, AlertCircle, Search, Filter, RefreshCw, Mic } from "lucide-react"
+import { CheckCircle2, Clock, AlertCircle, Search, RefreshCw, Mic } from "lucide-react"
+import {
+  MaterialReactTable,
+  type MRT_ColumnDef,
+} from 'material-react-table'
+import { ThemeProvider } from '@mui/material/styles'
+import { mrtTheme } from '@/lib/mrt-theme'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { TruncatedText } from "@/components/truncated-text"
@@ -255,129 +258,372 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Search states (one per tab)
   const [sdoSearch, setSdoSearch] = useState("")
-  const [sdoStatusFilter, setSdoStatusFilter] = useState("all")
-  const [sdoKamFilter, setSdoKamFilter] = useState("all")
-  const [sdoHodFilter, setSdoHodFilter] = useState("all")
   const [jdoSearch, setJdoSearch] = useState("")
-  const [jdoStatusFilter, setJdoStatusFilter] = useState("all")
-  const [jdoKamFilter, setJdoKamFilter] = useState("all")
-  const [jdoHodFilter, setJdoHodFilter] = useState("all")
   const [comSearch, setComSearch] = useState("")
-  const [comStatusFilter, setComStatusFilter] = useState("all")
-  const [comKamFilter, setComKamFilter] = useState("all")
-  const [comHodFilter, setComHodFilter] = useState("all")
   const [pnSearch, setPnSearch] = useState("")
-  const [pnStatusFilter, setPnStatusFilter] = useState("all")
-  const [pnKamFilter, setPnKamFilter] = useState("all")
-  const [pnHodFilter, setPnHodFilter] = useState("all")
 
-  // Pagination states
-  const [sdoPage, setSdoPage] = useState(1)
-  const [jdoPage, setJdoPage] = useState(1)
-  const [comPage, setComPage] = useState(1)
-  const [pnPage, setPnPage] = useState(1)
-  const itemsPerPage = 20
+  // Dialog states for detail views
+  const [selectedProject, setSelectedProject] = useState<any | null>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
-  // Get unique KAM names
-  const sdoKamNames = Array.from(new Set(sdoProjects.map(p => p.kamName).filter((name): name is string => Boolean(name))))
-  const jdoKamNames = Array.from(new Set(jdoProjects.map(p => p.kamName).filter((name): name is string => Boolean(name))))
-  const comKamNames = Array.from(new Set(commercialOrders.map(p => p.kamName).filter((name): name is string => Boolean(name))))
-  const pnKamNames = Array.from(new Set(pnOrders.map(p => p.kamName).filter((name): name is string => Boolean(name))))
-
-  // Get unique HOD names
-  const sdoHodNames = Array.from(new Set(sdoProjects.map(p => p.hodName).filter((name): name is string => Boolean(name))))
-  const jdoHodNames = Array.from(new Set(jdoProjects.map(p => p.hodName).filter((name): name is string => Boolean(name))))
-  const comHodNames = Array.from(new Set(commercialOrders.map(p => p.hodName).filter((name): name is string => Boolean(name))))
-  const pnHodNames = Array.from(new Set(pnOrders.map(p => p.hodName).filter((name): name is string => Boolean(name))))
-
-  // Filtered data
+  // Filtered data (search only, MRT handles pagination)
   const filteredSDO = sdoProjects.filter(p => {
     const matchesSearch =
-      p.id.toLowerCase().includes(sdoSearch.toLowerCase()) ||
-      p.customer.toLowerCase().includes(sdoSearch.toLowerCase()) ||
-      p.job.toLowerCase().includes(sdoSearch.toLowerCase()) ||
-      p.quoteId.toLowerCase().includes(sdoSearch.toLowerCase()) ||
-      p.executionLocation.toLowerCase().includes(sdoSearch.toLowerCase()) ||
-      p.productionPlant.toLowerCase().includes(sdoSearch.toLowerCase())
-    const matchesStatus = sdoStatusFilter === "all" || p.status === sdoStatusFilter
-    const matchesKam = sdoKamFilter === "all" || p.kamName === sdoKamFilter
-    const matchesHod = sdoHodFilter === "all" || p.hodName === sdoHodFilter
-    return matchesSearch && matchesStatus && matchesKam && matchesHod
+      p.id?.toLowerCase().includes(sdoSearch.toLowerCase()) ||
+      p.customer?.toLowerCase().includes(sdoSearch.toLowerCase()) ||
+      p.job?.toLowerCase().includes(sdoSearch.toLowerCase()) ||
+      p.quoteId?.toLowerCase().includes(sdoSearch.toLowerCase()) ||
+      p.executionLocation?.toLowerCase().includes(sdoSearch.toLowerCase()) ||
+      p.productionPlant?.toLowerCase().includes(sdoSearch.toLowerCase())
+    return matchesSearch
   })
 
   const filteredJDO = jdoProjects.filter(p => {
     const matchesSearch =
-      p.id.toLowerCase().includes(jdoSearch.toLowerCase()) ||
-      p.customer.toLowerCase().includes(jdoSearch.toLowerCase()) ||
-      p.job.toLowerCase().includes(jdoSearch.toLowerCase()) ||
-      p.sdoId.toLowerCase().includes(jdoSearch.toLowerCase()) ||
-      p.prePressPlant.toLowerCase().includes(jdoSearch.toLowerCase()) ||
-      p.productionPlant.toLowerCase().includes(jdoSearch.toLowerCase())
-    const overallStatus =
-      p.artworkStatus === "Approved" && p.bomStatus === "Complete" && p.routingStatus === "Complete"
-        ? "Approved"
-        : "In Review"
-    const matchesKam = jdoKamFilter === "all" || p.kamName === jdoKamFilter
-    const matchesHod = jdoHodFilter === "all" || p.hodName === jdoHodFilter
-    return matchesSearch && (jdoStatusFilter === "all" || overallStatus === jdoStatusFilter) && matchesKam && matchesHod
+      p.id?.toLowerCase().includes(jdoSearch.toLowerCase()) ||
+      p.customer?.toLowerCase().includes(jdoSearch.toLowerCase()) ||
+      p.job?.toLowerCase().includes(jdoSearch.toLowerCase()) ||
+      p.sdoId?.toLowerCase().includes(jdoSearch.toLowerCase()) ||
+      p.prePressPlant?.toLowerCase().includes(jdoSearch.toLowerCase()) ||
+      p.productionPlant?.toLowerCase().includes(jdoSearch.toLowerCase())
+    return matchesSearch
   })
 
   const filteredCommercial = commercialOrders.filter(p => {
     const matchesSearch =
-      p.id.toLowerCase().includes(comSearch.toLowerCase()) ||
-      p.customer.toLowerCase().includes(comSearch.toLowerCase()) ||
-      p.job.toLowerCase().includes(comSearch.toLowerCase()) ||
-      p.jdoId.toLowerCase().includes(comSearch.toLowerCase()) ||
-      p.quantity.toLowerCase().includes(comSearch.toLowerCase()) ||
-      p.prePressPlant.toLowerCase().includes(comSearch.toLowerCase()) ||
-      p.productionPlant.toLowerCase().includes(comSearch.toLowerCase())
-    const matchesKam = comKamFilter === "all" || p.kamName === comKamFilter
-    const matchesHod = comHodFilter === "all" || p.hodName === comHodFilter
-    return matchesSearch && (comStatusFilter === "all" || p.status === comStatusFilter) && matchesKam && matchesHod
+      p.id?.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.customer?.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.job?.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.jdoId?.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.quantity?.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.prePressPlant?.toLowerCase().includes(comSearch.toLowerCase()) ||
+      p.productionPlant?.toLowerCase().includes(comSearch.toLowerCase())
+    return matchesSearch
   })
 
   const filteredPN = pnOrders.filter(p => {
     const matchesSearch =
-      p.id.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.customer.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.job.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.commercialId.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.quantity.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.pnReqNo.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.fgMaterial.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.description.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.rmType.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.plant.toLowerCase().includes(pnSearch.toLowerCase()) ||
-      p.initiateDate.toLowerCase().includes(pnSearch.toLowerCase())
-    const matchesKam = pnKamFilter === "all" || p.kamName === pnKamFilter
-    const matchesHod = pnHodFilter === "all" || p.hodName === pnHodFilter
-    return matchesSearch && (pnStatusFilter === "all" || p.status === pnStatusFilter) && matchesKam && matchesHod
+      p.id?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.customer?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.job?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.commercialId?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.quantity?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.pnReqNo?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.fgMaterial?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.description?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.rmType?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.plant?.toLowerCase().includes(pnSearch.toLowerCase()) ||
+      p.initiateDate?.toLowerCase().includes(pnSearch.toLowerCase())
+    return matchesSearch
   })
 
-  // Pagination calculations for SDO
-  const sdoTotalPages = Math.ceil(filteredSDO.length / itemsPerPage)
-  const sdoStartIndex = (sdoPage - 1) * itemsPerPage
-  const sdoEndIndex = sdoStartIndex + itemsPerPage
-  const paginatedSDO = filteredSDO.slice(sdoStartIndex, sdoEndIndex)
+  // MRT Column definitions for SDO
+  const sdoColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'hodName',
+      header: 'HOD Name',
+      size: 150,
+      Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>,
+    },
+    {
+      accessorKey: 'kamName',
+      header: 'KAM Name',
+      size: 150,
+      Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>,
+    },
+    {
+      accessorKey: 'id',
+      header: 'ID / Customer',
+      size: 180,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <p className="text-sm font-semibold text-primary">{row.original.id}</p>
+          <TruncatedText text={row.original.customer} limit={25} className="text-sm text-muted-foreground" />
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'job',
+      header: 'Job Details',
+      size: 220,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <TruncatedText text={row.original.job} limit={30} className="text-sm font-semibold text-foreground" />
+          <p className="text-xs text-muted-foreground">Quote {row.original.quoteId}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'executionLocation',
+      header: 'Execution Location',
+      size: 180,
+      Cell: ({ row }) => <span className="text-sm">{row.original.executionLocation || '-'}</span>,
+    },
+    {
+      accessorKey: 'productionPlant',
+      header: 'Production Plant',
+      size: 180,
+      Cell: ({ row }) => <span className="text-sm">{row.original.productionPlant || '-'}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      size: 160,
+      Cell: ({ row }) => {
+        const StatusIcon = getStatusIcon(row.original.status)
+        return (
+          <Badge className={`${getStatusBadge(row.original.status)} border`}>
+            <StatusIcon className="mr-1.5 h-3 w-3" />
+            {row.original.status}
+          </Badge>
+        )
+      },
+    },
+  ], [])
 
-  // Pagination calculations for JDO
-  const jdoTotalPages = Math.ceil(filteredJDO.length / itemsPerPage)
-  const jdoStartIndex = (jdoPage - 1) * itemsPerPage
-  const jdoEndIndex = jdoStartIndex + itemsPerPage
-  const paginatedJDO = filteredJDO.slice(jdoStartIndex, jdoEndIndex)
+  // MRT Column definitions for JDO
+  const jdoColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'hodName',
+      header: 'HOD Name',
+      size: 150,
+      Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>,
+    },
+    {
+      accessorKey: 'kamName',
+      header: 'KAM Name',
+      size: 150,
+      Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>,
+    },
+    {
+      accessorKey: 'id',
+      header: 'ID / Customer',
+      size: 180,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <p className="text-sm font-semibold text-primary">{row.original.id}</p>
+          <TruncatedText text={row.original.customer} limit={25} className="text-sm text-muted-foreground" />
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'job',
+      header: 'Job Details',
+      size: 220,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <TruncatedText text={row.original.job} limit={30} className="text-sm font-semibold text-foreground" />
+          <p className="text-xs text-muted-foreground">SDO {row.original.sdoId}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'prePressPlant',
+      header: 'Pre-Press Plant',
+      size: 180,
+      Cell: ({ row }) => <span className="text-sm">{row.original.prePressPlant || '-'}</span>,
+    },
+    {
+      accessorKey: 'productionPlant',
+      header: 'Production Plant',
+      size: 180,
+      Cell: ({ row }) => <span className="text-sm">{row.original.productionPlant || '-'}</span>,
+    },
+    {
+      accessorKey: 'artworkStatus',
+      header: 'Artwork',
+      size: 120,
+      Cell: ({ row }) => {
+        const StatusIcon = getStatusIcon(row.original.artworkStatus)
+        return (
+          <Badge className={`${getStatusBadge(row.original.artworkStatus)} border`}>
+            <StatusIcon className="mr-1 h-3 w-3" />
+            {row.original.artworkStatus}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: 'bomStatus',
+      header: 'BOM',
+      size: 120,
+      Cell: ({ row }) => {
+        const StatusIcon = getStatusIcon(row.original.bomStatus)
+        return (
+          <Badge className={`${getStatusBadge(row.original.bomStatus)} border`}>
+            <StatusIcon className="mr-1 h-3 w-3" />
+            {row.original.bomStatus}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: 'routingStatus',
+      header: 'Routing',
+      size: 120,
+      Cell: ({ row }) => {
+        const StatusIcon = getStatusIcon(row.original.routingStatus)
+        return (
+          <Badge className={`${getStatusBadge(row.original.routingStatus)} border`}>
+            <StatusIcon className="mr-1 h-3 w-3" />
+            {row.original.routingStatus}
+          </Badge>
+        )
+      },
+    },
+  ], [])
 
-  // Pagination calculations for Commercial
-  const comTotalPages = Math.ceil(filteredCommercial.length / itemsPerPage)
-  const comStartIndex = (comPage - 1) * itemsPerPage
-  const comEndIndex = comStartIndex + itemsPerPage
-  const paginatedCommercial = filteredCommercial.slice(comStartIndex, comEndIndex)
+  // MRT Column definitions for Commercial
+  const commercialColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'hodName',
+      header: 'HOD Name',
+      size: 150,
+      Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>,
+    },
+    {
+      accessorKey: 'kamName',
+      header: 'KAM Name',
+      size: 150,
+      Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>,
+    },
+    {
+      accessorKey: 'id',
+      header: 'ID / Customer',
+      size: 180,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <p className="text-sm font-semibold text-primary">{row.original.id}</p>
+          <TruncatedText text={row.original.customer} limit={25} className="text-sm text-muted-foreground" />
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'job',
+      header: 'Job Details',
+      size: 220,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <TruncatedText text={row.original.job} limit={30} className="text-sm font-semibold text-foreground" />
+          <p className="text-xs text-muted-foreground">JDO {row.original.jdoId}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'quantity',
+      header: 'Quantity',
+      size: 120,
+      Cell: ({ row }) => <span className="text-sm font-medium">{row.original.quantity || '-'}</span>,
+    },
+    {
+      accessorKey: 'prePressPlant',
+      header: 'Pre-Press Plant',
+      size: 160,
+      Cell: ({ row }) => <span className="text-sm">{row.original.prePressPlant || '-'}</span>,
+    },
+    {
+      accessorKey: 'productionPlant',
+      header: 'Production Plant',
+      size: 160,
+      Cell: ({ row }) => <span className="text-sm">{row.original.productionPlant || '-'}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      size: 140,
+      Cell: ({ row }) => {
+        const StatusIcon = getStatusIcon(row.original.status)
+        return (
+          <Badge className={`${getStatusBadge(row.original.status)} border`}>
+            <StatusIcon className="mr-1.5 h-3 w-3" />
+            {row.original.status}
+          </Badge>
+        )
+      },
+    },
+  ], [])
 
-  // Pagination calculations for PN
-  const pnTotalPages = Math.ceil(filteredPN.length / itemsPerPage)
-  const pnStartIndex = (pnPage - 1) * itemsPerPage
-  const pnEndIndex = pnStartIndex + itemsPerPage
-  const paginatedPN = filteredPN.slice(pnStartIndex, pnEndIndex)
+  // MRT Column definitions for PN
+  const pnColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'hodName',
+      header: 'HOD Name',
+      size: 150,
+      Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>,
+    },
+    {
+      accessorKey: 'kamName',
+      header: 'KAM Name',
+      size: 150,
+      Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>,
+    },
+    {
+      accessorKey: 'id',
+      header: 'ID / Customer',
+      size: 180,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <p className="text-sm font-semibold text-primary">{row.original.id}</p>
+          <TruncatedText text={row.original.customer} limit={25} className="text-sm text-muted-foreground" />
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'job',
+      header: 'Job Details',
+      size: 220,
+      Cell: ({ row }) => (
+        <div className="leading-[1.15]">
+          <TruncatedText text={row.original.job} limit={30} className="text-sm font-semibold text-foreground" />
+          <p className="text-xs text-muted-foreground">Commercial {row.original.commercialId}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'quantity',
+      header: 'Quantity',
+      size: 120,
+      Cell: ({ row }) => <span className="text-sm font-medium">{row.original.quantity || '-'}</span>,
+    },
+    {
+      accessorKey: 'plant',
+      header: 'Plant',
+      size: 120,
+      Cell: ({ row }) => <span className="text-sm">{row.original.plant || '-'}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      size: 140,
+      Cell: ({ row }) => {
+        const StatusIcon = getStatusIcon(row.original.status)
+        return (
+          <Badge className={`${getStatusBadge(row.original.status)} border`}>
+            <StatusIcon className="mr-1.5 h-3 w-3" />
+            {row.original.status}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: 'progress',
+      header: 'Progress',
+      size: 120,
+      Cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-16 rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-[#005180]"
+              style={{ width: `${row.original.progress || 0}%` }}
+            />
+          </div>
+          <span className="text-xs text-muted-foreground">{row.original.progress || 0}%</span>
+        </div>
+      ),
+    },
+  ], [])
 
   // Fetch SDO data
   useEffect(() => {
@@ -516,22 +762,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
     fetchCommercialData()
   }, [])
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setSdoPage(1)
-  }, [sdoSearch, sdoStatusFilter, sdoKamFilter, sdoHodFilter])
-
-  useEffect(() => {
-    setJdoPage(1)
-  }, [jdoSearch, jdoStatusFilter, jdoKamFilter, jdoHodFilter])
-
-  useEffect(() => {
-    setComPage(1)
-  }, [comSearch, comStatusFilter, comKamFilter, comHodFilter])
-
-  useEffect(() => {
-    setPnPage(1)
-  }, [pnSearch, pnStatusFilter, pnKamFilter, pnHodFilter])
+  // Note: MRT handles pagination internally, no need to reset pages manually
 
   return (
     <div className="space-y-4">
@@ -559,1065 +790,356 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
         {/* SDO Tab */}
         <TabsContent value="sdo">
-          <div className="relative mb-4 w-full flex gap-2 items-center">
+          <div className="relative mb-4 w-full flex gap-3 items-center">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Mic
+                onClick={() => alert("Voice input feature coming soon")}
+                className="pointer-events-auto absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer text-[#005180] hover:text-[#004875] transition-colors duration-200 z-10"
+              />
+              <Search className="pointer-events-none absolute left-12 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Find your SDO by ID, customer, job, or location..."
                 value={sdoSearch}
                 onChange={(e) => setSdoSearch(e.target.value)}
-                className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
+                className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
               />
             </div>
-            <Mic
-              onClick={() => alert("Voice input feature coming soon")}
-              className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
-            />
           </div>
 
-          <Card className="surface-elevated overflow-hidden">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gradient-to-r from-[#005180] to-[#0066a1] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#0066a1]">
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>HOD Name</span>
-                          <Select value={sdoHodFilter} onValueChange={setSdoHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {sdoHodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>KAM Name</span>
-                          <Select value={sdoKamFilter} onValueChange={setSdoKamFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All KAMs</SelectItem>
-                              {sdoKamNames.map(kamName => (
-                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        ID / Customer
-                      </TableHead>
-                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Job Details
-                      </TableHead>
-                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Execution Location
-                      </TableHead>
-                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Production Plant
-                      </TableHead>
-                      <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>Status</span>
-                          <Select value={sdoStatusFilter} onValueChange={setSdoStatusFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#0066a1]/40 hover:bg-[#0066a1]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[160px]">
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="Sample Approved">Sample Approved</SelectItem>
-                              <SelectItem value="Sales Approval">Sales Approval</SelectItem>
-                              <SelectItem value="Clarification">Clarification</SelectItem>
-                              <SelectItem value="In PDD">In PDD</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedSDO.map((project, index) => {
-                      const StatusIcon = getStatusIcon(project.status)
-                      return (
-                        <Dialog key={project.id}>
-                          <DialogTrigger asChild>
-                            <TableRow
-                              className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
-                              style={{ animationDelay: `${index * 25}ms` }}
-                            >
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{project.hodName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{project.kamName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="leading-[1.15]">
-                                  <p className="text-sm font-semibold text-primary">{project.id}</p>
-                                  <TruncatedText text={project.customer} limit={25} className="text-sm text-muted-foreground" />
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="leading-[1.15]">
-                                  <TruncatedText text={project.job} limit={30} className="text-sm font-semibold text-foreground" />
-                                  <p className="text-xs text-muted-foreground">Quote {project.quoteId}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{project.executionLocation}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{project.productionPlant}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <Badge className={`${getStatusBadge(project.status)} border gap-1 px-3 py-1 text-xs font-semibold` }>
-                                  <StatusIcon className="h-3.5 w-3.5" />
-                                  {project.status}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          </DialogTrigger>
-                          <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
-                            <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5 flex-shrink-0">
-                              <DialogTitle className="text-lg font-semibold text-foreground">{project.job}</DialogTitle>
-                              <DialogDescription className="text-sm text-muted-foreground">{project.id}</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-5 px-6 py-6 overflow-y-auto overflow-x-hidden flex-1">
-                              <div className="grid gap-4 sm:grid-cols-2">
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
-                                  <p className="mt-1 text-sm font-medium text-foreground">{project.customer}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Quote</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.quoteId}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Execution Location</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.executionLocation}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Production Plant</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.productionPlant}</p>
-                                </div>
-                              </div>
-                              <div className="grid gap-4 sm:grid-cols-2">
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Created</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.createdDate}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Approved</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.approvedDate ?? "Pending"}</p>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</Label>
-                                <div className="mt-1 flex items-center gap-2">
-                                  <Badge className={`${getStatusBadge(project.status)} border px-3 py-1 text-sm font-semibold`}>
-                                    <StatusIcon className="h-3.5 w-3.5" />
-                                    {project.status}
-                                  </Badge>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Notes</Label>
-                                <p className="mt-1 text-sm leading-relaxed text-foreground/80">{project.notes}</p>
-                              </div>
-                              {project.history?.length ? (
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Journey</Label>
-                                  <div className="mt-2 space-y-3 border-l border-border/60 pl-4">
-                                    {project.history.map((step: any, stepIndex: number) => (
-                                      <div key={`${project.id}-history-${step.stage}-${stepIndex}`} className="flex items-start gap-3">
-                                        <span className={`mt-1 inline-flex h-2.5 w-2.5 rounded-full ${getStatusAccent(project.status)}`} />
-                                        <div>
-                                          <p className="text-sm font-semibold text-foreground">{step.stage}</p>
-                                          <p className="text-xs text-muted-foreground">{step.date}</p>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : null}
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-            {sdoTotalPages > 1 && (
-              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSdoPage(sdoPage - 1)}
-                    disabled={sdoPage === 1}
-                    className="h-8 px-3"
-                  >
-                    Previous
-                  </Button>
-                  <div className="hidden md:flex items-center gap-1">
-                    {Array.from({ length: sdoTotalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={sdoPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSdoPage(page)}
-                        className={`h-8 w-8 ${sdoPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                      >
-                        {page}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="md:hidden text-sm text-muted-foreground">
-                    {sdoPage} / {sdoTotalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSdoPage(sdoPage + 1)}
-                    disabled={sdoPage === sdoTotalPages}
-                    className="h-8 px-3"
-                  >
-                    Next
-                  </Button>
+          <ThemeProvider theme={mrtTheme}>
+            <MaterialReactTable
+              columns={sdoColumns}
+              data={filteredSDO}
+              enableTopToolbar={false}
+              enableBottomToolbar={true}
+              enableColumnActions={false}
+              enableColumnFilters={false}
+              enablePagination={true}
+              enableSorting={true}
+              enableGlobalFilter={false}
+              initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
+              muiTablePaperProps={{
+                sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
+              }}
+              muiTableContainerProps={{ sx: { maxHeight: '600px' } }}
+              muiTableHeadRowProps={{
+                sx: { backgroundColor: '#005180 !important', '& th': { backgroundColor: '#005180 !important' } }
+              }}
+              muiTableHeadCellProps={{
+                sx: {
+                  backgroundColor: '#005180 !important',
+                  color: 'white !important',
+                  fontWeight: 'bold !important',
+                  fontSize: '0.75rem !important',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  padding: '14px 20px !important',
+                  borderRight: '1px solid rgba(255,255,255,0.2)',
+                  borderBottom: 'none !important',
+                  '&:last-child': { borderRight: 'none' },
+                  '&:hover': { backgroundColor: '#005180 !important' },
+                }
+              }}
+              muiTableBodyRowProps={({ row }) => ({
+                onClick: () => {
+                  setSelectedProject(row.original)
+                  setDetailDialogOpen(true)
+                },
+                sx: {
+                  cursor: 'pointer',
+                  '&:hover': { backgroundColor: 'rgba(120, 190, 32, 0.2)' },
+                  '&:nth-of-type(even)': { backgroundColor: 'rgba(185, 34, 33, 0.05)' },
+                }
+              })}
+              muiTableBodyCellProps={{ sx: { fontSize: '0.875rem', padding: '16px' } }}
+              muiPaginationProps={{ rowsPerPageOptions: [10, 20, 50], showFirstButton: false, showLastButton: false }}
+              renderEmptyRowsFallback={() => (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground">No SDO projects found</p>
                 </div>
-              </div>
-            )}
-          </Card>
+              )}
+            />
+          </ThemeProvider>
         </TabsContent>
+
 
         {/* JDO Tab */}
         <TabsContent value="jdo">
-          <div className="relative mb-4 w-full flex gap-2 items-center">
+          <div className="relative mb-4 w-full flex gap-3 items-center">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Mic
+                onClick={() => alert("Voice input feature coming soon")}
+                className="pointer-events-auto absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer text-[#005180] hover:text-[#004875] transition-colors duration-200 z-10"
+              />
+              <Search className="pointer-events-none absolute left-12 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Find your JDO by ID, customer, job, or plant..."
                 value={jdoSearch}
                 onChange={(e) => setJdoSearch(e.target.value)}
-                className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
+                className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
               />
             </div>
-            <Mic
-              onClick={() => alert("Voice input feature coming soon")}
-              className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
-            />
           </div>
 
-          <Card className="surface-elevated overflow-hidden">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gradient-to-r from-[#004875] to-[#005180] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#005180]">
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>HOD Name</span>
-                          <Select value={jdoHodFilter} onValueChange={setJdoHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {jdoHodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>KAM Name</span>
-                          <Select value={jdoKamFilter} onValueChange={setJdoKamFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All KAMs</SelectItem>
-                              {jdoKamNames.map(kamName => (
-                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        ID / Customer
-                      </TableHead>
-                      <TableHead className="w-[200px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Job Details
-                      </TableHead>
-                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Pre-Press Plant
-                      </TableHead>
-                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Production Plant
-                      </TableHead>
-                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Stage Status
-                      </TableHead>
-                      <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>Progress</span>
-                          <Select value={jdoStatusFilter} onValueChange={setJdoStatusFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[140px]">
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="Approved">Approved</SelectItem>
-                              <SelectItem value="In Review">In Review</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedJDO.map((project, index) => {
-                      const overallStatus =
-                        project.artworkStatus === "Approved" && project.bomStatus === "Complete" && project.routingStatus === "Complete"
-                          ? "Approved"
-                          : "In Review"
-                      const StatusIcon = getStatusIcon(overallStatus)
-                      return (
-                        <Dialog key={project.id}>
-                          <DialogTrigger asChild>
-                            <TableRow
-                              className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
-                              style={{ animationDelay: `${index * 25}ms` }}
-                            >
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{project.hodName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{project.kamName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="leading-[1.15]">
-                                  <p className="text-sm font-semibold text-primary">{project.id}</p>
-                                  <TruncatedText text={project.customer} limit={25} className="text-sm text-muted-foreground" />
-                                  <p className="text-xs text-muted-foreground">SDO {project.sdoId}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <TruncatedText text={project.job} limit={30} className="text-sm font-semibold text-foreground" />
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{project.prePressPlant}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{project.productionPlant}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="space-y-1 text-xs font-semibold text-foreground">
-                                  <p>Artwork – {mapArtworkStage(project.artworkStatus)}</p>
-                                  <p>BOM/Routing – {formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
-                                  <p>MF Released – {project.mfReleased ? "Yes" : "No"}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="space-y-2">
-                                  <Badge className={`${getStatusBadge(overallStatus)} border gap-1 px-3 py-1 text-xs font-semibold`}>
-                                    <StatusIcon className="h-3.5 w-3.5" />
-                                    {overallStatus}
-                                  </Badge>
-                                  <p className="text-xs font-semibold text-muted-foreground">Progress {project.progress}%</p>
-                                  <div className="h-2 w-full overflow-hidden rounded-full bg-border/80">
-                                    <div
-                                      className={`${getStatusAccent(overallStatus)} h-full transition-all`}
-                                      style={{ width: `${project.progress}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          </DialogTrigger>
-                          <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
-                            <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5 flex-shrink-0">
-                              <DialogTitle className="text-lg font-semibold text-foreground">{project.job}</DialogTitle>
-                              <DialogDescription className="text-sm text-muted-foreground">{project.id}</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-5 px-6 py-6 overflow-y-auto overflow-x-hidden flex-1">
-                              <div className="grid gap-4 sm:grid-cols-3">
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
-                                  <p className="mt-1 text-sm font-medium text-foreground">{project.customer}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">SDO</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.sdoId}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Created</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.createdDate}</p>
-                                </div>
-                              </div>
-                              <div className="grid gap-4 sm:grid-cols-2">
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Pre-Press Plant</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.prePressPlant}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Production Plant</Label>
-                                  <p className="mt-1 text-sm text-foreground/80">{project.productionPlant}</p>
-                                </div>
-                              </div>
-                              <div className="grid gap-4 sm:grid-cols-3">
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Artwork</Label>
-                                  <p className="mt-1 text-sm font-semibold text-foreground">{mapArtworkStage(project.artworkStatus)}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">BOM/Routing</Label>
-                                  <p className="mt-1 text-sm font-semibold text-foreground">{formatBomRoutingStatus(project.bomStatus, project.routingStatus)}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">MF Released</Label>
-                                  <p className="mt-1 text-sm font-semibold text-foreground">{project.mfReleased ? "Yes" : "No"}</p>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Overall Status</Label>
-                                <div className="mt-1 flex items-center gap-2">
-                                  <Badge className={`${getStatusBadge(overallStatus)} border px-3 py-1 text-sm font-semibold`}>
-                                    <StatusIcon className="h-3.5 w-3.5" />
-                                    {overallStatus}
-                                  </Badge>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Progress</Label>
-                                <div className="mt-1 space-y-2">
-                                  <p className="text-sm font-semibold text-muted-foreground">{project.progress}%</p>
-                                  <div className="h-3 w-full overflow-hidden rounded-full bg-border/80">
-                                    <div
-                                      className={`${getStatusAccent(overallStatus)} h-full transition-all`}
-                                      style={{ width: `${project.progress}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Notes</Label>
-                                <p className="mt-1 text-sm leading-relaxed text-foreground/80">{project.notes}</p>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-            {jdoTotalPages > 1 && (
-              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setJdoPage(jdoPage - 1)}
-                    disabled={jdoPage === 1}
-                    className="h-8 px-3"
-                  >
-                    Previous
-                  </Button>
-                  <div className="hidden md:flex items-center gap-1">
-                    {Array.from({ length: jdoTotalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={jdoPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setJdoPage(page)}
-                        className={`h-8 w-8 ${jdoPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                      >
-                        {page}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="md:hidden text-sm text-muted-foreground">
-                    {jdoPage} / {jdoTotalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setJdoPage(jdoPage + 1)}
-                    disabled={jdoPage === jdoTotalPages}
-                    className="h-8 px-3"
-                  >
-                    Next
-                  </Button>
+          <ThemeProvider theme={mrtTheme}>
+            <MaterialReactTable
+              columns={jdoColumns}
+              data={filteredJDO}
+              enableTopToolbar={false}
+              enableBottomToolbar={true}
+              enableColumnActions={false}
+              enableColumnFilters={false}
+              enablePagination={true}
+              enableSorting={true}
+              enableGlobalFilter={false}
+              initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
+              muiTablePaperProps={{
+                sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
+              }}
+              muiTableContainerProps={{ sx: { maxHeight: '600px' } }}
+              muiTableHeadRowProps={{
+                sx: { backgroundColor: '#005180 !important', '& th': { backgroundColor: '#005180 !important' } }
+              }}
+              muiTableHeadCellProps={{
+                sx: {
+                  backgroundColor: '#005180 !important',
+                  color: 'white !important',
+                  fontWeight: 'bold !important',
+                  fontSize: '0.75rem !important',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  padding: '14px 20px !important',
+                  borderRight: '1px solid rgba(255,255,255,0.2)',
+                  borderBottom: 'none !important',
+                  '&:last-child': { borderRight: 'none' },
+                  '&:hover': { backgroundColor: '#005180 !important' },
+                }
+              }}
+              muiTableBodyRowProps={({ row }) => ({
+                onClick: () => {
+                  setSelectedProject(row.original)
+                  setDetailDialogOpen(true)
+                },
+                sx: {
+                  cursor: 'pointer',
+                  '&:hover': { backgroundColor: 'rgba(120, 190, 32, 0.2)' },
+                  '&:nth-of-type(even)': { backgroundColor: 'rgba(185, 34, 33, 0.05)' },
+                }
+              })}
+              muiTableBodyCellProps={{ sx: { fontSize: '0.875rem', padding: '16px' } }}
+              muiPaginationProps={{ rowsPerPageOptions: [10, 20, 50], showFirstButton: false, showLastButton: false }}
+              renderEmptyRowsFallback={() => (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground">No JDO projects found</p>
                 </div>
-              </div>
-            )}
-          </Card>
+              )}
+            />
+          </ThemeProvider>
         </TabsContent>
+
 
         {/* Commercial Tab */}
         <TabsContent value="commercial">
-          {/* Commercial Search Bar */}
-          <div className="relative mb-4 w-full flex gap-2 items-center">
+          <div className="relative mb-4 w-full flex gap-3 items-center">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Mic
+                onClick={() => alert("Voice input feature coming soon")}
+                className="pointer-events-auto absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer text-[#005180] hover:text-[#004875] transition-colors duration-200 z-10"
+              />
+              <Search className="pointer-events-none absolute left-12 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Find your commercial orders by ID, customer, or job..."
                 value={comSearch}
                 onChange={(e) => setComSearch(e.target.value)}
-                className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
+                className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
               />
             </div>
-            <Mic
-              onClick={() => alert("Voice input feature coming soon")}
-              className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
-            />
           </div>
-
-          <Card className="surface-elevated overflow-hidden">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gradient-to-r from-[#003d63] to-[#005180] hover:bg-gradient-to-r hover:from-[#003d63] hover:to-[#005180]">
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>HOD Name</span>
-                          <Select value={comHodFilter} onValueChange={setComHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {comHodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>KAM Name</span>
-                          <Select value={comKamFilter} onValueChange={setComKamFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All KAMs</SelectItem>
-                              {comKamNames.map(kamName => (
-                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[180px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        ID / Customer
-                      </TableHead>
-                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Job Details
-                      </TableHead>
-                      <TableHead className="w-[170px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Pre-Press Plant
-                      </TableHead>
-                      <TableHead className="w-[170px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Production Plant
-                      </TableHead>
-                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Stage Status
-                      </TableHead>
-                      <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>Status</span>
-                          <Select value={comStatusFilter} onValueChange={setComStatusFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#005180]/40 hover:bg-[#005180]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[140px]">
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="Approved">Approved</SelectItem>
-                              <SelectItem value="In PDD">In PDD</SelectItem>
-                              <SelectItem value="In Review">In Review</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[170px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Financials
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedCommercial.map((order, index) => {
-                      return (
-                        <Dialog key={order.id}>
-                          <DialogTrigger asChild>
-                            <TableRow
-                              className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
-                              style={{ animationDelay: `${index * 25}ms` }}
-                            >
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{order.hodName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{order.kamName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="leading-[1.15]">
-                                  <p className="text-sm font-semibold text-primary">{order.id}</p>
-                                  <TruncatedText text={order.customer} limit={25} className="text-sm text-muted-foreground" />
-                                  <p className="text-xs text-muted-foreground">JDO {order.jdoId}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="leading-[1.15]">
-                                  <TruncatedText text={order.job} limit={30} className="text-sm font-semibold text-foreground" />
-                                  <p className="text-xs text-muted-foreground">{order.quantity}</p>
-                                  <p className="text-xs text-muted-foreground">Order {order.orderDate}</p>
-                                  <p className="text-xs text-muted-foreground">Delivery {order.expectedDelivery}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{order.prePressPlant}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{order.productionPlant}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="space-y-1 text-xs font-semibold text-foreground">
-                                  <p>Pre-Press – {order.prePressStatus}</p>
-                                  <p>Production – {order.productionStatus}</p>
-                                  <p>Dispatch – {order.dispatchStatus}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="space-y-2">
-                                  <Badge className={`${getStatusBadge(order.status)} border gap-1 px-3 py-1 text-xs font-semibold`}>
-                                    {order.status}
-                                  </Badge>
-                                  <p className="text-xs font-semibold text-muted-foreground">Progress {order.progress}%</p>
-                                  <div className="h-2 w-full overflow-hidden rounded-full bg-border/80">
-                                    <div className={`${getStatusAccent(order.status)} h-full transition-all`} style={{ width: `${order.progress}%` }} />
-                                  </div>
-                                  <p className="text-xs font-semibold text-foreground">₹{order.amount.toLocaleString("en-IN")}</p>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-                            <DialogHeader className="flex-shrink-0">
-                              <DialogTitle className="text-2xl font-bold text-blue">{order.id}</DialogTitle>
-                              <DialogDescription>
-                                Commercial Order Details
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid grid-cols-2 gap-4 py-4 overflow-y-auto overflow-x-hidden flex-1">
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Customer</Label>
-                                <p className="text-base font-medium">{order.customer}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Job Name</Label>
-                                <p className="text-base font-medium">{order.job}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">JDO ID</Label>
-                                <p className="text-base font-medium">{order.jdoId}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Pre-Press Plant</Label>
-                                <p className="text-base font-medium">{order.prePressPlant}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Production Plant</Label>
-                                <p className="text-base font-medium">{order.productionPlant}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Amount</Label>
-                                <p className="text-lg font-bold text-blue">₹{order.amount.toLocaleString("en-IN")}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Quantity</Label>
-                                <p className="text-base font-medium">{order.quantity}</p>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Stage Status</Label>
-                                <div className="space-y-1 text-sm font-semibold text-foreground">
-                                  <p>Pre-Press - {order.prePressStatus}</p>
-                                  <p>Production - {order.productionStatus}</p>
-                                  <p>Dispatch - {order.dispatchStatus}</p>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Order Date</Label>
-                                <p className="text-base font-medium">{order.orderDate}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Expected Delivery</Label>
-                                <p className="text-base font-medium">{order.expectedDelivery}</p>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Progress</Label>
-                                <div className="space-y-2">
-                                  <div className="text-sm font-semibold text-muted-foreground">{order.progress}%</div>
-                                  <div className="h-3 w-full overflow-hidden rounded-full bg-border/80">
-                                    <div className={`${getStatusAccent(order.status)} h-full transition-all`} style={{ width: `${order.progress}%` }} />
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Notes</Label>
-                                <p className="text-base">{order.notes}</p>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-            {comTotalPages > 1 && (
-              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setComPage(comPage - 1)}
-                    disabled={comPage === 1}
-                    className="h-8 px-3"
-                  >
-                    Previous
-                  </Button>
-                  <div className="hidden md:flex items-center gap-1">
-                    {Array.from({ length: comTotalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={comPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setComPage(page)}
-                        className={`h-8 w-8 ${comPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                      >
-                        {page}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="md:hidden text-sm text-muted-foreground">
-                    {comPage} / {comTotalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setComPage(comPage + 1)}
-                    disabled={comPage === comTotalPages}
-                    className="h-8 px-3"
-                  >
-                    Next
-                  </Button>
+          <ThemeProvider theme={mrtTheme}>
+            <MaterialReactTable
+              columns={commercialColumns}
+              data={filteredCommercial}
+              enableTopToolbar={false}
+              enableBottomToolbar={true}
+              enableColumnActions={false}
+              enableColumnFilters={false}
+              enablePagination={true}
+              enableSorting={true}
+              enableGlobalFilter={false}
+              muiTablePaperProps={{
+                elevation: 0,
+                sx: { borderRadius: '8px', border: '1px solid #e5e7eb' },
+              }}
+              muiTableHeadCellProps={{
+                sx: {
+                  backgroundColor: '#005180',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  padding: '14px 20px',
+                  borderRight: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:last-child': { borderRight: 'none' },
+                },
+              }}
+              muiTableBodyRowProps={({ row }) => ({
+                onClick: () => {
+                  setSelectedProject(row.original)
+                  setDetailDialogOpen(true)
+                },
+                sx: {
+                  backgroundColor: row.index % 2 === 0 ? 'white' : 'rgba(185, 34, 33, 0.05)',
+                  '&:hover': { backgroundColor: 'rgba(120, 190, 32, 0.2)' },
+                  cursor: 'pointer',
+                },
+              })}
+              muiTableBodyCellProps={{
+                sx: { padding: '16px' },
+              }}
+              renderEmptyRowsFallback={() => (
+                <div className="text-center py-8 text-muted-foreground">
+                  No commercial orders found
                 </div>
-              </div>
-            )}
-          </Card>
+              )}
+            />
+          </ThemeProvider>
         </TabsContent>
 
         {/* PN Tab */}
         <TabsContent value="pn">
-          {/* PN Search Bar */}
-          <div className="relative mb-4 w-full flex gap-2 items-center">
+          <div className="relative mb-4 w-full flex gap-3 items-center">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Mic
+                onClick={() => alert("Voice input feature coming soon")}
+                className="pointer-events-auto absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer text-[#005180] hover:text-[#004875] transition-colors duration-200 z-10"
+              />
+              <Search className="pointer-events-none absolute left-12 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Find your PN by number, request, or customer..."
                 value={pnSearch}
                 onChange={(e) => setPnSearch(e.target.value)}
-                className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
+                className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
               />
             </div>
-            <Mic
-              onClick={() => alert("Voice input feature coming soon")}
-              className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
-            />
           </div>
+          <ThemeProvider theme={mrtTheme}>
+            <MaterialReactTable
+              columns={pnColumns}
+              data={filteredPN}
+              enableTopToolbar={false}
+              enableBottomToolbar={true}
+              enableColumnActions={false}
+              enableColumnFilters={false}
+              enablePagination={true}
+              enableSorting={true}
+              enableGlobalFilter={false}
+              muiTablePaperProps={{
+                elevation: 0,
+                sx: { borderRadius: '8px', border: '1px solid #e5e7eb' },
+              }}
+              muiTableHeadCellProps={{
+                sx: {
+                  backgroundColor: '#005180',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  padding: '14px 20px',
+                  borderRight: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:last-child': { borderRight: 'none' },
+                },
+              }}
+              muiTableBodyRowProps={({ row }) => ({
+                onClick: () => {
+                  setSelectedProject(row.original)
+                  setDetailDialogOpen(true)
+                },
+                sx: {
+                  backgroundColor: row.index % 2 === 0 ? 'white' : 'rgba(185, 34, 33, 0.05)',
+                  '&:hover': { backgroundColor: 'rgba(120, 190, 32, 0.2)' },
+                  cursor: 'pointer',
+                },
+              })}
+              muiTableBodyCellProps={{
+                sx: { padding: '16px' },
+              }}
+              renderEmptyRowsFallback={() => (
+                <div className="text-center py-8 text-muted-foreground">
+                  No PN orders found
+                </div>
+              )}
+            />
+          </ThemeProvider>
+        </TabsContent>
+      </Tabs>
 
-          <Card className="surface-elevated overflow-hidden">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gradient-to-r from-[#005180] to-[#004875] hover:bg-gradient-to-r hover:from-[#005180] hover:to-[#004875]">
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>HOD Name</span>
-                          <Select value={pnHodFilter} onValueChange={setPnHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {pnHodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>KAM Name</span>
-                          <Select value={pnKamFilter} onValueChange={setPnKamFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All KAMs</SelectItem>
-                              {pnKamNames.map(kamName => (
-                                <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[130px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        PN
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        PN Req No.
-                      </TableHead>
-                      <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        FG Material
-                      </TableHead>
-                      <TableHead className="w-[170px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Customer
-                      </TableHead>
-                      <TableHead className="w-[220px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Description
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        RM Type
-                      </TableHead>
-                      <TableHead className="w-[150px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Procurement Qty
-                      </TableHead>
-                      <TableHead className="w-[120px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Plant
-                      </TableHead>
-                      <TableHead className="w-[140px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        Initiate Date
-                      </TableHead>
-                      <TableHead className="w-[160px] px-6 py-4 text-xs font-bold uppercase tracking-wider text-white">
-                        <div className="flex items-center justify-between">
-                          <span>Status</span>
-                          <Select value={pnStatusFilter} onValueChange={setPnStatusFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#004875]/40 hover:bg-[#004875]/60 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[140px]">
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="Arrived">Arrived</SelectItem>
-                              <SelectItem value="Not Arrived">Not Arrived</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedPN.map((order, index) => {
-                      const StatusIcon = getStatusIcon(order.status)
-                      return (
-                        <Dialog key={order.id}>
-                          <DialogTrigger asChild>
-                            <TableRow
-                              className="group cursor-pointer border-b border-border/40 bg-white transition-colors even:bg-[#005180]/8 hover:bg-[#78BE20]/15"
-                              style={{ animationDelay: `${index * 25}ms` }}
-                            >
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{order.hodName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground">{order.kamName || "N/A"}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="leading-[1.15]">
-                                  <p className="text-sm font-semibold text-primary">{order.id}</p>
-                                  <p className="text-xs text-muted-foreground">Commercial {order.commercialId}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{order.pnReqNo}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{order.fgMaterial}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <TruncatedText text={order.customer} limit={25} className="text-sm font-medium text-foreground/80" />
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <TruncatedText text={order.description} limit={40} className="text-sm text-muted-foreground" />
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{order.rmType}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{order.procurementQty}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{order.plant}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <p className="text-sm font-medium text-foreground/80">{order.initiateDate}</p>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <Badge className={`${getStatusBadge(order.status)} border gap-1 px-3 py-1 text-xs font-semibold`}>
-                                  <StatusIcon className="h-3.5 w-3.5" />
-                                  {order.status}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-                            <DialogHeader className="flex-shrink-0">
-                              <DialogTitle className="text-2xl font-bold text-blue">{order.id}</DialogTitle>
-                              <DialogDescription>Production Order Details</DialogDescription>
-                            </DialogHeader>
-                            <div className="grid grid-cols-2 gap-4 py-4 overflow-y-auto overflow-x-hidden flex-1">
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">PN Req No.</Label>
-                                <p className="text-base font-medium">{order.pnReqNo}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">FG Material</Label>
-                                <p className="text-base font-medium">{order.fgMaterial}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Customer</Label>
-                                <p className="text-base font-medium">{order.customer}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Description</Label>
-                                <p className="text-base font-medium">{order.description}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">RM Type</Label>
-                                <p className="text-base font-medium">{order.rmType}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Procurement Qty</Label>
-                                <p className="text-base font-medium">{order.procurementQty}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Plant</Label>
-                                <p className="text-base font-medium">{order.plant}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Initiate Date</Label>
-                                <p className="text-base font-medium">{order.initiateDate}</p>                         </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Order Date</Label>
-                                <p className="text-base font-medium">{order.orderDate}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Expected Delivery</Label>
-                                <p className="text-base font-medium">{order.expectedDelivery}</p>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Stage Status</Label>
-                                <div className="space-y-1 text-sm font-semibold text-foreground">
-                                  <p>Pre-Press - {order.prePressStatus}</p>
-                                  <p>Production - {order.productionStatus}</p>
-                                  <p>Dispatch - {order.dispatchStatus}</p>
-                                </div>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Timeline</Label>
-                                <div className="grid grid-cols-3 gap-3 text-sm">
-                                  <div>
-                                    <p className="text-muted-foreground text-xs">Punched</p>
-                                    <p className="font-semibold">{order.punchedDate}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs">Released</p>
-                                    <p className="font-semibold">{order.releasedDate || "Pending"}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground text-xs">Dispatched</p>
-                                    <p className="font-semibold">{order.dispatchedDate || "Pending"}</p>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-sm font-semibold text-muted-foreground">Notes</Label>
-                                <p className="text-base">{order.notes}</p>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+      {/* Project Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="surface-elevated max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="border-b border-border/60 bg-primary/10 px-6 py-5 flex-shrink-0">
+            <DialogTitle className="text-lg font-semibold text-foreground">
+              {selectedProject?.job || selectedProject?.id || "Project Details"}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {selectedProject?.id}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 px-6 py-6 overflow-y-auto overflow-x-hidden flex-1">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Customer</Label>
+                <p className="mt-1 text-sm font-medium text-foreground">{selectedProject?.customer || "N/A"}</p>
               </div>
-            </CardContent>
-            {pnTotalPages > 1 && (
-              <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPnPage(pnPage - 1)}
-                    disabled={pnPage === 1}
-                    className="h-8 px-3"
-                  >
-                    Previous
-                  </Button>
-                  <div className="hidden md:flex items-center gap-1">
-                    {Array.from({ length: pnTotalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={pnPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setPnPage(page)}
-                        className={`h-8 w-8 ${pnPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                      >
-                        {page}
-                      </Button>
-                    ))}
+              <div>
+                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">HOD Name</Label>
+                <p className="mt-1 text-sm text-foreground/80">{selectedProject?.hodName || "N/A"}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">KAM Name</Label>
+                <p className="mt-1 text-sm text-foreground/80">{selectedProject?.kamName || "N/A"}</p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Plant</Label>
+                <p className="mt-1 text-sm text-foreground/80">{selectedProject?.plant || selectedProject?.productionPlant || "N/A"}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <Badge className={`${getStatusBadge(selectedProject?.status || "Pending")} border px-3 py-1 text-sm font-semibold`}>
+                    {selectedProject?.status || "Pending"}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            {selectedProject?.progress !== undefined && (
+              <div>
+                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Progress</Label>
+                <div className="mt-1 space-y-2">
+                  <p className="text-sm font-semibold text-muted-foreground">{selectedProject?.progress}%</p>
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-border/80">
+                    <div
+                      className={`${getStatusAccent(selectedProject?.status || "Pending")} h-full transition-all`}
+                      style={{ width: `${selectedProject?.progress}%` }}
+                    />
                   </div>
-                  <div className="md:hidden text-sm text-muted-foreground">
-                    {pnPage} / {pnTotalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPnPage(pnPage + 1)}
-                    disabled={pnPage === pnTotalPages}
-                    className="h-8 px-3"
-                  >
-                    Next
-                  </Button>
                 </div>
               </div>
             )}
-          </Card>
-        </TabsContent>
-      </Tabs>
+            {selectedProject?.notes && (
+              <div>
+                <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Notes</Label>
+                <p className="mt-1 text-sm leading-relaxed text-foreground/80">{selectedProject?.notes}</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

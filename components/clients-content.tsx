@@ -1,26 +1,25 @@
 "use client"
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Plus, Eye, Upload, CheckCircle2, XCircle, AlertCircle, Mic, Filter } from "lucide-react"
+import { Search, Upload, CheckCircle2, XCircle, AlertCircle, Mic } from "lucide-react"
+import {
+  MaterialReactTable,
+  type MRT_ColumnDef,
+} from 'material-react-table'
+import { ThemeProvider } from '@mui/material/styles'
+import { mrtTheme } from '@/lib/mrt-theme'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { TruncatedText } from "@/components/truncated-text"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { getViewableKAMs, isHOD } from "@/lib/permissions"
-import { EnquiryAPI } from "@/lib/api/enquiry"
-import { clientLogger } from "@/lib/logger"
 
 // REMOVED: Static hardcoded clients data - using API now
 /*
@@ -325,17 +324,12 @@ function getComplianceColor(status: string) {
 
 export function ClientsContent() {
   const viewableKams = getViewableKAMs()
-  const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
   const isKAM = viewableKams.length === 1 // KAM can only see themselves
   const isHODUser = isHOD() // HOD user check
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedClient, setSelectedClient] = useState<any | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [hodFilter, setHodFilter] = useState("all")
-  const [kamFilter, setKamFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const itemsPerPage = 20
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
   // API state
   const [clients, setClients] = useState<any[]>([])
@@ -453,34 +447,101 @@ export function ClientsContent() {
     fetchCustomers()
   }, [])
 
-  // Filter data based on user role - KAMs can only see their own data
-  const userFilteredClients = clients
-
-  const hodNames = Array.from(new Set(userFilteredClients.map(client => client.hodName).filter((name): name is string => Boolean(name))))
-  const kamNames = Array.from(new Set(userFilteredClients.map(client => client.kamName).filter((name): name is string => Boolean(name))))
-
-  const filteredClients = userFilteredClients.filter((client) => {
+  // Filter data based on search
+  const filteredClients = clients.filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (client.code && client.code.toLowerCase().includes(searchQuery.toLowerCase()))
-    const matchesHod = hodFilter === "all" || client.hodName === hodFilter
-    const matchesKam = kamFilter === "all" || client.kamName === kamFilter
-    const matchesStatus = statusFilter === "all" || client.status === statusFilter
-    return matchesSearch && matchesHod && matchesKam && matchesStatus
+    return matchesSearch
   })
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredClients.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedClients = filteredClients.slice(startIndex, endIndex)
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, hodFilter, kamFilter, statusFilter])
+  // MRT Column definitions
+  const mrtColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    ...(!isKAM && !isHODUser ? [{
+      accessorKey: 'hodName',
+      header: 'HOD',
+      size: 150,
+      Cell: ({ row }: any) => (
+        <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>
+      ),
+    }] : []),
+    ...(!isKAM ? [{
+      accessorKey: 'kamName',
+      header: 'KAM Name',
+      size: 150,
+      Cell: ({ row }: any) => (
+        <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>
+      ),
+    }] : []),
+    {
+      accessorKey: 'id',
+      header: 'Customer ID',
+      size: 140,
+      Cell: ({ row }: any) => (
+        <span className="font-medium text-primary">{row.original.id}</span>
+      ),
+    },
+    {
+      accessorKey: 'name',
+      header: 'Company Name',
+      size: 200,
+      Cell: ({ row }: any) => (
+        <div>
+          <TruncatedText text={row.original.name} limit={25} className="font-medium block" />
+          <p className="text-xs text-muted-foreground">{row.original.email}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'code',
+      header: 'Customer Code',
+      size: 130,
+      Cell: ({ row }: any) => (
+        row.original.code ? (
+          <Badge variant="outline">{row.original.code}</Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">Not Created</span>
+        )
+      ),
+    },
+    {
+      accessorKey: 'phone',
+      header: 'Contact',
+      size: 140,
+      Cell: ({ row }: any) => (
+        <p className="text-sm">{row.original.phone}</p>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      size: 120,
+      Cell: ({ row }: any) => (
+        <Badge variant={getStatusColor(row.original.status)}>{row.original.status}</Badge>
+      ),
+    },
+    {
+      accessorKey: 'complianceStatus',
+      header: 'Compliance',
+      size: 120,
+      Cell: ({ row }: any) => (
+        <Badge variant={getComplianceColor(row.original.complianceStatus)}>{row.original.complianceStatus}</Badge>
+      ),
+    },
+    {
+      accessorKey: 'totalOrders',
+      header: 'Total Orders',
+      size: 120,
+      Cell: ({ row }: any) => (
+        <div>
+          <p className="font-medium">{row.original.totalOrders}</p>
+          <p className="text-xs text-muted-foreground">₹{(row.original.totalValue / 100000).toFixed(1)}L</p>
+        </div>
+      ),
+    },
+  ], [isKAM, isHODUser])
 
   return (
     <div className="space-y-4">
@@ -502,372 +563,260 @@ export function ClientsContent() {
       </div>
 
       {/* Clients Table */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005180] mx-auto mb-4"></div>
-                <p className="text-gray-500">Loading customers...</p>
-              </div>
-            </div>
-          ) : error ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center text-red-500">
-                <AlertCircle className="h-16 w-16 mx-auto mb-4" />
-                <p className="text-lg font-medium mb-2">Error loading customers</p>
-                <p className="text-sm">{error}</p>
-              </div>
-            </div>
-          ) : paginatedClients.length === 0 ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center text-gray-500">
-                <p className="text-lg font-medium mb-2">No customers found</p>
-                <p className="text-sm">Try adjusting your search or filters</p>
-              </div>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gradient-to-r from-[#004875] to-[#003d63] hover:bg-gradient-to-r hover:from-[#004875] hover:to-[#003d63] [&_th]:text-white [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs">
-                  {!isKAM && !isHODUser && (
-                    <TableHead>
-                      <div className="flex items-center justify-between">
-                        <span>HOD</span>
-                        {!isRestrictedUser && (
-                          <Select value={hodFilter} onValueChange={setHodFilter}>
-                            <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                              <Filter className="h-4 w-4 text-white" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="min-w-[150px]">
-                              <SelectItem value="all">All HODs</SelectItem>
-                              {hodNames.map(hodName => (
-                                <SelectItem key={hodName} value={hodName}>{hodName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                    </TableHead>
-                  )}
-                  {!isKAM && (
-                    <TableHead>
-                      <div className="flex items-center justify-between">
-                        <span>KAM Name</span>
-                        <Select value={kamFilter} onValueChange={setKamFilter}>
-                          <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                            <Filter className="h-4 w-4 text-white" />
-                          </SelectTrigger>
-                          <SelectContent align="start" className="min-w-[150px]">
-                            <SelectItem value="all">All KAMs</SelectItem>
-                            {kamNames.map(kamName => (
-                              <SelectItem key={kamName} value={kamName}>{kamName}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TableHead>
-                  )}
-                  <TableHead>Customer ID</TableHead>
-                  <TableHead>Company Name</TableHead>
-                  <TableHead>Customer Code</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>
-                    <div className="flex items-center justify-between">
-                      <span>Status</span>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="h-8 w-8 rounded-md border-none bg-[#003d63]/60 hover:bg-[#004875]/80 p-0 flex items-center justify-center shadow-sm transition-all [&>svg:last-child]:hidden">
-                          <Filter className="h-4 w-4 text-white" />
-                        </SelectTrigger>
-                        <SelectContent align="start" className="min-w-[150px]">
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="Approved">Approved</SelectItem>
-                          <SelectItem value="Pending">Pending</SelectItem>
-                          <SelectItem value="Rejected">Rejected</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                  <TableHead>Compliance</TableHead>
-                  <TableHead>Total Orders</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedClients.map((client, index) => (
-                <Dialog key={client.id}>
-                  <TableRow
-                    className="cursor-pointer border-b border-border/40 bg-white transition-all duration-200 even:bg-[#B92221]/5 hover:bg-[#78BE20]/20 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
-                  >
-                    {!isKAM && !isHODUser && (
-                      <DialogTrigger asChild>
-                        <TableCell onClick={() => setSelectedClient(client)}>
-                          <p className="text-sm font-medium text-foreground">{client.hodName || "N/A"}</p>
-                        </TableCell>
-                      </DialogTrigger>
-                    )}
-                    {!isKAM && (
-                      <DialogTrigger asChild>
-                        <TableCell onClick={() => setSelectedClient(client)}>
-                          <p className="text-sm font-medium text-foreground">{client.kamName || "N/A"}</p>
-                        </TableCell>
-                      </DialogTrigger>
-                    )}
-                    <DialogTrigger asChild>
-                      <TableCell onClick={() => setSelectedClient(client)} className="font-medium text-primary">{client.id}</TableCell>
-                    </DialogTrigger>
-                    <DialogTrigger asChild>
-                      <TableCell onClick={() => setSelectedClient(client)}>
-                        <div>
-                          <TruncatedText text={client.name} limit={25} className="font-medium block" />
-                          <p className="text-xs text-muted-foreground">{client.email}</p>
-                        </div>
-                      </TableCell>
-                    </DialogTrigger>
-                    <DialogTrigger asChild>
-                      <TableCell onClick={() => setSelectedClient(client)}>
-                        {client.code ? (
-                          <Badge variant="outline">{client.code}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Not Created</span>
-                        )}
-                      </TableCell>
-                    </DialogTrigger>
-                    <DialogTrigger asChild>
-                      <TableCell onClick={() => setSelectedClient(client)}>
-                        <p className="text-sm">{client.phone}</p>
-                      </TableCell>
-                    </DialogTrigger>
-                    <DialogTrigger asChild>
-                      <TableCell onClick={() => setSelectedClient(client)}>
-                        <Badge variant={getStatusColor(client.status)}>{client.status}</Badge>
-                      </TableCell>
-                    </DialogTrigger>
-                    <DialogTrigger asChild>
-                      <TableCell onClick={() => setSelectedClient(client)}>
-                        <Badge variant={getComplianceColor(client.complianceStatus)}>{client.complianceStatus}</Badge>
-                      </TableCell>
-                    </DialogTrigger>
-                    <DialogTrigger asChild>
-                      <TableCell onClick={() => setSelectedClient(client)}>
-                        <div>
-                          <p className="font-medium">{client.totalOrders}</p>
-                          <p className="text-xs text-muted-foreground">₹{(client.totalValue / 100000).toFixed(1)}L</p>
-                        </div>
-                      </TableCell>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-                        <DialogHeader className="flex-shrink-0">
-                          <DialogTitle>Client Details</DialogTitle>
-                          <DialogDescription>{selectedClient?.name}</DialogDescription>
-                        </DialogHeader>
-                        {selectedClient && (
-                          <div className="grid gap-6 py-4 overflow-y-auto overflow-x-hidden flex-1">
-                            {/* Basic Info */}
-                            <div>
-                              <h3 className="mb-3 text-sm font-semibold">Basic Information</h3>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <Label className="text-muted-foreground">Client ID</Label>
-                                  <p className="mt-1 font-medium">{selectedClient.id}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-muted-foreground">Customer Code</Label>
-                                  <div className="mt-1">
-                                    {selectedClient.code ? (
-                                      <Badge variant="outline">{selectedClient.code}</Badge>
-                                    ) : (
-                                      <Button variant="outline" size="sm">
-                                        Create Code
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                                <div>
-                                  <Label className="text-muted-foreground">Email</Label>
-                                  <p className="mt-1">{selectedClient.email}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-muted-foreground">Phone</Label>
-                                  <p className="mt-1">{selectedClient.phone}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-muted-foreground">Status</Label>
-                                  <div className="mt-1">
-                                    <Badge variant={getStatusColor(selectedClient.status)}>
-                                      {selectedClient.status}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                <div>
-                                  <Label className="text-muted-foreground">Compliance</Label>
-                                  <div className="mt-1">
-                                    <Badge variant={getComplianceColor(selectedClient.complianceStatus)}>
-                                      {selectedClient.complianceStatus}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Tax Info */}
-                            <div>
-                              <h3 className="mb-3 text-sm font-semibold">Tax Information</h3>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <Label className="text-muted-foreground">GST Number</Label>
-                                  <p className="mt-1 font-mono text-sm">{selectedClient.gst}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-muted-foreground">PAN Number</Label>
-                                  <p className="mt-1 font-mono text-sm">{selectedClient.pan}</p>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Documents */}
-                            <div>
-                              <h3 className="mb-3 text-sm font-semibold">Compliance Documents</h3>
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between rounded-lg border p-3">
-                                  <div className="flex items-center gap-2">
-                                    {selectedClient.documents.gst ? (
-                                      <CheckCircle2 className="h-4 w-4 text-success" />
-                                    ) : (
-                                      <XCircle className="h-4 w-4 text-destructive" />
-                                    )}
-                                    <span className="text-sm">GST Certificate</span>
-                                  </div>
-                                  {selectedClient.documents.gst ? (
-                                    <Button variant="ghost" size="sm">
-                                      View
-                                    </Button>
-                                  ) : (
-                                    <Button variant="outline" size="sm">
-                                      <Upload className="mr-2 h-4 w-4" />
-                                      Upload
-                                    </Button>
-                                  )}
-                                </div>
-                                <div className="flex items-center justify-between rounded-lg border p-3">
-                                  <div className="flex items-center gap-2">
-                                    {selectedClient.documents.pan ? (
-                                      <CheckCircle2 className="h-4 w-4 text-success" />
-                                    ) : (
-                                      <XCircle className="h-4 w-4 text-destructive" />
-                                    )}
-                                    <span className="text-sm">PAN Card</span>
-                                  </div>
-                                  {selectedClient.documents.pan ? (
-                                    <Button variant="ghost" size="sm">
-                                      View
-                                    </Button>
-                                  ) : (
-                                    <Button variant="outline" size="sm">
-                                      <Upload className="mr-2 h-4 w-4" />
-                                      Upload
-                                    </Button>
-                                  )}
-                                </div>
-                                <div className="flex items-center justify-between rounded-lg border p-3">
-                                  <div className="flex items-center gap-2">
-                                    {selectedClient.documents.agreement ? (
-                                      <CheckCircle2 className="h-4 w-4 text-success" />
-                                    ) : (
-                                      <AlertCircle className="h-4 w-4 text-warning" />
-                                    )}
-                                    <span className="text-sm">Service Agreement</span>
-                                  </div>
-                                  {selectedClient.documents.agreement ? (
-                                    <Button variant="ghost" size="sm">
-                                      View
-                                    </Button>
-                                  ) : (
-                                    <Button variant="outline" size="sm">
-                                      <Upload className="mr-2 h-4 w-4" />
-                                      Upload
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Business Stats */}
-                            <div>
-                              <h3 className="mb-3 text-sm font-semibold">Business Summary</h3>
-                              <div className="grid grid-cols-3 gap-4">
-                                <div className="rounded-lg border p-3">
-                                  <p className="text-sm text-muted-foreground">Total Orders</p>
-                                  <p className="mt-1 text-2xl font-bold">{selectedClient.totalOrders}</p>
-                                </div>
-                                <div className="rounded-lg border p-3">
-                                  <p className="text-sm text-muted-foreground">Total Value</p>
-                                  <p className="mt-1 text-2xl font-bold">
-                                    ₹{(selectedClient.totalValue / 100000).toFixed(1)}L
-                                  </p>
-                                </div>
-                                <div className="rounded-lg border p-3">
-                                  <p className="text-sm text-muted-foreground">Last Order</p>
-                                  <p className="mt-1 text-sm font-medium">
-                                    {selectedClient.lastOrder || "No orders yet"}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline">Edit Details</Button>
-                        <Button>Update Compliance</Button>
-                      </div>
-                    </DialogContent>
-                  </TableRow>
-                </Dialog>
-              ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center border-t border-border/40 bg-muted/20 px-4 py-2">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="h-8 px-3"
-              >
-                Previous
-              </Button>
-              <div className="hidden md:flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                  >
-                    {page}
-                  </Button>
-                ))}
-              </div>
-              <div className="md:hidden text-sm text-muted-foreground">
-                {currentPage} / {totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="h-8 px-3"
-              >
-                Next
-              </Button>
-            </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005180] mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading customers...</p>
           </div>
-        )}
-      </Card>
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center text-red-500">
+            <AlertCircle className="h-16 w-16 mx-auto mb-4" />
+            <p className="text-lg font-medium mb-2">Error loading customers</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      ) : (
+        <ThemeProvider theme={mrtTheme}>
+          <MaterialReactTable
+            columns={mrtColumns}
+            data={filteredClients}
+            enableTopToolbar={false}
+            enableBottomToolbar={true}
+            enableColumnActions={false}
+            enableColumnFilters={false}
+            enablePagination={true}
+            enableSorting={true}
+            enableGlobalFilter={false}
+            manualPagination={false}
+            initialState={{
+              pagination: { pageSize: 20, pageIndex: 0 },
+            }}
+            muiTablePaperProps={{
+              sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
+            }}
+            muiTableContainerProps={{
+              sx: { maxHeight: '600px' }
+            }}
+            muiTableHeadRowProps={{
+              sx: {
+                backgroundColor: '#005180 !important',
+                '& th': { backgroundColor: '#005180 !important' }
+              }
+            }}
+            muiTableHeadCellProps={{
+              sx: {
+                backgroundColor: '#005180 !important',
+                color: 'white !important',
+                fontWeight: 'bold !important',
+                fontSize: '0.75rem !important',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                padding: '14px 20px !important',
+                borderRight: '1px solid rgba(255,255,255,0.2)',
+                borderBottom: 'none !important',
+                '&:last-child': { borderRight: 'none' },
+                '&:hover': { backgroundColor: '#005180 !important' },
+              }
+            }}
+            muiTableBodyRowProps={({ row }) => ({
+              onClick: () => {
+                setSelectedClient(row.original)
+                setDetailDialogOpen(true)
+              },
+              sx: {
+                cursor: 'pointer',
+                '&:hover': { backgroundColor: 'rgba(120, 190, 32, 0.2)' },
+                '&:nth-of-type(even)': { backgroundColor: 'rgba(185, 34, 33, 0.05)' },
+              }
+            })}
+            muiTableBodyCellProps={{
+              sx: { fontSize: '0.875rem', padding: '16px' }
+            }}
+            muiPaginationProps={{
+              rowsPerPageOptions: [10, 20, 50],
+              showFirstButton: false,
+              showLastButton: false,
+            }}
+            renderEmptyRowsFallback={() => (
+              <div className="flex flex-col items-center justify-center py-12">
+                <p className="text-sm text-muted-foreground">No customers found</p>
+              </div>
+            )}
+          />
+        </ThemeProvider>
+      )}
+
+      {/* Client Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>Client Details</DialogTitle>
+            <DialogDescription>{selectedClient?.name}</DialogDescription>
+          </DialogHeader>
+          {selectedClient && (
+            <div className="grid gap-6 py-4 overflow-y-auto overflow-x-hidden flex-1">
+              {/* Basic Info */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Client ID</Label>
+                    <p className="mt-1 font-medium">{selectedClient.id}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Customer Code</Label>
+                    <div className="mt-1">
+                      {selectedClient.code ? (
+                        <Badge variant="outline">{selectedClient.code}</Badge>
+                      ) : (
+                        <Button variant="outline" size="sm">
+                          Create Code
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Email</Label>
+                    <p className="mt-1">{selectedClient.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Phone</Label>
+                    <p className="mt-1">{selectedClient.phone}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Status</Label>
+                    <div className="mt-1">
+                      <Badge variant={getStatusColor(selectedClient.status)}>
+                        {selectedClient.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Compliance</Label>
+                    <div className="mt-1">
+                      <Badge variant={getComplianceColor(selectedClient.complianceStatus)}>
+                        {selectedClient.complianceStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tax Info */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Tax Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">GST Number</Label>
+                    <p className="mt-1 font-mono text-sm">{selectedClient.gst}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">PAN Number</Label>
+                    <p className="mt-1 font-mono text-sm">{selectedClient.pan}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Documents */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Compliance Documents</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      {selectedClient.documents?.gst ? (
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                      <span className="text-sm">GST Certificate</span>
+                    </div>
+                    {selectedClient.documents?.gst ? (
+                      <Button variant="ghost" size="sm">
+                        View
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      {selectedClient.documents?.pan ? (
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                      <span className="text-sm">PAN Card</span>
+                    </div>
+                    {selectedClient.documents?.pan ? (
+                      <Button variant="ghost" size="sm">
+                        View
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      {selectedClient.documents?.agreement ? (
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-warning" />
+                      )}
+                      <span className="text-sm">Service Agreement</span>
+                    </div>
+                    {selectedClient.documents?.agreement ? (
+                      <Button variant="ghost" size="sm">
+                        View
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Business Stats */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Business Summary</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-sm text-muted-foreground">Total Orders</p>
+                    <p className="mt-1 text-2xl font-bold">{selectedClient.totalOrders}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-sm text-muted-foreground">Total Value</p>
+                    <p className="mt-1 text-2xl font-bold">
+                      ₹{(selectedClient.totalValue / 100000).toFixed(1)}L
+                    </p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-sm text-muted-foreground">Last Order</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {selectedClient.lastOrder || "No orders yet"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline">Edit Details</Button>
+            <Button>Update Compliance</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
