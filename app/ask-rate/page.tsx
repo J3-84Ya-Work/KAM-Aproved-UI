@@ -217,6 +217,12 @@ export default function AskRatePage() {
       return
     }
 
+    // If NA is selected, don't fetch but allow quality selection
+    if (selectedGroup === "NA") {
+      setQualities([])
+      return
+    }
+
     const fetchQualities = async () => {
       setLoadingQualities(true)
       try {
@@ -243,6 +249,13 @@ export default function AskRatePage() {
       setSelectedGsmFrom("")
       setSelectedGsmTo("")
       setSelectedMill("")
+      return
+    }
+
+    // If NA is selected for group or quality, don't fetch but allow selections
+    if (selectedGroup === "NA" || selectedQuality === "NA") {
+      setGsmList([])
+      setMills([])
       return
     }
 
@@ -327,8 +340,15 @@ export default function AskRatePage() {
 
   // Handle Show Items button click
   const handleShowItems = async () => {
+    // Check if any required selection is missing (NA is a valid selection)
     if (!selectedGroup || !selectedProductionUnit || !selectedQuality || !selectedGsmFrom || !selectedGsmTo) {
-      alert('Please select Item Group, Production Unit, Quality, and GSM Range first')
+      alert('Please select Item Group, Production Unit, Quality, and GSM Range first (or select NA)')
+      return
+    }
+
+    // If all selections are NA, show a message
+    if (selectedGroup === "NA" && selectedProductionUnit === "NA" && selectedQuality === "NA" && selectedGsmFrom === "NA" && selectedGsmTo === "NA") {
+      alert('Please select at least one filter criteria (not all NA)')
       return
     }
 
@@ -337,12 +357,12 @@ export default function AskRatePage() {
 
     try {
       const requestBody = {
-        ItemGroupID: parseInt(selectedGroup),
-        PlantID: parseInt(selectedProductionUnit),
-        Quality: selectedQuality,
-        GSMFrom: selectedGsmFrom,
-        GSMTo: selectedGsmTo,
-        Mill: selectedMill || ""
+        ItemGroupID: selectedGroup === "NA" ? 0 : parseInt(selectedGroup),
+        PlantID: selectedProductionUnit === "NA" ? 0 : parseInt(selectedProductionUnit),
+        Quality: selectedQuality === "NA" ? "" : selectedQuality,
+        GSMFrom: selectedGsmFrom === "NA" ? "" : selectedGsmFrom,
+        GSMTo: selectedGsmTo === "NA" ? "" : selectedGsmTo,
+        Mill: selectedMill === "NA" ? "" : (selectedMill || "")
       }
 
       console.log('Show Items Request:', requestBody)
@@ -377,30 +397,30 @@ export default function AskRatePage() {
     }
 
     if (!selectedProductionUnit) {
-      alert('Please select a production unit')
+      alert('Please select a production unit or NA')
       return
     }
 
     if (!selectedGroup) {
-      alert('Please select an item group')
+      alert('Please select an item group or NA')
       return
     }
 
     if (!selectedQuality) {
-      alert('Please select a quality')
+      alert('Please select a quality or NA')
       return
     }
 
     if (!selectedGsmFrom || !selectedGsmTo) {
-      alert('Please select GSM range (from and to)')
+      alert('Please select GSM range (from and to) or NA')
       return
     }
 
     setIsSubmitting(true)
     try {
       // Get selected group details
-      const selectedGroupData = groups.find(g => String(g.ItemGroupID || g.GroupID || g.id) === selectedGroup)
-      const groupName = selectedGroupData?.ItemGroupName || selectedGroupData?.GroupName || selectedGroupData?.Name || ""
+      const selectedGroupData = selectedGroup !== "NA" ? groups.find(g => String(g.ItemGroupID || g.GroupID || g.id) === selectedGroup) : null
+      const groupName = selectedGroup === "NA" ? "NA" : (selectedGroupData?.ItemGroupName || selectedGroupData?.GroupName || selectedGroupData?.Name || "")
 
       // Build items array from filtered items (if available) or fetch them
       let itemsArray: Array<{
@@ -410,29 +430,32 @@ export default function AskRatePage() {
         EstimationRate: number
       }> = []
 
+      // Only fetch items if not all values are NA
+      const hasNonNAValues = selectedGroup !== "NA" || selectedProductionUnit !== "NA" || selectedQuality !== "NA" || selectedGsmFrom !== "NA" || selectedGsmTo !== "NA"
+
       // If we have filtered items from "Show Items", use them
-      if (filteredItems.length > 0) {
+      if (filteredItems.length > 0 && hasNonNAValues) {
         itemsArray = filteredItems.map(item => ({
-          ItemGroupID: parseInt(selectedGroup),
-          PlantID: parseInt(selectedProductionUnit),
+          ItemGroupID: selectedGroup === "NA" ? 0 : parseInt(selectedGroup),
+          PlantID: selectedProductionUnit === "NA" ? 0 : parseInt(selectedProductionUnit),
           ItemID: item.ItemID || item.itemId || item.ID || item.id || 0,
           EstimationRate: 0 // Rate will be provided by purchase team
         }))
-      } else {
+      } else if (hasNonNAValues) {
         // Fetch items if not already fetched
         const requestBody = {
-          ItemGroupID: parseInt(selectedGroup),
-          PlantID: parseInt(selectedProductionUnit),
-          Quality: selectedQuality,
-          GSMFrom: selectedGsmFrom,
-          GSMTo: selectedGsmTo,
-          Mill: selectedMill || ""
+          ItemGroupID: selectedGroup === "NA" ? 0 : parseInt(selectedGroup),
+          PlantID: selectedProductionUnit === "NA" ? 0 : parseInt(selectedProductionUnit),
+          Quality: selectedQuality === "NA" ? "" : selectedQuality,
+          GSMFrom: selectedGsmFrom === "NA" ? "" : selectedGsmFrom,
+          GSMTo: selectedGsmTo === "NA" ? "" : selectedGsmTo,
+          Mill: selectedMill === "NA" ? "" : (selectedMill || "")
         }
         const itemsResult = await MasterDataAPI.getFilteredItemList(requestBody, null)
         if (itemsResult.success && itemsResult.data.length > 0) {
           itemsArray = itemsResult.data.map((item: any) => ({
-            ItemGroupID: parseInt(selectedGroup),
-            PlantID: parseInt(selectedProductionUnit),
+            ItemGroupID: selectedGroup === "NA" ? 0 : parseInt(selectedGroup),
+            PlantID: selectedProductionUnit === "NA" ? 0 : parseInt(selectedProductionUnit),
             ItemID: item.ItemID || item.itemId || item.ID || item.id || 0,
             EstimationRate: 0
           }))
@@ -457,11 +480,16 @@ export default function AskRatePage() {
       console.log('═══════════════════════════════════════════════════════════════')
 
       // Build the request message with all the selected details
+      const qualityDisplay = selectedQuality === "NA" ? "NA" : selectedQuality
+      const gsmFromDisplay = selectedGsmFrom === "NA" ? "NA" : selectedGsmFrom
+      const gsmToDisplay = selectedGsmTo === "NA" ? "NA" : selectedGsmTo
+      const millDisplay = selectedMill === "NA" ? "NA" : selectedMill
+
       const fullMessage = `
 Item Group: ${groupName}
-Quality: ${selectedQuality}
-GSM Range: ${selectedGsmFrom} - ${selectedGsmTo}
-${selectedMill ? `Mill: ${selectedMill}` : ''}
+Quality: ${qualityDisplay}
+GSM Range: ${gsmFromDisplay} - ${gsmToDisplay}
+${millDisplay && millDisplay !== "NA" ? `Mill: ${millDisplay}` : (millDisplay === "NA" ? 'Mill: NA' : '')}
 
 Question: ${message.trim()}
       `.trim()
@@ -478,7 +506,7 @@ Question: ${message.trim()}
         ItemCode: "",
         ItemID: itemsArray.length > 0 ? String(itemsArray[0].ItemID) : "",
         ItemName: groupName,
-        PlantID: selectedProductionUnit,
+        PlantID: selectedProductionUnit === "NA" ? "0" : selectedProductionUnit,
         items: itemsArray
       }
 
@@ -712,6 +740,9 @@ Question: ${message.trim()}
                           />
                         </div>
                         <div className="max-h-[200px] overflow-y-auto">
+                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
+                            NA (Not Applicable)
+                          </SelectItem>
                           {productionUnits.map((unit, index) => {
                             const unitName = unit.ProductionUnitName || unit.Name || unit.name || `Unit ${index + 1}`
                             return (
@@ -765,6 +796,9 @@ Question: ${message.trim()}
                           />
                         </div>
                         <div className="max-h-[200px] overflow-y-auto">
+                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
+                            NA (Not Applicable)
+                          </SelectItem>
                           {groups.map((group, index) => {
                             const groupName = group.ItemGroupName || group.GroupName || group.Name || group.name || `Group ${index + 1}`
                             const cleanedName = groupName.replace(/^[-,\s]+/, '').trim()
@@ -788,7 +822,7 @@ Question: ${message.trim()}
                     <Select
                       value={selectedQuality}
                       onValueChange={handleQualityChange}
-                      disabled={!selectedGroup || loadingQualities}
+                      disabled={!selectedGroup || (loadingQualities && selectedGroup !== "NA")}
                     >
                       <SelectTrigger className="w-full truncate">
                         <SelectValue placeholder={!selectedGroup ? "Select group first" : loadingQualities ? "Loading..." : "Select quality"}>
@@ -820,6 +854,9 @@ Question: ${message.trim()}
                           />
                         </div>
                         <div className="max-h-[200px] overflow-y-auto">
+                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
+                            NA (Not Applicable)
+                          </SelectItem>
                           {qualities.map((quality, index) => {
                             const qualityValue = quality.Quality || quality.quality || quality.Name || quality
                             return (
@@ -845,7 +882,7 @@ Question: ${message.trim()}
                     <Select
                       value={selectedGsmFrom}
                       onValueChange={setSelectedGsmFrom}
-                      disabled={!selectedQuality || loadingGsm}
+                      disabled={!selectedQuality || (loadingGsm && selectedQuality !== "NA")}
                     >
                       <SelectTrigger className="w-full truncate">
                         <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingGsm ? "Loading..." : "Select GSM from"} />
@@ -875,6 +912,9 @@ Question: ${message.trim()}
                           />
                         </div>
                         <div className="max-h-[200px] overflow-y-auto">
+                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
+                            NA (Not Applicable)
+                          </SelectItem>
                           {gsmList.map((gsm, index) => {
                             const gsmValue = gsm.GSM || gsm.gsm || gsm
                             return (
@@ -896,7 +936,7 @@ Question: ${message.trim()}
                     <Select
                       value={selectedGsmTo}
                       onValueChange={setSelectedGsmTo}
-                      disabled={!selectedQuality || loadingGsm}
+                      disabled={!selectedQuality || (loadingGsm && selectedQuality !== "NA")}
                     >
                       <SelectTrigger className="w-full truncate">
                         <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingGsm ? "Loading..." : "Select GSM to"} />
@@ -926,6 +966,9 @@ Question: ${message.trim()}
                           />
                         </div>
                         <div className="max-h-[200px] overflow-y-auto">
+                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
+                            NA (Not Applicable)
+                          </SelectItem>
                           {gsmList.map((gsm, index) => {
                             const gsmValue = gsm.GSM || gsm.gsm || gsm
                             return (
@@ -949,7 +992,7 @@ Question: ${message.trim()}
                   <Select
                     value={selectedMill}
                     onValueChange={setSelectedMill}
-                    disabled={!selectedQuality || loadingMills}
+                    disabled={!selectedQuality || (loadingMills && selectedQuality !== "NA")}
                   >
                     <SelectTrigger className="w-full truncate">
                       <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingMills ? "Loading..." : "Select mill (optional)"} />
@@ -979,6 +1022,9 @@ Question: ${message.trim()}
                         />
                       </div>
                       <div className="max-h-[200px] overflow-y-auto">
+                        <SelectItem value="NA" className="truncate font-medium text-gray-500">
+                          NA (Not Applicable)
+                        </SelectItem>
                         {mills.length === 0 ? (
                           <div className="p-2 text-sm text-gray-500 text-center">No mills available</div>
                         ) : (
@@ -1042,6 +1088,7 @@ Question: ${message.trim()}
                   type="submit"
                   disabled={isSubmitting || !message.trim() || !selectedPerson || !selectedProductionUnit || !selectedGroup || !selectedQuality || !selectedGsmFrom || !selectedGsmTo}
                   className="w-full bg-[#005180] hover:bg-[#004060]"
+                  title={!selectedPerson ? "Please select a team member" : ""}
                 >
                   {isSubmitting ? (
                     'Sending...'
@@ -1241,8 +1288,8 @@ Question: ${message.trim()}
 
       {/* Items Popup Dialog */}
       <Dialog open={showItemsPopup} onOpenChange={setShowItemsPopup}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-2 border-b flex-shrink-0">
+        <DialogContent className="sm:max-w-[600px] p-0" style={{ maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+          <DialogHeader className="p-4 pb-2 border-b" style={{ flexShrink: 0 }}>
             <div className="flex items-center gap-3">
               <div className="bg-[#005180] p-2 rounded-lg">
                 <Package className="h-5 w-5 text-white" />
@@ -1254,9 +1301,9 @@ Question: ${message.trim()}
             </div>
           </DialogHeader>
 
-          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Selection Info - Fixed */}
-            <div className="bg-[#005180]/5 border-b border-[#005180]/20 p-3 flex-shrink-0">
+            <div className="bg-[#005180]/5 border-b border-[#005180]/20 p-3" style={{ flexShrink: 0 }}>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-[#005180] text-xs font-medium">Item Group</span>
@@ -1280,13 +1327,13 @@ Question: ${message.trim()}
             </div>
 
             {/* Items Header - Fixed */}
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b flex-shrink-0">
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b" style={{ flexShrink: 0 }}>
               <h4 className="font-semibold text-[#005180]">Items</h4>
               <Badge className="bg-[#005180] text-white">{filteredItems.length} items</Badge>
             </div>
 
             {/* Items List - Scrollable */}
-            <div className="flex-1 overflow-y-auto px-4 py-2">
+            <div className="px-4 py-2" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {loadingItems ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-[#005180]" />
@@ -1301,33 +1348,63 @@ Question: ${message.trim()}
                 <div className="space-y-2">
                   {filteredItems.map((item, index) => {
                     const rate = item.Rate || item.rate || item.EstimationRate || item.estimationRate || null
-                    // Remove sheet size from item name (patterns like "(31x43)", "(31X43)", "(31 x 43)")
                     const rawName = item.ItemName || item.itemName || item.Name || '-'
-                    const displayName = rawName.replace(/\s*\(\s*\d+\.?\d*\s*[xX×]\s*\d+\.?\d*\s*\)/g, '').trim()
+
+                    // Extract GSM from item properties or from name
+                    // Name format: "ART PAPER, 150, , -, 585X915" where 150 is GSM
+                    let gsm = item.GSM || item.gsm || null
+
+                    // If GSM not in properties, try to extract from name (second part after first comma)
+                    if (!gsm && rawName.includes(',')) {
+                      const parts = rawName.split(',')
+                      if (parts.length >= 2) {
+                        const potentialGsm = parts[1].trim()
+                        // Check if it's a number (GSM value)
+                        if (/^\d+$/.test(potentialGsm)) {
+                          gsm = potentialGsm
+                        }
+                      }
+                    }
+
+                    // Clean up item name - keep only the quality/product name
+                    // Pattern: "ART PAPER, 150, , -, 585X915" -> "ART PAPER"
+                    let displayName = rawName
+                      // Take only the first part (before first comma) which is the quality name
+                      .split(',')[0]
+                      .trim()
+
+                    // If name is empty or just dashes, use quality from selection
+                    if (!displayName || displayName === '-') {
+                      displayName = getSelectedQualityName() || '-'
+                    }
+
                     return (
                       <div
                         key={item.ItemID || item.itemId || index}
                         className="border border-[#005180]/20 rounded-lg p-3 bg-white hover:bg-[#005180]/5 transition-colors"
                       >
-                        <div className="flex items-start justify-between">
-                          <p className="font-medium text-sm text-gray-900 flex-1">
-                            {displayName || '-'}
-                          </p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1">
+                            <p className="font-medium text-sm text-gray-900">
+                              {displayName}
+                            </p>
+                            {gsm && (
+                              <span className="bg-[#005180]/10 text-[#005180] px-2 py-0.5 rounded text-xs font-semibold">
+                                GSM: {gsm}
+                              </span>
+                            )}
+                          </div>
                           {rate && (
                             <span className="bg-[#005180] text-white px-2 py-0.5 rounded text-xs font-medium ml-2">
                               ₹{rate}
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-600">
-                          {(item.GSM || item.gsm) && (
-                            <span className="bg-gray-100 px-2 py-0.5 rounded">GSM: {item.GSM || item.gsm}</span>
-                          )}
-                          {(item.Mill || item.mill) && (
-                            <span className="bg-gray-100 px-2 py-0.5 rounded">Mill: {item.Mill || item.mill}</span>
-                          )}
-                          {!rate && <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">No rate</span>}
-                        </div>
+                        {!rate && (
+                          <div className="mt-1.5">
+                            <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-xs">No rate</span>
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -1336,12 +1413,12 @@ Question: ${message.trim()}
             </div>
           </div>
 
-          {/* Footer - Fixed */}
-          <div className="p-4 border-t bg-gray-50 flex-shrink-0">
+          {/* Footer - Always visible at bottom */}
+          <div className="p-4 border-t bg-white" style={{ flexShrink: 0 }}>
             <Button
               variant="outline"
               onClick={() => setShowItemsPopup(false)}
-              className="w-full border-[#005180] text-[#005180] hover:bg-[#005180] hover:text-white"
+              className="w-full border-[#005180] text-[#005180] hover:bg-[#005180] hover:text-white h-11"
             >
               Close
             </Button>

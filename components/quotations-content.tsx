@@ -290,9 +290,49 @@ export function QuotationsContent() {
     type: 'success' | 'error' | 'info'
   }>({ isOpen: false, title: '', message: '', type: 'info' })
 
+  // Revise Quote Dialog state
+  const [reviseQuoteDialog, setReviseQuoteDialog] = useState<{
+    isOpen: boolean
+    bookingId: string | number | null
+    targetPrice: string
+    isSubmitting: boolean
+  }>({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false })
+
   // Helper function to show message dialog
   const showMessage = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setMessageDialog({ isOpen: true, title, message, type })
+  }
+
+  // Handle quote revision submission
+  const handleReviseQuoteSubmit = async () => {
+    if (!reviseQuoteDialog.bookingId || !reviseQuoteDialog.targetPrice) {
+      showMessage('Error', 'Please enter a target price', 'error')
+      return
+    }
+
+    setReviseQuoteDialog(prev => ({ ...prev, isSubmitting: true }))
+
+    try {
+      const response = await QuotationsAPI.generateQuoteRevision({
+        BookingID: String(reviseQuoteDialog.bookingId),
+        TargetedCost: reviseQuoteDialog.targetPrice
+      }, null)
+
+      if (response.success) {
+        setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false })
+        setIsDialogOpen(false)
+        setSelectedQuotation(null)
+        showMessage('Success', `Quote revision created successfully. New Booking ID: ${response.data}`, 'success')
+        // Refresh the quotations list
+        fetchQuotations()
+      } else {
+        showMessage('Error', response.error || 'Failed to create quote revision', 'error')
+        setReviseQuoteDialog(prev => ({ ...prev, isSubmitting: false }))
+      }
+    } catch (error: any) {
+      showMessage('Error', error.message || 'Failed to create quote revision', 'error')
+      setReviseQuoteDialog(prev => ({ ...prev, isSubmitting: false }))
+    }
   }
 
   // MUI Theme for Material React Table
@@ -404,8 +444,8 @@ export function QuotationsContent() {
 
           const finalCost = item.FinalCost || 0
 
-          // Use Margin from API (already a percentage)
-          const marginPercent = item.Margin || 0
+          // Use ProfitPercentage from API as margin (already a percentage)
+          const marginPercent = item.ProfitPercentage || item.Margin || 0
 
           // Calculate validTill: createdDate + 10 days
           let validTill = '-'
@@ -1883,6 +1923,47 @@ export function QuotationsContent() {
         </DialogContent>
       </Dialog>
 
+      {/* Revise Quote Dialog */}
+      <Dialog open={reviseQuoteDialog.isOpen} onOpenChange={(open) => !open && setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false })}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-center text-lg font-semibold">Revise Quote</DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground pt-2">
+              Enter your target price to generate a revised quotation
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="targetPrice" className="text-sm font-medium">Target Price (INR)</Label>
+            <Input
+              id="targetPrice"
+              type="number"
+              placeholder="Enter target price..."
+              value={reviseQuoteDialog.targetPrice}
+              onChange={(e) => setReviseQuoteDialog(prev => ({ ...prev, targetPrice: e.target.value }))}
+              className="mt-2"
+              disabled={reviseQuoteDialog.isSubmitting}
+            />
+          </div>
+          <div className="flex justify-center gap-3 pt-2">
+            <Button
+              variant="outline"
+              className="w-24"
+              onClick={() => setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false })}
+              disabled={reviseQuoteDialog.isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="w-24 bg-[#005180] hover:bg-[#004875] text-white"
+              onClick={handleReviseQuoteSubmit}
+              disabled={reviseQuoteDialog.isSubmitting || !reviseQuoteDialog.targetPrice}
+            >
+              {reviseQuoteDialog.isSubmitting ? 'Submitting...' : 'Submit'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Custom Search Bar - Matching Enquiries Style */}
       <div className="relative mb-4 w-full flex gap-3 items-center">
         <div className="relative flex-1">
@@ -2216,6 +2297,22 @@ export function QuotationsContent() {
                                 </div>
                               </div>
                             )}
+
+                            {/* Revise Quote button */}
+                            <div className="px-6 py-3 border-t border-border/20">
+                              <Button
+                                size="sm"
+                                className="w-full rounded-md bg-[#005180] text-white hover:bg-[#005180]/90 text-xs"
+                                onClick={() => setReviseQuoteDialog({
+                                  isOpen: true,
+                                  bookingId: selectedQuotation.bookingId,
+                                  targetPrice: '',
+                                  isSubmitting: false
+                                })}
+                              >
+                                Revise Quote
+                              </Button>
+                            </div>
                           </>
                         )}
                       </div>

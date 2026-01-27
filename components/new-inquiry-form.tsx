@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, Save, X, Edit, Trash2, Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Plus, Save, X, Edit, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Copy } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { EnquiryAPI, MasterDataAPI, QuotationsAPI, formatDateForAPI, formatDateForDisplay, type BasicEnquiryData, type DetailedEnquiryData } from "@/lib/api/enquiry"
@@ -45,12 +45,6 @@ const TYPE_OF_PRINTING_OPTIONS = [
   { label: "Digital", value: "Digital" },
   { label: "Outsource", value: "Outsource" },
   { label: "Others", value: "Others" },
-]
-
-const UOM_OPTIONS = [
-  { label: "PCS", value: "PCS" },
-  { label: "KG", value: "KG" },
-  { label: "PKT", value: "PKT" },
 ]
 
 // Mock content data with images
@@ -154,6 +148,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   const [clients, setClients] = useState<any[]>([])
   const [productionUnits, setProductionUnits] = useState<any[]>([])
   const [salesPersons, setSalesPersons] = useState<any[]>([])
+  const [concernPersons, setConcernPersons] = useState<{ ConcernPersonID: number; Name: string; Mobile: string }[]>([])
 
   // Form data
   const [formData, setFormData] = useState({
@@ -171,7 +166,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     productCode: "",
     quantity: "",
     annualQuantity: "",
-    unit: "",
+    unit: "PCS",
     divisionName: "Packaging",
     typeOfPrinting: "",
     plant: "",
@@ -186,6 +181,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   // Content selection state
   const [selectedContentIds, setSelectedContentIds] = useState<number[]>([])
   const [contentGridData, setContentGridData] = useState<any[]>([])
+  const [viewAllContentsOpen, setViewAllContentsOpen] = useState(false)
 
   // Plan details state
   const [planDetails, setPlanDetails] = useState<Record<string, string>>({})
@@ -507,78 +503,152 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         if (isNewFormat) {
           clientLogger.log('[Edit Mode] Using NEW API format (TblBookingContents/TblBookingProcess)')
 
-          // Parse TblBookingContents for dimensions and content type
+          // Parse TblBookingContents for dimensions and content type - MULTI-CONTENT SUPPORT
           if (detailedData.TblBookingContents && detailedData.TblBookingContents.length > 0) {
-            const content = detailedData.TblBookingContents[0]
-            clientLogger.log('[Edit Mode] TblBookingContents:', content)
-            clientLogger.log('[Edit Mode] TblBookingContents keys:', Object.keys(content))
+            clientLogger.log('[Edit Mode] Found', detailedData.TblBookingContents.length, 'contents in TblBookingContents')
 
-            // Parse ContentSizeValues to extract dimensions and material properties
-            // Example: "SizeHeight=50AndOrSizeLength=120AndOrSizeWidth=50AndOrSizeOpenflap=10AndOrSizePastingflap=10AndOrPlanFColor=4AndOrItemPlanQuality=GREY BACKAndOrItemPlanGsm=235AndOrItemPlanMill=GAYATRIAndOrItemPlanFinish=-AndOrPlanWastageType=Machine Default"
-            if (content.ContentSizeValues) {
+            // Build contentGridData from all contents
+            const gridData = detailedData.TblBookingContents.map((content: any, index: number) => {
+              // Parse ContentSizeValues to extract dimensions and material properties
               const sizeValues: Record<string, string> = {}
-              const pairs = content.ContentSizeValues.split('AndOr')
+              if (content.ContentSizeValues) {
+                const pairs = content.ContentSizeValues.split('AndOr')
+                pairs.forEach((pair: string) => {
+                  const [key, value] = pair.split('=')
+                  if (key && value) {
+                    sizeValues[key] = value
+                  }
+                })
+              }
+
+              // Get content name
+              const contentName = content.PlanContentType || content.PlanContName || content.ContentName || content.ContentType || ''
+
+              // Build size string
+              const sizeHeight = sizeValues.SizeHeight || ''
+              const sizeLength = sizeValues.SizeLength || ''
+              const sizeWidth = sizeValues.SizeWidth || ''
+              const sizeParts = [sizeHeight, sizeLength, sizeWidth].filter(s => s && s !== '')
+              const sizeString = sizeParts.length > 0 ? `${sizeParts.join(' x ')} MM` : '-'
+
+              // Build other details string
+              const quality = sizeValues.ItemPlanQuality || ''
+              const gsm = sizeValues.ItemPlanGsm || ''
+              const mill = sizeValues.ItemPlanMill || ''
+              const finish = sizeValues.ItemPlanFinish || ''
+
+              const otherDetailsParts = []
+              if (quality) otherDetailsParts.push(`Board: ${quality}`)
+              if (gsm) otherDetailsParts.push(`GSM: ${gsm}`)
+              if (mill) otherDetailsParts.push(`Mill: ${mill}`)
+              if (finish && finish !== '-') otherDetailsParts.push(`Finish: ${finish}`)
+              const otherDetailsString = otherDetailsParts.length > 0 ? otherDetailsParts.join(', ') : '-'
+
+              // Get processes for this content from TblBookingProcess (filter by PlanContName with flexible matching)
+              const normalizeForMatch = (str: string) => (str || '').toLowerCase().replace(/[\s\-_]+/g, '')
+              const contentNameNormalized = normalizeForMatch(contentName)
+              const contentProcesses = detailedData.TblBookingProcess?.filter((p: any) => {
+                const pContName = normalizeForMatch(p.PlanContName || '')
+                const pContentType = normalizeForMatch(p.PlanContentType || '')
+                const pContentName = normalizeForMatch(p.ContentName || '')
+                return pContName === contentNameNormalized ||
+                       pContentType === contentNameNormalized ||
+                       pContentName === contentNameNormalized ||
+                       p.PlanContName === contentName ||
+                       p.PlanContentType === contentName
+              }).map((p: any) => ({
+                ProcessID: Number(p.ProcessID),
+                ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
+              })) || []
+
+              // If no processes matched and this is the only content, assign all processes
+              let finalProcesses = contentProcesses
+              if (contentProcesses.length === 0 && detailedData.TblBookingContents.length === 1 && detailedData.TblBookingProcess?.length > 0) {
+                clientLogger.log(`[Edit Mode] No matched processes, assigning all processes to single content`)
+                finalProcesses = detailedData.TblBookingProcess.map((p: any) => ({
+                  ProcessID: Number(p.ProcessID),
+                  ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
+                }))
+              }
+
+              clientLogger.log(`[Edit Mode] Content ${index + 1}:`, contentName, 'with', finalProcesses.length, 'processes')
+
+              return {
+                id: Date.now() + index + Math.random() * 1000,
+                contentName: contentName,
+                ContentName: contentName,
+                Size: sizeString,
+                OtherDetails: otherDetailsString,
+                rawData: {
+                  content: {
+                    ContentID: content.ContentID || content.PlanContentID,
+                    ContentName: contentName,
+                  },
+                  planDetails: { ...sizeValues },
+                  processes: finalProcesses,
+                },
+                ...sizeValues,
+              }
+            })
+
+            // Set contentGridData with all contents
+            setContentGridData(gridData)
+            clientLogger.log('[Edit Mode] Populated contentGridData with', gridData.length, 'contents')
+
+            // Also set the first content for form display (for backwards compatibility)
+            const firstContent = detailedData.TblBookingContents[0]
+            if (firstContent.ContentSizeValues) {
+              const sizeValues: Record<string, string> = {}
+              const pairs = firstContent.ContentSizeValues.split('AndOr')
               pairs.forEach((pair: string) => {
                 const [key, value] = pair.split('=')
                 if (key && value) {
                   sizeValues[key] = value
                 }
               })
-
-              clientLogger.log('[Edit Mode] Raw ContentSizeValues:', content.ContentSizeValues)
-              clientLogger.log('[Edit Mode] Parsed size values:', sizeValues)
-              clientLogger.log('[Edit Mode] Number of parsed fields:', Object.keys(sizeValues).length)
               setPlanDetails(prev => ({ ...prev, ...sizeValues }))
             }
 
-            // Store content type to be selected after content types are loaded
-            // Check multiple possible field names for content type (API returns various names)
-            // PlanContentType is the main field from load enquiry API (e.g., "ReverseTuckIn")
-            const contentTypeToSelect = content.PlanContentType || content.PlanContName || content.ContentName || content.ContentType || content.ContName || content.ContentDomainType || content.PlanContDomainType || content.DomainType
-            // Check multiple possible field names for content ID (NOT EnquiryContentsID - that's different)
-            const contentIdFromApi = content.ContentID || content.PlanContentID || content.ContID || content.ContentMasterID
+            const contentTypeToSelect = firstContent.PlanContentType || firstContent.PlanContName || firstContent.ContentName || firstContent.ContentType || firstContent.ContName || firstContent.ContentDomainType || firstContent.PlanContDomainType || firstContent.DomainType
+            const contentIdFromApi = firstContent.ContentID || firstContent.PlanContentID || firstContent.ContID || firstContent.ContentMasterID
 
             console.log('═══════════════════════════════════════════════════════════════')
-            console.log('🎯 EDIT MODE - CONTENT TYPE EXTRACTION')
+            console.log('🎯 EDIT MODE - MULTI-CONTENT LOADED')
             console.log('─────────────────────────────────────────────────────────────')
-            console.log('📋 content.PlanContentType:', content.PlanContentType)
-            console.log('📋 content.PlanContName:', content.PlanContName)
-            console.log('📋 contentTypeToSelect FINAL:', contentTypeToSelect)
-            console.log('📋 contentIdFromApi:', contentIdFromApi)
-            console.log('📋 All content fields:', Object.keys(content).join(', '))
+            console.log('📋 Total contents loaded:', gridData.length)
+            console.log('📋 First content type:', contentTypeToSelect)
+            console.log('📋 First content ID:', contentIdFromApi)
             console.log('═══════════════════════════════════════════════════════════════')
 
             if (contentTypeToSelect) {
-              console.log('🚀 SETTING pendingContentTypeToSelect to:', contentTypeToSelect)
               setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
               setPendingContentTypeToSelect(contentTypeToSelect)
-            } else {
-              console.log('❌ No contentTypeToSelect found!')
             }
 
-            // Only use direct ContentID if it's a real content master ID (not EnquiryContentsID)
-            // The name matching will handle selection if no ContentID is available
             if (contentIdFromApi) {
-              clientLogger.log('[Edit Mode] Setting content ID directly:', contentIdFromApi)
               setSelectedContentIds([Number(contentIdFromApi)])
-            } else {
-              clientLogger.log('[Edit Mode] No ContentID found, will use name matching via useEffect')
             }
           }
 
-          // Parse TblBookingProcess for processes
+          // Parse TblBookingProcess for processes (for first content - backwards compatibility)
           if (detailedData.TblBookingProcess && detailedData.TblBookingProcess.length > 0) {
-            const processes = detailedData.TblBookingProcess.map((p: any) => ({
+            // Get processes for first content only (for form display)
+            const firstContentName = detailedData.TblBookingContents?.[0]?.PlanContentType || detailedData.TblBookingContents?.[0]?.PlanContName
+            const firstContentProcesses = detailedData.TblBookingProcess
+              .filter((p: any) => !firstContentName || p.PlanContName === firstContentName || p.PlanContentType === firstContentName)
+              .map((p: any) => ({
+                ProcessID: Number(p.ProcessID),
+                ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
+              }))
+            clientLogger.log('[Edit Mode] Processes for first content:', firstContentProcesses)
+            setSelectedProcesses(firstContentProcesses.length > 0 ? firstContentProcesses : detailedData.TblBookingProcess.map((p: any) => ({
               ProcessID: Number(p.ProcessID),
               ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
-            }))
-            clientLogger.log('[Edit Mode] Processes from TblBookingProcess:', processes)
-            clientLogger.log('[Edit Mode] Process IDs:', processes.map((p: any) => p.ProcessID))
-            setSelectedProcesses(processes)
+            })))
           }
 
         } else {
-          // Old format handling (MainData, DetailsData, ProcessData)
+          // Old format handling (MainData, DetailsData, ProcessData) - MULTI-CONTENT SUPPORT
           clientLogger.log('[Edit Mode] Using OLD API format (MainData/DetailsData/ProcessData)')
 
           // Populate additional fields from MainData if available
@@ -596,31 +666,115 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             }))
           }
 
-          // Populate plan details (dimensions) if available
+          // Populate plan details (dimensions) if available - BUILD MULTI-CONTENT GRID
           if (detailedData.DetailsData && detailedData.DetailsData.length > 0) {
-            const details = detailedData.DetailsData[0]
-            clientLogger.log('[Edit Mode] Details data:', details)
+            clientLogger.log('[Edit Mode] Found', detailedData.DetailsData.length, 'contents in DetailsData')
 
-            // Parse ContentSizeValues to extract dimensions
-            if (details.ContentSizeValues) {
+            // Build contentGridData from all contents
+            const gridData = detailedData.DetailsData.map((details: any, index: number) => {
+              // Parse ContentSizeValues to extract dimensions
               const sizeValues: Record<string, string> = {}
-              const pairs = details.ContentSizeValues.split('AndOr')
+              if (details.ContentSizeValues) {
+                const pairs = details.ContentSizeValues.split('AndOr')
+                pairs.forEach((pair: string) => {
+                  const [key, value] = pair.split('=')
+                  if (key && value) {
+                    sizeValues[key] = value
+                  }
+                })
+              }
+
+              // Get content name
+              const contentName = details.PlanContentType || details.PlanContName || details.ContentName || details.ContentType || ''
+
+              // Build size string
+              const sizeHeight = sizeValues.SizeHeight || ''
+              const sizeLength = sizeValues.SizeLength || ''
+              const sizeWidth = sizeValues.SizeWidth || ''
+              const sizeParts = [sizeHeight, sizeLength, sizeWidth].filter(s => s && s !== '')
+              const sizeString = sizeParts.length > 0 ? `${sizeParts.join(' x ')} MM` : '-'
+
+              // Build other details string
+              const quality = sizeValues.ItemPlanQuality || ''
+              const gsm = sizeValues.ItemPlanGsm || ''
+              const mill = sizeValues.ItemPlanMill || ''
+              const finish = sizeValues.ItemPlanFinish || ''
+
+              const otherDetailsParts = []
+              if (quality) otherDetailsParts.push(`Board: ${quality}`)
+              if (gsm) otherDetailsParts.push(`GSM: ${gsm}`)
+              if (mill) otherDetailsParts.push(`Mill: ${mill}`)
+              if (finish && finish !== '-') otherDetailsParts.push(`Finish: ${finish}`)
+              const otherDetailsString = otherDetailsParts.length > 0 ? otherDetailsParts.join(', ') : '-'
+
+              // Get processes for this content from ProcessData (filter by PlanContName with flexible matching)
+              const normalizeForMatch = (str: string) => (str || '').toLowerCase().replace(/[\s\-_]+/g, '')
+              const contentNameNormalized = normalizeForMatch(contentName)
+              const contentProcesses = detailedData.ProcessData?.filter((p: any) => {
+                const pContName = normalizeForMatch(p.PlanContName || '')
+                const pContentType = normalizeForMatch(p.PlanContentType || '')
+                const pContentName = normalizeForMatch(p.ContentName || '')
+                return pContName === contentNameNormalized ||
+                       pContentType === contentNameNormalized ||
+                       pContentName === contentNameNormalized ||
+                       p.PlanContName === contentName ||
+                       p.PlanContentType === contentName
+              }).map((p: any) => ({
+                ProcessID: Number(p.ProcessID),
+                ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
+              })) || []
+
+              // If no processes matched and this is the only content, assign all processes
+              let finalProcesses = contentProcesses
+              if (contentProcesses.length === 0 && detailedData.DetailsData.length === 1 && detailedData.ProcessData?.length > 0) {
+                clientLogger.log(`[Edit Mode] No matched processes, assigning all processes to single content`)
+                finalProcesses = detailedData.ProcessData.map((p: any) => ({
+                  ProcessID: Number(p.ProcessID),
+                  ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
+                }))
+              }
+
+              clientLogger.log(`[Edit Mode] Content ${index + 1}:`, contentName, 'with', finalProcesses.length, 'processes')
+
+              return {
+                id: Date.now() + index + Math.random() * 1000,
+                contentName: contentName,
+                ContentName: contentName,
+                Size: sizeString,
+                OtherDetails: otherDetailsString,
+                rawData: {
+                  content: {
+                    ContentID: details.ContentID || details.PlanContentID,
+                    ContentName: contentName,
+                  },
+                  planDetails: { ...sizeValues },
+                  processes: finalProcesses,
+                },
+                ...sizeValues,
+              }
+            })
+
+            // Set contentGridData with all contents
+            setContentGridData(gridData)
+            clientLogger.log('[Edit Mode] Populated contentGridData with', gridData.length, 'contents')
+
+            // Also set the first content for form display (for backwards compatibility)
+            const firstDetails = detailedData.DetailsData[0]
+            if (firstDetails.ContentSizeValues) {
+              const sizeValues: Record<string, string> = {}
+              const pairs = firstDetails.ContentSizeValues.split('AndOr')
               pairs.forEach((pair: string) => {
                 const [key, value] = pair.split('=')
                 if (key && value) {
                   sizeValues[key] = value
                 }
               })
-
-              clientLogger.log('[Edit Mode] Raw ContentSizeValues:', details.ContentSizeValues)
-              clientLogger.log('[Edit Mode] Parsed size values:', sizeValues)
-              clientLogger.log('[Edit Mode] Number of parsed fields:', Object.keys(sizeValues).length)
               setPlanDetails(prev => ({ ...prev, ...sizeValues }))
             }
 
             // Store content type to be selected after content types are loaded
-            const contentTypeToSelect = details.PlanContentType || details.PlanContName || details.ContentName || details.ContentType
-            const contentIdFromApi = details.ContentID || details.PlanContentID
+            const contentTypeToSelect = firstDetails.PlanContentType || firstDetails.PlanContName || firstDetails.ContentName || firstDetails.ContentType
+            const contentIdFromApi = firstDetails.ContentID || firstDetails.PlanContentID
 
             clientLogger.log('[Edit Mode] Content type to select:', contentTypeToSelect)
             clientLogger.log('[Edit Mode] Content ID from API:', contentIdFromApi)
@@ -628,25 +782,26 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             if (contentTypeToSelect) {
               setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
               setPendingContentTypeToSelect(contentTypeToSelect)
-              clientLogger.log('[Edit Mode] Set formData.contentType and pendingContentTypeToSelect to:', contentTypeToSelect)
             }
 
-            // If we have a direct ContentID, use it to select the content
             if (contentIdFromApi) {
-              clientLogger.log('[Edit Mode] Setting content ID directly:', contentIdFromApi)
               setSelectedContentIds([Number(contentIdFromApi)])
             }
           }
 
-          // Populate selected processes if available
+          // Populate selected processes if available (for first content)
           if (detailedData.ProcessData && detailedData.ProcessData.length > 0) {
-            const processes = detailedData.ProcessData.map((p: any) => ({
+            const firstContentName = detailedData.DetailsData?.[0]?.PlanContentType || detailedData.DetailsData?.[0]?.PlanContName
+            const firstContentProcesses = detailedData.ProcessData
+              .filter((p: any) => !firstContentName || p.PlanContName === firstContentName || p.PlanContentType === firstContentName)
+              .map((p: any) => ({
+                ProcessID: Number(p.ProcessID),
+                ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
+              }))
+            setSelectedProcesses(firstContentProcesses.length > 0 ? firstContentProcesses : detailedData.ProcessData.map((p: any) => ({
               ProcessID: Number(p.ProcessID),
               ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
-            }))
-            clientLogger.log('[Edit Mode] Processes to select:', processes)
-            clientLogger.log('[Edit Mode] Process IDs:', processes.map((p: any) => p.ProcessID))
-            setSelectedProcesses(processes)
+            })))
           }
         }
       } else {
@@ -915,6 +1070,71 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     }
     fetchContentTypes()
   }, [selectedCategoryId])
+
+  // Fetch concern persons when client changes (detailed form only)
+  useEffect(() => {
+    const loadConcernPersons = async () => {
+      console.log('🟢 [Concern Persons] useEffect triggered - clientName:', formData.clientName, 'formType:', formType)
+
+      if (!formData.clientName || formType !== 'detailed') {
+        console.log('🟢 [Concern Persons] Skipping - no clientName or not detailed form')
+        setConcernPersons([])
+        return
+      }
+
+      try {
+        const ledgerId = parseInt(formData.clientName)
+        if (isNaN(ledgerId)) {
+          console.log('🟢 [Concern Persons] Invalid LedgerID:', formData.clientName)
+          return
+        }
+
+        console.log('🟢 [Concern Persons] Fetching for LedgerID:', ledgerId)
+        const response = await EnquiryAPI.getConcernPersons(ledgerId, null)
+        console.log('🟢 [Concern Persons] API Response:', response)
+
+        if (response.data && Array.isArray(response.data)) {
+          setConcernPersons(response.data)
+          console.log('🟢 [Concern Persons] Loaded:', response.data.length, 'persons:', response.data)
+
+          // Auto-select first concern person if available and no selection yet
+          if (response.data.length > 0 && !formData.concernPerson) {
+            const firstPerson = response.data[0]
+            setFormData(prev => ({
+              ...prev,
+              concernPerson: firstPerson.ConcernPersonID.toString(),
+              concernPersonMobile: firstPerson.Mobile || ''
+            }))
+            console.log('🟢 [Concern Persons] Auto-selected first person:', firstPerson.Name, 'Mobile:', firstPerson.Mobile)
+          }
+        } else {
+          console.log('🟢 [Concern Persons] No data in response:', response)
+          setConcernPersons([])
+        }
+      } catch (error) {
+        console.error('🟢 [Concern Persons] Error fetching:', error)
+        setConcernPersons([])
+      }
+    }
+
+    loadConcernPersons()
+  }, [formData.clientName, formType])
+
+  // Auto-fill mobile when concern person selection changes
+  useEffect(() => {
+    if (formData.concernPerson && concernPersons.length > 0) {
+      const selectedPerson = concernPersons.find(
+        p => p.ConcernPersonID.toString() === formData.concernPerson
+      )
+      if (selectedPerson && selectedPerson.Mobile) {
+        setFormData(prev => ({
+          ...prev,
+          concernPersonMobile: selectedPerson.Mobile
+        }))
+        clientLogger.log('[Concern Person] Auto-filled mobile:', selectedPerson.Mobile)
+      }
+    }
+  }, [formData.concernPerson, concernPersons])
 
   // Fetch qualities when content is selected
   useEffect(() => {
@@ -1198,6 +1418,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   }
 
   const handleContentSelect = (contentId: number) => {
+    // Check if content is actually changing
+    const isChanging = !selectedContentIds.includes(contentId)
+
     setSelectedContentIds((prev) => {
       // Only allow single selection
       if (prev.includes(contentId)) {
@@ -1207,6 +1430,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       // Replace with new selection
       return [contentId]
     })
+
+    // If content changed, clear sizes, quality, processes
+    if (isChanging) {
+      setPlanDetails({})
+      setSelectedProcesses([])
+      clientLogger.log('[Content Change] Cleared sizes, quality and processes for new content')
+    }
   }
 
   const handleProcessToggle = (process: {ProcessID: number, ProcessName: string}) => {
@@ -1236,20 +1466,43 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
     const selectedContents = contentTypes.filter((c) => selectedContentIds.includes(c.ContentID))
 
-    const newContentData = selectedContents.map((content) => ({
-      id: Date.now() + content.ContentID,
-      contentName: content.ContentName,
-      ContentName: content.ContentName,
-      Size: `${planDetails.height || ""} x ${planDetails.length || ""} x ${planDetails.width || ""} MM`.trim(),
-      OtherDetails: `GSM: ${planDetails.gsm || "N/A"}, Processes: ${selectedProcesses.length}`,
-      rawData: {
-        content,
-        planDetails: { ...planDetails },
-        processes: [...selectedProcesses],
-      },
-      // Add all plan details to the content data
-      ...planDetails,
-    }))
+    const newContentData = selectedContents.map((content) => {
+      // Build size string from actual plan detail fields
+      const sizeHeight = planDetails.SizeHeight || planDetails.sizeHeight || ''
+      const sizeLength = planDetails.SizeLength || planDetails.sizeLength || ''
+      const sizeWidth = planDetails.SizeWidth || planDetails.sizeWidth || ''
+      const sizeParts = [sizeHeight, sizeLength, sizeWidth].filter(s => s && s !== '')
+      const sizeString = sizeParts.length > 0 ? `${sizeParts.join(' x ')} MM` : '-'
+
+      // Build other details from material properties
+      const gsm = planDetails.ItemPlanGsm || ''
+      const quality = planDetails.ItemPlanQuality || ''
+      const mill = planDetails.ItemPlanMill || ''
+      const finish = planDetails.ItemPlanFinish || ''
+
+      const otherDetailsParts = []
+      if (quality) otherDetailsParts.push(`Board: ${quality}`)
+      if (gsm) otherDetailsParts.push(`GSM: ${gsm}`)
+      if (mill) otherDetailsParts.push(`Mill: ${mill}`)
+      if (finish && finish !== '-') otherDetailsParts.push(`Finish: ${finish}`)
+
+      const otherDetailsString = otherDetailsParts.length > 0 ? otherDetailsParts.join(', ') : '-'
+
+      return {
+        id: Date.now() + content.ContentID,
+        contentName: content.ContentName,
+        ContentName: content.ContentName,
+        Size: sizeString,
+        OtherDetails: otherDetailsString,
+        rawData: {
+          content,
+          planDetails: { ...planDetails },
+          processes: [...selectedProcesses],
+        },
+        // Add all plan details to the content data
+        ...planDetails,
+      }
+    })
 
     setContentGridData((prev) => [...prev, ...newContentData])
 
@@ -1268,6 +1521,64 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     setContentGridData((prev) => prev.filter((c) => c.id !== contentId))
   }
 
+  // Edit content - loads content back to form for modification and removes from grid
+  const handleContentEdit = (content: any) => {
+    const { rawData } = content
+    if (rawData) {
+      // Restore content selection
+      if (rawData.content?.ContentID) {
+        setSelectedContentIds([rawData.content.ContentID])
+        setSelectedContent(rawData.content)
+      }
+
+      // Restore plan details (sizes, material properties, etc.)
+      if (rawData.planDetails) {
+        setPlanDetails(rawData.planDetails)
+      }
+
+      // Restore selected processes
+      if (rawData.processes && rawData.processes.length > 0) {
+        setSelectedProcesses(rawData.processes)
+      }
+
+      // Remove the content from grid since we're editing it
+      setContentGridData((prev) => prev.filter((c) => c.id !== content.id))
+
+      toast({
+        title: "Content Loaded for Edit",
+        description: "Make your changes and click Apply to update.",
+      })
+    }
+  }
+
+  // Duplicate content - loads content data to form but keeps original in grid
+  const handleContentDuplicate = (content: any) => {
+    const { rawData } = content
+    if (rawData) {
+      // Restore content selection
+      if (rawData.content?.ContentID) {
+        setSelectedContentIds([rawData.content.ContentID])
+        setSelectedContent(rawData.content)
+      }
+
+      // Restore plan details (sizes, material properties, etc.)
+      if (rawData.planDetails) {
+        setPlanDetails(rawData.planDetails)
+      }
+
+      // Restore selected processes
+      if (rawData.processes && rawData.processes.length > 0) {
+        setSelectedProcesses(rawData.processes)
+      }
+
+      // Keep the original content in grid (don't remove it)
+      toast({
+        title: "Content Duplicated",
+        description: "Modify and click Apply to add as new content.",
+      })
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -1279,7 +1590,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     if (!formData.quantity || Number(formData.quantity) === 0) errors.quantity = true
     if (!formData.salesPerson) errors.salesPerson = true
     if (!formData.plant) errors.plant = true
-    if (!formData.unit) errors.unit = true
+    // UOM is now fixed to "PCS", no validation needed
     // Category is only required for detailed form (the field is only shown in detailed form)
     if (formType === 'detailed' && !formData.categoryName) errors.categoryName = true
 
@@ -1493,71 +1804,102 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           Quantity: String(parseInt(formData.quantity) || 0),
         }
 
-        // Build ContentSizeValues string
-        const buildContentSizeValues = () => {
+        // Helper function to build ContentSizeValues string from plan details
+        const buildContentSizeValuesFromPlan = (plan: Record<string, any>) => {
           const parts: string[] = []
-          if (planDetails.SizeHeight) parts.push(`SizeHeight=${planDetails.SizeHeight}`)
-          if (planDetails.SizeLength) parts.push(`SizeLength=${planDetails.SizeLength}`)
-          if (planDetails.SizeWidth) parts.push(`SizeWidth=${planDetails.SizeWidth}`)
-          if (planDetails.SizeOpenflap) parts.push(`SizeOpenflap=${planDetails.SizeOpenflap}`)
-          if (planDetails.SizePastingflap) parts.push(`SizePastingflap=${planDetails.SizePastingflap}`)
+          if (plan.SizeHeight) parts.push(`SizeHeight=${plan.SizeHeight}`)
+          if (plan.SizeLength) parts.push(`SizeLength=${plan.SizeLength}`)
+          if (plan.SizeWidth) parts.push(`SizeWidth=${plan.SizeWidth}`)
+          if (plan.SizeOpenflap) parts.push(`SizeOpenflap=${plan.SizeOpenflap}`)
+          if (plan.SizePastingflap) parts.push(`SizePastingflap=${plan.SizePastingflap}`)
           // Crash Lock fields
-          if (planDetails.SizeBottomflap) parts.push(`SizeBottomflap=${planDetails.SizeBottomflap}`)
-          if (planDetails.SizeBottomflapPer) parts.push(`SizeBottomflapPer=${planDetails.SizeBottomflapPer}`)
+          if (plan.SizeBottomflap) parts.push(`SizeBottomflap=${plan.SizeBottomflap}`)
+          if (plan.SizeBottomflapPer) parts.push(`SizeBottomflapPer=${plan.SizeBottomflapPer}`)
           // Brochure JobFold fields
-          if (planDetails.SizeJobFoldInH) parts.push(`SizeJobFoldInH=${planDetails.SizeJobFoldInH}`)
-          if (planDetails.SizeJobFoldInL) parts.push(`SizeJobFoldInL=${planDetails.SizeJobFoldInL}`)
-          if (planDetails.SizeJobFoldedH) parts.push(`SizeJobFoldedH=${planDetails.SizeJobFoldedH}`)
-          if (planDetails.SizeJobFoldedL) parts.push(`SizeJobFoldedL=${planDetails.SizeJobFoldedL}`)
-          if (planDetails.JobUps) parts.push(`JobUps=${planDetails.JobUps}`)
-          if (planDetails.PlanFColor) parts.push(`PlanFColor=${planDetails.PlanFColor}`)
-          if (planDetails.PlanBColor) parts.push(`PlanBColor=${planDetails.PlanBColor}`)
-          if (planDetails.PlanSpeFColor) parts.push(`PlanSpeFColor=${planDetails.PlanSpeFColor}`)
-          if (planDetails.PlanSpeBColor) parts.push(`PlanSpeBColor=${planDetails.PlanSpeBColor}`)
-          if (planDetails.ItemPlanQuality) parts.push(`ItemPlanQuality=${planDetails.ItemPlanQuality}`)
-          if (planDetails.ItemPlanGsm) parts.push(`ItemPlanGsm=${planDetails.ItemPlanGsm}`)
-          if (planDetails.ItemPlanMill) parts.push(`ItemPlanMill=${planDetails.ItemPlanMill}`)
-          if (planDetails.ItemPlanFinish) parts.push(`ItemPlanFinish=${planDetails.ItemPlanFinish}`)
-          if (planDetails.PlanWastageType) parts.push(`PlanWastageType=${planDetails.PlanWastageType}`)
+          if (plan.SizeJobFoldInH) parts.push(`SizeJobFoldInH=${plan.SizeJobFoldInH}`)
+          if (plan.SizeJobFoldInL) parts.push(`SizeJobFoldInL=${plan.SizeJobFoldInL}`)
+          if (plan.SizeJobFoldedH) parts.push(`SizeJobFoldedH=${plan.SizeJobFoldedH}`)
+          if (plan.SizeJobFoldedL) parts.push(`SizeJobFoldedL=${plan.SizeJobFoldedL}`)
+          if (plan.JobUps) parts.push(`JobUps=${plan.JobUps}`)
+          if (plan.PlanFColor) parts.push(`PlanFColor=${plan.PlanFColor}`)
+          if (plan.PlanBColor) parts.push(`PlanBColor=${plan.PlanBColor}`)
+          if (plan.PlanSpeFColor) parts.push(`PlanSpeFColor=${plan.PlanSpeFColor}`)
+          if (plan.PlanSpeBColor) parts.push(`PlanSpeBColor=${plan.PlanSpeBColor}`)
+          if (plan.ItemPlanQuality) parts.push(`ItemPlanQuality=${plan.ItemPlanQuality}`)
+          if (plan.ItemPlanGsm) parts.push(`ItemPlanGsm=${plan.ItemPlanGsm}`)
+          if (plan.ItemPlanMill) parts.push(`ItemPlanMill=${plan.ItemPlanMill}`)
+          if (plan.ItemPlanFinish) parts.push(`ItemPlanFinish=${plan.ItemPlanFinish}`)
+          if (plan.PlanWastageType) parts.push(`PlanWastageType=${plan.PlanWastageType}`)
           return parts.join('AndOr')
         }
 
-        // Build Size string for display
-        const buildSizeString = () => {
+        // Helper function to build Size string for display from plan details
+        const buildSizeStringFromPlan = (plan: Record<string, any>) => {
           const parts: string[] = []
-          if (planDetails.SizeHeight) parts.push(`H=${planDetails.SizeHeight}`)
-          if (planDetails.SizeLength) parts.push(`L=${planDetails.SizeLength}`)
-          if (planDetails.SizeWidth) parts.push(`W=${planDetails.SizeWidth}`)
-          if (planDetails.SizeOpenflap) parts.push(`OF=${planDetails.SizeOpenflap}`)
-          if (planDetails.SizePastingflap) parts.push(`PF=${planDetails.SizePastingflap}`)
+          if (plan.SizeHeight) parts.push(`H=${plan.SizeHeight}`)
+          if (plan.SizeLength) parts.push(`L=${plan.SizeLength}`)
+          if (plan.SizeWidth) parts.push(`W=${plan.SizeWidth}`)
+          if (plan.SizeOpenflap) parts.push(`OF=${plan.SizeOpenflap}`)
+          if (plan.SizePastingflap) parts.push(`PF=${plan.SizePastingflap}`)
           // Crash Lock fields
-          if (planDetails.SizeBottomflap) parts.push(`BF=${planDetails.SizeBottomflap}`)
-          if (planDetails.SizeBottomflapPer) parts.push(`BF%=${planDetails.SizeBottomflapPer}`)
+          if (plan.SizeBottomflap) parts.push(`BF=${plan.SizeBottomflap}`)
+          if (plan.SizeBottomflapPer) parts.push(`BF%=${plan.SizeBottomflapPer}`)
           // Brochure JobFold fields
-          if (planDetails.SizeJobFoldedH) parts.push(`FH=${planDetails.SizeJobFoldedH}`)
-          if (planDetails.SizeJobFoldedL) parts.push(`FL=${planDetails.SizeJobFoldedL}`)
-          if (planDetails.SizeJobFoldInH) parts.push(`FInH=${planDetails.SizeJobFoldInH}`)
-          if (planDetails.SizeJobFoldInL) parts.push(`FInL=${planDetails.SizeJobFoldInL}`)
+          if (plan.SizeJobFoldedH) parts.push(`FH=${plan.SizeJobFoldedH}`)
+          if (plan.SizeJobFoldedL) parts.push(`FL=${plan.SizeJobFoldedL}`)
+          if (plan.SizeJobFoldInH) parts.push(`FInH=${plan.SizeJobFoldInH}`)
+          if (plan.SizeJobFoldInL) parts.push(`FInL=${plan.SizeJobFoldInL}`)
           return parts.length > 0 ? parts.join(', ') + ' (MM)' : ''
         }
 
-        // Transform content and size data
-        const detailsData = selectedContentItem ? [{
-          PlanContName: selectedContentItem.ContentName || '',
-          Size: buildSizeString(),
-          PlanContentType: selectedContentItem.ContentName || '',
-          ContentSizeValues: buildContentSizeValues(),
-          valuesString: Object.values(planDetails).join(','),
-          JobSizeInCM: buildSizeString(),
-        }] : []
+        // Build DetailsData and ProcessData from contentGridData if available, otherwise use current selections
+        let detailsData: any[] = []
+        let processData: any[] = []
 
-        // Transform selected processes to match API structure
-        const processData = selectedContentItem ? selectedProcesses.map(process => ({
-          ProcessID: process.ProcessID,
-          ProcessName: process.ProcessName,
-          PlanContName: selectedContentItem.ContentName || '',
-          PlanContentType: selectedContentItem.ContentName || '',  // Use ContentName for both
-        })) : []
+        if (contentGridData.length > 0) {
+          // Use contents from the grid (multiple contents)
+          detailsData = contentGridData.map((gridItem) => {
+            const contentPlanDetails = gridItem.rawData?.planDetails || gridItem
+            const contentName = gridItem.ContentName || gridItem.contentName || ''
+            return {
+              PlanContName: contentName,
+              Size: buildSizeStringFromPlan(contentPlanDetails),
+              PlanContentType: contentName,
+              ContentSizeValues: buildContentSizeValuesFromPlan(contentPlanDetails),
+              valuesString: Object.values(contentPlanDetails).filter(v => v !== undefined && v !== null).join(','),
+              JobSizeInCM: buildSizeStringFromPlan(contentPlanDetails),
+            }
+          })
+
+          // Build process data for each content
+          processData = contentGridData.flatMap((gridItem) => {
+            const contentName = gridItem.ContentName || gridItem.contentName || ''
+            const processes = gridItem.rawData?.processes || []
+            return processes.map((process: any) => ({
+              ProcessID: process.ProcessID,
+              ProcessName: process.ProcessName,
+              PlanContName: contentName,
+              PlanContentType: contentName,
+            }))
+          })
+        } else if (selectedContentItem) {
+          // Fallback to current selections (single content, not applied to grid)
+          detailsData = [{
+            PlanContName: selectedContentItem.ContentName || '',
+            Size: buildSizeStringFromPlan(planDetails),
+            PlanContentType: selectedContentItem.ContentName || '',
+            ContentSizeValues: buildContentSizeValuesFromPlan(planDetails),
+            valuesString: Object.values(planDetails).filter(v => v !== undefined && v !== null).join(','),
+            JobSizeInCM: buildSizeStringFromPlan(planDetails),
+          }]
+
+          processData = selectedProcesses.map(process => ({
+            ProcessID: process.ProcessID,
+            ProcessName: process.ProcessName,
+            PlanContName: selectedContentItem.ContentName || '',
+            PlanContentType: selectedContentItem.ContentName || '',
+          }))
+        }
 
         const detailedEnquiryData = {
           MainData: [{ ...mainData, Source: 'parkbuddy' }],
@@ -1606,14 +1948,20 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         if (editMode && initialData) {
           // Build update data without Prefix field (only for create)
           // Match exact format from API spec: /api/enquiry/updatmultipleenquiry
+          // Remove Quantity from MainData for update
+          const updateMainData = detailedEnquiryData.MainData.map((item: any) => {
+            const { Quantity, ...rest } = item
+            return rest
+          })
+
           const updateData = {
-            MainData: detailedEnquiryData.MainData,
+            MainData: updateMainData,
             DetailsData: detailedEnquiryData.DetailsData,
             ProcessData: detailedEnquiryData.ProcessData,
             Quantity: detailedEnquiryData.Quantity,
             IsEdit: "True",
             EnquiryID: initialData.enquiryId || initialData.EnquiryID || 0,
-            LayerDetailArr: [],
+            LayerDetailArr: detailedEnquiryData.LayerDetailArr || [],
             JsonObjectsUserApprovalProcessArray: detailedEnquiryData.JsonObjectsUserApprovalProcessArray,
           }
 
@@ -1816,12 +2164,28 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               <>
                 <div className="md:col-span-3">
                   <Label htmlFor="concernPerson">Customer Concern Person</Label>
-                  <Input
-                    id="concernPerson"
+                  <Select
                     value={formData.concernPerson}
-                    onChange={(e) => handleInputChange("concernPerson", e.target.value)}
-                    className="h-10"
-                  />
+                    onValueChange={(value) => handleInputChange("concernPerson", value)}
+                    disabled={!formData.clientName || concernPersons.length === 0}
+                  >
+                    <SelectTrigger id="concernPerson" className="h-10">
+                      <SelectValue placeholder={
+                        !formData.clientName
+                          ? "Select customer first"
+                          : concernPersons.length === 0
+                            ? "No concern persons"
+                            : "Select concern person"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {concernPersons.map((person) => (
+                        <SelectItem key={person.ConcernPersonID} value={person.ConcernPersonID.toString()}>
+                          {person.Name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="concernPersonMobile">Mobile No.</Label>
@@ -1834,11 +2198,10 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     value={formData.concernPersonMobile}
                     onChange={(e) => handleInputChange("concernPersonMobile", e.target.value)}
                     placeholder="10 digit mobile number"
-                    className={`h-10 ${validationErrors.concernPersonMobile ? "border-red-500" : ""}`}
+                    readOnly
+                    disabled
+                    className="h-10 bg-gray-100 cursor-not-allowed"
                   />
-                  {validationErrors.concernPersonMobile && (
-                    <p className="text-xs text-red-500 mt-1">Please enter a valid 10-digit mobile number</p>
-                  )}
                 </div>
               </>
             )}
@@ -1936,18 +2299,13 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               <Label htmlFor="unit">
                 UOM <span className="text-red-500">*</span>
               </Label>
-              <Select value={formData.unit} onValueChange={(value) => handleInputChange("unit", value)}>
-                <SelectTrigger id="unit" className={`h-10 ${validationErrors.unit ? "border-red-500" : ""}`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {UOM_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="unit"
+                value="PCS"
+                readOnly
+                disabled
+                className="h-10 bg-gray-100 cursor-not-allowed"
+              />
             </div>
             {formType === 'detailed' && (
               <>
@@ -2073,36 +2431,65 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           {/* Category and Content in one row */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             {/* Category Selection */}
-            <div>
+            <div className="min-w-0 overflow-hidden">
               <Label htmlFor="contentCategory" className="text-sm">
                 Select Category <span className="text-red-500">*</span>
               </Label>
               <Select
                 value={formData.categoryName}
                 onValueChange={(value) => {
+                  // Check if category is actually changing
+                  const isChanging = formData.categoryName !== value
+
                   handleInputChange("categoryName", value)
                   // Find the selected category and set its ID
                   const category = categories.find(cat => cat?.CategoryId?.toString() === value)
                   if (category && category.CategoryId) {
                     setSelectedCategoryId(category.CategoryId)
+
+                    // If category changed, clear everything below: content, sizes, quality, processes, applied contents
+                    if (isChanging) {
+                      // Clear content selection
+                      setSelectedContentIds([])
+                      setSelectedContent(null)
+                      handleInputChange("contentType", "")
+
+                      // Clear sizes and quality (planDetails)
+                      setPlanDetails({})
+
+                      // Clear processes
+                      setSelectedProcesses([])
+
+                      // Clear applied contents grid
+                      setContentGridData([])
+
+                      clientLogger.log('[Category Change] Cleared all: content, sizes, quality, processes, applied contents')
+                    }
                   }
                 }}
               >
-                <SelectTrigger id="contentCategory" className={`text-sm h-10 ${validationErrors.categoryName ? "border-red-500" : ""}`}>
-                  <SelectValue />
+                <SelectTrigger id="contentCategory" className={`text-sm h-10 w-full overflow-hidden ${validationErrors.categoryName ? "border-red-500" : ""}`}>
+                  <span className="truncate block max-w-[calc(100%-20px)]">
+                    {formData.categoryName
+                      ? categories.find(cat => cat?.CategoryId?.toString() === formData.categoryName)?.CategoryName || 'Select Category'
+                      : 'Select Category'
+                    }
+                  </span>
                 </SelectTrigger>
-                <SelectContent>
-                  {categories.length > 0 ? (
-                    categories
-                      .filter(category => category?.CategoryId && category?.CategoryName)
-                      .map((category) => (
-                        <SelectItem key={category.CategoryId} value={category.CategoryId.toString()}>
-                          {category.CategoryName}
-                        </SelectItem>
-                      ))
-                  ) : (
-                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                  )}
+                <SelectContent className="max-w-[250px]">
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {categories.length > 0 ? (
+                      categories
+                        .filter(category => category?.CategoryId && category?.CategoryName)
+                        .map((category) => (
+                          <SelectItem key={category.CategoryId} value={category.CategoryId.toString()} className="max-w-[230px]">
+                            <span className="truncate block max-w-[200px]">{category.CategoryName}</span>
+                          </SelectItem>
+                        ))
+                    ) : (
+                      <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                    )}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
@@ -2578,7 +2965,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             <div className="border rounded-lg p-3 md:p-4 mb-4">
               <span className="text-sm font-medium block mb-3">Paper Details</span>
               <div className="grid grid-cols-2 gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 overflow-hidden">
                   <Label htmlFor="itemPlanQuality" className="text-sm">
                     Board <span className="text-red-500">*</span>
                   </Label>
@@ -2592,11 +2979,11 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       handlePlanDetailChange('ItemPlanFinish', '')
                     }}
                   >
-                    <SelectTrigger id="itemPlanQuality" className="text-sm h-10 w-full">
-                      <SelectValue className="truncate block overflow-hidden text-ellipsis" placeholder="Select board" />
+                    <SelectTrigger id="itemPlanQuality" className="text-sm h-10 w-full overflow-hidden">
+                      <span className="truncate block max-w-[calc(100%-20px)]">{planDetails.ItemPlanQuality || 'Select board'}</span>
                     </SelectTrigger>
-                    <SelectContent>
-                      <div className="px-2 pb-2 sticky top-0 bg-white z-10">
+                    <SelectContent className="max-w-[250px] p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
+                      <div className="px-2 py-2 border-b bg-white sticky top-0 z-10">
                         <Input
                           placeholder="Search board..."
                           value={qualitySearch}
@@ -2604,32 +2991,35 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                           className="h-8 text-sm"
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
+                          onFocus={(e) => e.stopPropagation()}
                         />
                       </div>
-                      {qualities.length > 0 ? (
-                        qualities
-                          .filter((quality) => {
-                            const qualityValue = quality.Quality || quality
-                            return qualityValue.toString().toLowerCase().includes(qualitySearch.toLowerCase())
-                          })
-                          .map((quality, index) => (
-                            <SelectItem
-                              key={index}
-                              value={quality.Quality || quality}
-                              className="max-w-full"
-                            >
-                              <div className="truncate" title={quality.Quality || quality}>
-                                {quality.Quality || quality}
-                              </div>
-                            </SelectItem>
-                          ))
-                      ) : (
-                        <SelectItem value="loading" disabled>Loading qualities...</SelectItem>
-                      )}
+                      <div className="max-h-[150px] overflow-y-auto">
+                        {qualities.length > 0 ? (
+                          qualities
+                            .filter((quality) => {
+                              const qualityValue = quality.Quality || quality
+                              return qualityValue.toString().toLowerCase().includes(qualitySearch.toLowerCase())
+                            })
+                            .map((quality, index) => (
+                              <SelectItem
+                                key={index}
+                                value={quality.Quality || quality}
+                                className="max-w-[230px]"
+                              >
+                                <span className="truncate block max-w-[200px]" title={quality.Quality || quality}>
+                                  {quality.Quality || quality}
+                                </span>
+                              </SelectItem>
+                            ))
+                        ) : (
+                          <SelectItem value="loading" disabled>Loading qualities...</SelectItem>
+                        )}
+                      </div>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 overflow-hidden">
                   <Label htmlFor="itemPlanGsm" className="text-sm">
                     GSM <span className="text-red-500">*</span>
                   </Label>
@@ -2643,12 +3033,12 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     }}
                     disabled={!planDetails.ItemPlanQuality}
                   >
-                    <SelectTrigger id="itemPlanGsm" className="text-sm h-10 w-full">
-                      <SelectValue className="truncate" />
+                    <SelectTrigger id="itemPlanGsm" className="text-sm h-10 w-full overflow-hidden">
+                      <span className="truncate block max-w-[calc(100%-20px)]">{planDetails.ItemPlanGsm || 'Select GSM'}</span>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-w-[250px] p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
                       {gsmOptions.length > 0 && (
-                        <div className="px-2 pb-2 sticky top-0 bg-white z-10">
+                        <div className="px-2 py-2 border-b bg-white sticky top-0 z-10">
                           <Input
                             placeholder="Search GSM..."
                             value={gsmSearch}
@@ -2656,36 +3046,39 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                             className="h-8 text-sm"
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
+                            onFocus={(e) => e.stopPropagation()}
                           />
                         </div>
                       )}
-                      {gsmOptions.length > 0 ? (
-                        gsmOptions
-                          .filter((gsm) => {
-                            const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
-                            const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
-                            return gsmDisplay && gsmDisplay !== '' && gsmDisplay !== 'undefined' && gsmDisplay !== 'null' && gsmDisplay.toLowerCase().includes(gsmSearch.toLowerCase())
-                          })
-                          .map((gsm, index) => {
-                            // GSM can be a number directly or an object with gsm/GSM field
-                            const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
-                            const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
+                      <div className="max-h-[150px] overflow-y-auto">
+                        {gsmOptions.length > 0 ? (
+                          gsmOptions
+                            .filter((gsm) => {
+                              const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
+                              const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
+                              return gsmDisplay && gsmDisplay !== '' && gsmDisplay !== 'undefined' && gsmDisplay !== 'null' && gsmDisplay.toLowerCase().includes(gsmSearch.toLowerCase())
+                            })
+                            .map((gsm, index) => {
+                              // GSM can be a number directly or an object with gsm/GSM field
+                              const gsmValue = typeof gsm === 'object' ? ((gsm as any).gsm || (gsm as any).GSM) : gsm
+                              const gsmDisplay = gsmValue?.toString() || (typeof gsm === 'object' ? JSON.stringify(gsm) : String(gsm))
 
-                            return (
-                              <SelectItem key={index} value={gsmDisplay}>
-                                {gsmDisplay}
-                              </SelectItem>
-                            )
-                          })
-                      ) : (
-                        <SelectItem value="loading" disabled>
-                          {planDetails.ItemPlanQuality ? 'Loading GSM...' : 'Select board first'}
-                        </SelectItem>
-                      )}
+                              return (
+                                <SelectItem key={index} value={gsmDisplay} className="max-w-[230px]">
+                                  <span className="truncate block max-w-[200px]">{gsmDisplay}</span>
+                                </SelectItem>
+                              )
+                            })
+                        ) : (
+                          <SelectItem value="loading" disabled>
+                            {planDetails.ItemPlanQuality ? 'Loading GSM...' : 'Select board first'}
+                          </SelectItem>
+                        )}
+                      </div>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="min-w-0 overflow-hidden">
                   <Label htmlFor="itemPlanMill" className="text-sm">Mill</Label>
                   <Select
                     value={planDetails.ItemPlanMill || ''}
@@ -2696,81 +3089,85 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     }}
                     disabled={!planDetails.ItemPlanGsm}
                   >
-                    <SelectTrigger id="itemPlanMill" className="text-sm">
-                      <SelectValue />
+                    <SelectTrigger id="itemPlanMill" className="text-sm h-10 w-full overflow-hidden">
+                      <span className="truncate block max-w-[calc(100%-20px)]">{planDetails.ItemPlanMill || 'Select mill'}</span>
                     </SelectTrigger>
-                    <SelectContent>
-                      {millOptions.length > 0 ? (
-                        millOptions.map((mill, index) => {
-                          try {
-                            // Mill can be a string directly or an object with Mill/mill field
-                            const millValue = typeof mill === 'object' ? ((mill as any).Mill || (mill as any).mill) : mill
-                            const millDisplay = millValue?.toString() || (typeof mill === 'object' ? JSON.stringify(mill) : String(mill))
+                    <SelectContent className="max-w-[250px]">
+                      <div className="max-h-[150px] overflow-y-auto">
+                        {millOptions.length > 0 ? (
+                          millOptions.map((mill, index) => {
+                            try {
+                              // Mill can be a string directly or an object with Mill/mill field
+                              const millValue = typeof mill === 'object' ? ((mill as any).Mill || (mill as any).mill) : mill
+                              const millDisplay = millValue?.toString() || (typeof mill === 'object' ? JSON.stringify(mill) : String(mill))
 
-                            // Skip if we still have an object (shouldn't happen but safety check)
-                            if (typeof millDisplay === 'object') {
+                              // Skip if we still have an object (shouldn't happen but safety check)
+                              if (typeof millDisplay === 'object') {
+                                return null
+                              }
+
+                              // Skip if empty or invalid
+                              if (!millDisplay || millDisplay === '' || millDisplay === 'undefined' || millDisplay === 'null') {
+                                return null
+                              }
+
+                              return (
+                                <SelectItem key={index} value={millDisplay} className="max-w-[230px]">
+                                  <span className="truncate block max-w-[200px]">{millDisplay}</span>
+                                </SelectItem>
+                              )
+                            } catch (error) {
                               return null
                             }
-
-                            // Skip if empty or invalid
-                            if (!millDisplay || millDisplay === '' || millDisplay === 'undefined' || millDisplay === 'null') {
-                              return null
-                            }
-
-                            return (
-                              <SelectItem key={index} value={millDisplay}>
-                                {millDisplay}
-                              </SelectItem>
-                            )
-                          } catch (error) {
-                            return null
-                          }
-                        }).filter(Boolean)
-                      ) : (
-                        <SelectItem value="loading" disabled>
-                          {planDetails.ItemPlanGsm ? 'Loading mills...' : 'Select GSM first'}
-                        </SelectItem>
-                      )}
+                          }).filter(Boolean)
+                        ) : (
+                          <SelectItem value="loading" disabled>
+                            {planDetails.ItemPlanGsm ? 'Loading mills...' : 'Select GSM first'}
+                          </SelectItem>
+                        )}
+                      </div>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="min-w-0 overflow-hidden">
                   <Label htmlFor="itemPlanFinish" className="text-sm">Finish</Label>
                   <Select
                     value={planDetails.ItemPlanFinish || ''}
                     onValueChange={(value) => handlePlanDetailChange('ItemPlanFinish', value)}
                     disabled={!planDetails.ItemPlanMill}
                   >
-                    <SelectTrigger id="itemPlanFinish" className="text-sm">
-                      <SelectValue />
+                    <SelectTrigger id="itemPlanFinish" className="text-sm h-10 w-full overflow-hidden">
+                      <span className="truncate block max-w-[calc(100%-20px)]">{planDetails.ItemPlanFinish || 'Select finish'}</span>
                     </SelectTrigger>
-                    <SelectContent>
-                      {finishOptions.length > 0 ? (
-                        finishOptions.map((finish, index) => {
-                          // Finish can be a string directly or an object with Finish/finish field
-                          const finishValue = typeof finish === 'object' ? ((finish as any).Finish || (finish as any).finish) : finish
-                          const finishDisplay = finishValue?.toString() || (typeof finish === 'object' ? JSON.stringify(finish) : String(finish))
+                    <SelectContent className="max-w-[250px]">
+                      <div className="max-h-[150px] overflow-y-auto">
+                        {finishOptions.length > 0 ? (
+                          finishOptions.map((finish, index) => {
+                            // Finish can be a string directly or an object with Finish/finish field
+                            const finishValue = typeof finish === 'object' ? ((finish as any).Finish || (finish as any).finish) : finish
+                            const finishDisplay = finishValue?.toString() || (typeof finish === 'object' ? JSON.stringify(finish) : String(finish))
 
-                          // Skip if empty or invalid
-                          if (!finishDisplay || finishDisplay === '' || finishDisplay === 'undefined' || finishDisplay === 'null') {
-                            return null
-                          }
+                            // Skip if empty or invalid
+                            if (!finishDisplay || finishDisplay === '' || finishDisplay === 'undefined' || finishDisplay === 'null') {
+                              return null
+                            }
 
-                          return (
-                            <SelectItem key={index} value={finishDisplay}>
-                              {finishDisplay}
-                            </SelectItem>
-                          )
-                        }).filter(Boolean)
-                      ) : (
-                        <SelectItem value="loading" disabled>
-                          {planDetails.ItemPlanMill ? 'Loading finishes...' : 'Select mill first'}
-                        </SelectItem>
-                      )}
+                            return (
+                              <SelectItem key={index} value={finishDisplay} className="max-w-[230px]">
+                                <span className="truncate block max-w-[200px]">{finishDisplay}</span>
+                              </SelectItem>
+                            )
+                          }).filter(Boolean)
+                        ) : (
+                          <SelectItem value="loading" disabled>
+                            {planDetails.ItemPlanMill ? 'Loading finishes...' : 'Select mill first'}
+                          </SelectItem>
+                        )}
+                      </div>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="min-w-0 overflow-hidden">
                   <Label htmlFor="planWastageType" className="text-sm">Wastage Type</Label>
                   <Select
                     value={planDetails.PlanWastageType || ''}
@@ -2780,14 +3177,24 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       handlePlanDetailChange('WastageValue', '')
                     }}
                   >
-                    <SelectTrigger id="planWastageType" className="text-sm h-10">
-                      <SelectValue placeholder="Select wastage type" />
+                    <SelectTrigger id="planWastageType" className="text-sm h-10 w-full overflow-hidden">
+                      <span className="truncate block max-w-[calc(100%-20px)]">{planDetails.PlanWastageType || 'Select wastage type'}</span>
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Machine Default">Machine Default</SelectItem>
-                      <SelectItem value="Category Process Wise Wastage">Category Process Wise Wastage</SelectItem>
-                      <SelectItem value="Percentage">Percentage</SelectItem>
-                      <SelectItem value="Sheets">Sheets</SelectItem>
+                    <SelectContent className="max-w-[250px]">
+                      <div className="max-h-[150px] overflow-y-auto">
+                        <SelectItem value="Machine Default" className="max-w-[230px]">
+                          <span className="truncate block max-w-[200px]">Machine Default</span>
+                        </SelectItem>
+                        <SelectItem value="Category Process Wise Wastage" className="max-w-[230px]">
+                          <span className="truncate block max-w-[200px]">Category Process Wise Wastage</span>
+                        </SelectItem>
+                        <SelectItem value="Percentage" className="max-w-[230px]">
+                          <span className="truncate block max-w-[200px]">Percentage</span>
+                        </SelectItem>
+                        <SelectItem value="Sheets" className="max-w-[230px]">
+                          <span className="truncate block max-w-[200px]">Sheets</span>
+                        </SelectItem>
+                      </div>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2920,6 +3327,245 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               </div>
             )}
           </div>
+
+          {/* Apply Content Button */}
+          <div className="flex justify-end mt-4">
+            <Button
+              type="button"
+              onClick={handleApplyContent}
+              disabled={selectedContentIds.length === 0}
+              className="bg-[#005180] hover:bg-[#004875]"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Apply Content
+            </Button>
+          </div>
+
+          {/* Applied Contents Cards */}
+          {contentGridData.length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium">Applied Contents ({contentGridData.length})</h4>
+                {contentGridData.length > 2 && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-sm text-primary p-0 h-auto"
+                    onClick={() => setViewAllContentsOpen(true)}
+                  >
+                    View All
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {contentGridData.slice(0, 2).map((content) => (
+                  <div
+                    key={content.id}
+                    className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow min-w-[280px] flex-shrink-0"
+                  >
+                    {/* Card Header with Content Name and Actions */}
+                    <div className="flex items-start justify-between mb-3">
+                      <h5 className="font-semibold text-base text-primary truncate max-w-[150px]" title={content.ContentName || content.contentName}>
+                        {content.ContentName || content.contentName}
+                      </h5>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleContentEdit(content)}
+                          className="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          title="Edit"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleContentDuplicate(content)}
+                          className="h-7 w-7 text-green-600 hover:text-green-800 hover:bg-green-50"
+                          title="Duplicate"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleContentDelete(content.id)}
+                          className="h-7 w-7 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Card Body with Details */}
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-start gap-2">
+                        <span className="text-muted-foreground font-medium min-w-[70px]">Size:</span>
+                        <span className="text-foreground">{content.Size || '-'}</span>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <span className="text-muted-foreground font-medium min-w-[70px]">Processes:</span>
+                        <span className="text-foreground truncate max-w-[150px]" title={content.rawData?.processes?.length > 0 ? content.rawData.processes.map((p: any) => p.ProcessName).join(', ') : '-'}>
+                          {content.rawData?.processes?.length > 0
+                            ? content.rawData.processes.map((p: any) => p.ProcessName).join(', ')
+                            : '-'
+                          }
+                        </span>
+                      </div>
+
+                      {/* Material Details */}
+                      <div className="pt-2 border-t mt-2">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          {content.rawData?.planDetails?.ItemPlanQuality && (
+                            <div>
+                              <span className="text-muted-foreground">Board: </span>
+                              <span className="font-medium">{content.rawData.planDetails.ItemPlanQuality}</span>
+                            </div>
+                          )}
+                          {content.rawData?.planDetails?.ItemPlanGsm && (
+                            <div>
+                              <span className="text-muted-foreground">GSM: </span>
+                              <span className="font-medium">{content.rawData.planDetails.ItemPlanGsm}</span>
+                            </div>
+                          )}
+                          {content.rawData?.planDetails?.ItemPlanMill && (
+                            <div>
+                              <span className="text-muted-foreground">Mill: </span>
+                              <span className="font-medium">{content.rawData.planDetails.ItemPlanMill}</span>
+                            </div>
+                          )}
+                          {content.rawData?.planDetails?.ItemPlanFinish && content.rawData.planDetails.ItemPlanFinish !== '-' && (
+                            <div>
+                              <span className="text-muted-foreground">Finish: </span>
+                              <span className="font-medium">{content.rawData.planDetails.ItemPlanFinish}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* View All Contents Dialog */}
+              <Dialog open={viewAllContentsOpen} onOpenChange={setViewAllContentsOpen}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>All Applied Contents ({contentGridData.length})</DialogTitle>
+                  </DialogHeader>
+                  <div className="overflow-y-auto flex-1 pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {contentGridData.map((content) => (
+                        <div
+                          key={content.id}
+                          className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          {/* Card Header with Content Name and Actions */}
+                          <div className="flex items-start justify-between mb-3">
+                            <h5 className="font-semibold text-base text-primary truncate max-w-[200px]" title={content.ContentName || content.contentName}>
+                              {content.ContentName || content.contentName}
+                            </h5>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  handleContentEdit(content)
+                                  setViewAllContentsOpen(false)
+                                }}
+                                className="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                title="Edit"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  handleContentDuplicate(content)
+                                  setViewAllContentsOpen(false)
+                                }}
+                                className="h-7 w-7 text-green-600 hover:text-green-800 hover:bg-green-50"
+                                title="Duplicate"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleContentDelete(content.id)}
+                                className="h-7 w-7 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Card Body with Details */}
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-start gap-2">
+                              <span className="text-muted-foreground font-medium min-w-[70px]">Size:</span>
+                              <span className="text-foreground">{content.Size || '-'}</span>
+                            </div>
+
+                            <div className="flex items-start gap-2">
+                              <span className="text-muted-foreground font-medium min-w-[70px]">Processes:</span>
+                              <span className="text-foreground">
+                                {content.rawData?.processes?.length > 0
+                                  ? content.rawData.processes.map((p: any) => p.ProcessName).join(', ')
+                                  : '-'
+                                }
+                              </span>
+                            </div>
+
+                            {/* Material Details */}
+                            <div className="pt-2 border-t mt-2">
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                {content.rawData?.planDetails?.ItemPlanQuality && (
+                                  <div>
+                                    <span className="text-muted-foreground">Board: </span>
+                                    <span className="font-medium">{content.rawData.planDetails.ItemPlanQuality}</span>
+                                  </div>
+                                )}
+                                {content.rawData?.planDetails?.ItemPlanGsm && (
+                                  <div>
+                                    <span className="text-muted-foreground">GSM: </span>
+                                    <span className="font-medium">{content.rawData.planDetails.ItemPlanGsm}</span>
+                                  </div>
+                                )}
+                                {content.rawData?.planDetails?.ItemPlanMill && (
+                                  <div>
+                                    <span className="text-muted-foreground">Mill: </span>
+                                    <span className="font-medium">{content.rawData.planDetails.ItemPlanMill}</span>
+                                  </div>
+                                )}
+                                {content.rawData?.planDetails?.ItemPlanFinish && content.rawData.planDetails.ItemPlanFinish !== '-' && (
+                                  <div>
+                                    <span className="text-muted-foreground">Finish: </span>
+                                    <span className="font-medium">{content.rawData.planDetails.ItemPlanFinish}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
         </CardContent>
       </Card>
       )}

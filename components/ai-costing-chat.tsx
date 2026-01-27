@@ -6,6 +6,7 @@ import { Send, Loader2, Mic, Check, FileText, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollableOptionsList, ActionButtonsRow } from "@/components/ui/scrollable-options-list"
 import { sendMessage, getConversations } from "@/lib/chat-api"
 import { useAutoSaveDraft } from "@/hooks/use-auto-save-draft"
 import { clientLogger } from "@/lib/logger"
@@ -268,6 +269,7 @@ function renderCostingSummary(text: string): React.ReactNode | null {
   let otherMaterialCost = '-'
   let conversionCost = '-'
   let profit = '-'
+  let profitPercentage: number | null = null
   let freightCost = '-'
   let totalCost = '-'
   let status = 'Estimated'
@@ -279,6 +281,11 @@ function renderCostingSummary(text: string): React.ReactNode | null {
     const jsonMatch = text.match(/\{[\s\S]*"Type"\s*:\s*"CostingBot"[\s\S]*\}/)
     if (jsonMatch) {
       const jsonData = JSON.parse(jsonMatch[0])
+
+      // Debug: Log the full JSON structure to see what fields are available
+      console.log('🔍 Costing Summary JSON Data:', JSON.stringify(jsonData, null, 2))
+      console.log('🔍 CostStructurePer1000 keys:', jsonData.CostStructurePer1000 ? Object.keys(jsonData.CostStructurePer1000) : 'N/A')
+      console.log('🔍 Root level keys:', Object.keys(jsonData))
 
       if (jsonData.CustomerDetails) {
         customerName = jsonData.CustomerDetails.CustomerName || '-'
@@ -294,8 +301,26 @@ function renderCostingSummary(text: string): React.ReactNode | null {
         otherMaterialCost = jsonData.CostStructurePer1000.OtherMaterialCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
         conversionCost = jsonData.CostStructurePer1000.ConversionCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
         profit = jsonData.CostStructurePer1000.Profit?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+        // Get profit percentage - check multiple possible field names (including at root level)
+        profitPercentage = jsonData.CostStructurePer1000.ProfitPercentage ??
+                          jsonData.CostStructurePer1000.ProfitPercent ??
+                          jsonData.CostStructurePer1000.Margin ??
+                          jsonData.CostStructurePer1000.ProfitMarginPercent ??
+                          jsonData.ProfitPercentage ??
+                          jsonData.ProfitPercent ??
+                          jsonData.Margin ??
+                          null
         freightCost = jsonData.CostStructurePer1000.FreightCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
         totalCost = jsonData.CostStructurePer1000.TotalCostPer1000?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+      }
+
+      // Also check for profit percentage at root level if not found
+      if (profitPercentage === null) {
+        profitPercentage = jsonData.ProfitPercentage ??
+                          jsonData.ProfitPercent ??
+                          jsonData.Margin ??
+                          jsonData.ProfitMarginPercent ??
+                          null
       }
 
       if (jsonData.Status) {
@@ -395,8 +420,12 @@ function renderCostingSummary(text: string): React.ReactNode | null {
             <span className="text-[#2F4669] text-sm font-medium">₹ {conversionCost}</span>
           </div>
           <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-[#005180] text-sm font-medium">Profit Margin</span>
-            <span className="text-green-600 text-sm font-medium">₹ {profit}</span>
+            <span className={`text-sm font-medium ${profitPercentage !== null && profitPercentage < 0 ? 'text-red-600' : 'text-[#005180]'}`}>
+              Profit Margin {profitPercentage !== null ? `(${profitPercentage.toFixed(2)}%)` : ''}
+            </span>
+            <span className={`text-sm font-medium ${profitPercentage !== null && profitPercentage < 0 ? 'text-red-600' : 'text-green-600'}`}>
+              ₹ {profit}
+            </span>
           </div>
           {freightCost !== '-' && (
             <div className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -717,11 +746,14 @@ export function AICostingChat({
             }
           }
 
-          // Check if the message contains "select" or is asking about plant/customer/category (case-insensitive)
+          // Check if the message contains "select" or is asking about plant/customer/category/content types (case-insensitive)
           const shouldShowButtons = /select/i.test(aiResponseText) ||
             /which\s+plant/i.test(aiResponseText) ||
             /which\s+customer/i.test(aiResponseText) ||
             /which\s+category/i.test(aiResponseText) ||
+            /which\s+one\s+do\s+you\s+need/i.test(aiResponseText) ||
+            /Available\s+content\s+types/i.test(aiResponseText) ||
+            /content\s+types?:/i.test(aiResponseText) ||
             /\*\*Customers:\*\*/i.test(aiResponseText) ||
             /Categories:/i.test(aiResponseText)
 
@@ -1673,56 +1705,32 @@ export function AICostingChat({
                   </div>
                 </div>
 
-                {/* Display option buttons only when message contains "select" */}
+                {/* Display option buttons - use ActionButtonsRow for YES/NO or CONFIRM/MODIFY, ScrollableOptionsList for others */}
                 {message.options && message.options.length > 0 && (
-                  <div className={`mt-3 ml-0 ${
-                    // Check if it's YES/NO or CONFIRM/MODIFY buttons - show in row
-                    (message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
-                      (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))
-                      ? 'flex flex-row gap-3'
-                      : 'flex flex-col gap-2 max-w-[95%] md:max-w-[40%]'
-                    }`}>
-                    {message.options.map((option, optionIndex) => {
-                      const isMultiSelect = message.allowMultiSelect || false
-                      const isSelected = isMultiSelect && (selectedOptions[message.id] || []).includes(option)
-                      const isYesNo = message.options?.length === 2 && message.options.includes('YES') && message.options.includes('NO')
-                      const isConfirmModify = message.options?.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY')
-
-                      return (
-                        <Button
-                          key={`${message.id}-option-${optionIndex}`}
-                          variant={isSelected ? "default" : "outline"}
-                          onClick={() => handleOptionSelect(option, message.id, isMultiSelect)}
-                          disabled={isTyping}
-                          className={`justify-center text-center h-auto py-2 px-4 text-xs sm:text-sm sm:py-3 sm:px-6 transition-all ${isYesNo
-                            ? option === 'YES'
-                              ? 'bg-transparent text-green-600 hover:bg-green-50 border-2 border-green-600'
-                              : 'bg-transparent text-red-600 hover:bg-red-50 border-2 border-red-600'
-                            : isConfirmModify
-                              ? option === 'CONFIRM'
-                                ? 'bg-transparent text-green-600 hover:bg-green-50 border-2 border-green-600'
-                                : 'bg-transparent text-orange-500 hover:bg-orange-50 border-2 border-orange-500'
-                              : isSelected
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "hover:bg-primary/10 hover:border-primary w-full justify-start text-left"
-                            }`}
-                        >
-                          <span>{option === 'CONFIRM' ? 'Confirm' : option === 'MODIFY' ? 'Modify' : option}</span>
-                        </Button>
-                      )
-                    })}
-
-                    {/* Submit button for multi-select */}
-                    {message.allowMultiSelect && (selectedOptions[message.id] || []).length > 0 && (
-                      <Button
-                        onClick={() => handleMultiSelectSubmit(message.id)}
-                        disabled={isTyping}
-                        className="mt-2 bg-primary text-white hover:bg-primary/90 w-full py-2 text-xs sm:text-sm sm:py-3"
-                      >
-                        Submit Selected ({(selectedOptions[message.id] || []).length})
-                      </Button>
+                  <>
+                    {/* Check if it's YES/NO or CONFIRM/MODIFY - use horizontal button row */}
+                    {((message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
+                      (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))) ? (
+                      <ActionButtonsRow
+                        options={message.options}
+                        messageId={message.id}
+                        onOptionSelect={handleOptionSelect}
+                        isTyping={isTyping}
+                      />
+                    ) : (
+                      /* Use scrollable list for all other options */
+                      <ScrollableOptionsList
+                        options={message.options}
+                        messageId={message.id}
+                        isMultiSelect={message.allowMultiSelect || false}
+                        selectedOptions={selectedOptions[message.id] || []}
+                        onOptionSelect={handleOptionSelect}
+                        onMultiSelectSubmit={handleMultiSelectSubmit}
+                        isTyping={isTyping}
+                        maxVisibleItems={5}
+                      />
                     )}
-                  </div>
+                  </>
                 )}
 
                 {/* PDF Download buttons when quotation is created */}

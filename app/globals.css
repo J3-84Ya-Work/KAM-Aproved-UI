@@ -588,3 +588,71 @@
     opacity: 0.6;
   }
 }
+
+/* ============================================
+   SCREENSHOT & PRINT PREVENTION STYLES
+   (DISABLED FOR DEVELOPMENT)
+   ============================================ */
+
+/*
+NOTE: Screenshot prevention is currently disabled.
+To re-enable, uncomment the styles below and add
+<ScreenshotPrevention /> back to layout.tsx
+*/
+
+/*
+body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+button img, a img, [role="button"] img {
+  pointer-events: auto;
+}
+
+@media print {
+  html, body {
+    display: none !important;
+    visibility: hidden !important;
+    background: #000 !important;
+  }
+
+  * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  html::before {
+    content: "Printing is not allowed for security reasons";
+    display: block !important;
+    visibility: visible !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #000;
+    color: #000;
+    z-index: 999999;
+  }
+}
+*/

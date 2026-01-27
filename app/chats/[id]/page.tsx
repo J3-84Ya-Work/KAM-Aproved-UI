@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { MessageSquare, User, ArrowLeft, Send, Loader2, Mic, Check } from "lucide-react"
+import { ScrollableOptionsList, ActionButtonsRow } from "@/components/ui/scrollable-options-list"
 import { getMessages, Message } from "@/lib/chat-api"
 import { formatDistanceToNow } from "date-fns"
 import { clientLogger } from "@/lib/logger"
@@ -682,16 +683,17 @@ export default function ConversationPage() {
     }
   }
 
-  // Option select handler
-  const handleOptionSelect = (option: string, messageId: number, isMultiSelect: boolean) => {
+  // Option select handler - supports both string and number messageId for compatibility
+  const handleOptionSelect = (option: string, messageId: string | number, isMultiSelect: boolean) => {
+    const numericId = typeof messageId === 'string' ? Number(messageId) : messageId
     if (isMultiSelect) {
       setSelectedOptions(prev => {
-        const currentSelections = prev[messageId] || []
+        const currentSelections = prev[numericId] || []
         const isSelected = currentSelections.includes(option)
         if (isSelected) {
-          return { ...prev, [messageId]: currentSelections.filter(opt => opt !== option) }
+          return { ...prev, [numericId]: currentSelections.filter(opt => opt !== option) }
         } else {
-          return { ...prev, [messageId]: [...currentSelections, option] }
+          return { ...prev, [numericId]: [...currentSelections, option] }
         }
       })
       // Focus on input after multi-select toggle
@@ -845,15 +847,16 @@ export default function ConversationPage() {
     }
   }
 
-  // Multi-select submit handler
-  const handleMultiSelectSubmit = (messageId: number) => {
-    const selections = selectedOptions[messageId] || []
+  // Multi-select submit handler - supports both string and number messageId for compatibility
+  const handleMultiSelectSubmit = (messageId: string | number) => {
+    const numericId = typeof messageId === 'string' ? Number(messageId) : messageId
+    const selections = selectedOptions[numericId] || []
     if (selections.length > 0) {
       const message = selections.join(', ')
       handleSendMessageWithText(message)
       setSelectedOptions(prev => {
         const newState = { ...prev }
-        delete newState[messageId]
+        delete newState[numericId]
         return newState
       })
       // Focus on input after submit with multiple attempts
@@ -945,57 +948,32 @@ export default function ConversationPage() {
                             </div>
                           </div>
 
-                          {/* Display option buttons */}
+                          {/* Display option buttons - use ActionButtonsRow for YES/NO or CONFIRM/MODIFY, ScrollableOptionsList for others */}
                           {message.options && message.options.length > 0 && (
-                            <div className={`mt-3 ml-0 ${
-                              (message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
-                              (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))
-                                ? 'flex flex-row gap-3'
-                                : 'flex flex-col gap-2 max-w-[95%] md:max-w-[40%]'
-                            }`}>
-                              {message.options.map((option, optionIndex) => {
-                                const isMultiSelect = message.allowMultiSelect || false
-                                const isSelected = isMultiSelect && (selectedOptions[message.messageId] || []).includes(option)
-                                const isYesNo = message.options?.length === 2 && message.options.includes('YES') && message.options.includes('NO')
-                                const isConfirmModify = message.options?.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY')
-
-                                return (
-                                  <Button
-                                    key={`${message.messageId}-option-${optionIndex}`}
-                                    variant={isSelected ? "default" : "outline"}
-                                    onClick={() => handleOptionSelect(option, message.messageId, isMultiSelect)}
-                                    disabled={isSending}
-                                    className={`justify-center text-center h-auto py-2 px-4 text-xs sm:text-sm sm:py-3 sm:px-6 transition-all ${
-                                      isYesNo
-                                        ? option === 'YES'
-                                          ? 'bg-transparent text-green-600 hover:bg-green-50 border-2 border-green-600'
-                                          : 'bg-transparent text-red-600 hover:bg-red-50 border-2 border-red-600'
-                                        : isConfirmModify
-                                          ? option === 'CONFIRM'
-                                            ? 'bg-transparent text-green-600 hover:bg-green-50 border-2 border-green-600'
-                                            : 'bg-transparent text-orange-500 hover:bg-orange-50 border-2 border-orange-500'
-                                          : isSelected
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'hover:bg-primary/10 hover:border-primary w-full justify-start text-left'
-                                    }`}
-                                  >
-                                    {!isYesNo && !isConfirmModify && <span className="font-semibold mr-2 text-primary">{optionIndex + 1}.</span>}
-                                    <span>{option === 'CONFIRM' ? 'Confirm' : option === 'MODIFY' ? 'Modify' : option}</span>
-                                  </Button>
-                                )
-                              })}
-
-                              {/* Submit button for multi-select */}
-                              {message.allowMultiSelect && (selectedOptions[message.messageId] || []).length > 0 && (
-                                <Button
-                                  onClick={() => handleMultiSelectSubmit(message.messageId)}
-                                  disabled={isSending}
-                                  className="mt-2 bg-primary text-white hover:bg-primary/90 w-full"
-                                >
-                                  Submit Selected ({(selectedOptions[message.messageId] || []).length})
-                                </Button>
+                            <>
+                              {/* Check if it's YES/NO or CONFIRM/MODIFY - use horizontal button row */}
+                              {((message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
+                                (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))) ? (
+                                <ActionButtonsRow
+                                  options={message.options}
+                                  messageId={String(message.messageId)}
+                                  onOptionSelect={handleOptionSelect}
+                                  isTyping={isSending}
+                                />
+                              ) : (
+                                /* Use scrollable list for all other options */
+                                <ScrollableOptionsList
+                                  options={message.options}
+                                  messageId={String(message.messageId)}
+                                  isMultiSelect={message.allowMultiSelect || false}
+                                  selectedOptions={selectedOptions[message.messageId] || []}
+                                  onOptionSelect={handleOptionSelect}
+                                  onMultiSelectSubmit={handleMultiSelectSubmit}
+                                  isTyping={isSending}
+                                  maxVisibleItems={5}
+                                />
                               )}
-                            </div>
+                            </>
                           )}
                         </div>
                       )})}

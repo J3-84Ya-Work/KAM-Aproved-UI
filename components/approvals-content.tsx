@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { CheckCircle2, XCircle, Clock, AlertTriangle, Search, Eye, Mic, Calendar } from "lucide-react"
+import { TableSettingsButton } from "@/components/ui/table-settings"
 import {
   MaterialReactTable,
   type MRT_ColumnDef,
@@ -307,6 +308,59 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   const [quotationsForApproval, setQuotationsForApproval] = useState<any[]>([])
   const [isLoadingQuotations, setIsLoadingQuotations] = useState(true)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+
+  // Table settings state
+  const tableColumns = useMemo(() => [
+    { id: 'id', label: 'ID' },
+    { id: 'customer', label: 'Customer' },
+    { id: 'job', label: 'Job' },
+    { id: 'quotedCost', label: 'Quoted Cost' },
+    { id: 'margin', label: 'Margin' },
+    { id: 'requestedBy', label: 'Requested By' },
+    { id: 'status', label: 'Status' },
+    { id: 'validTill', label: 'Valid Till' },
+  ], [])
+
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('approvals-column-visibility')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) { }
+      }
+    }
+    return {}
+  })
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('approvals-column-order')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) { }
+      }
+    }
+    return tableColumns.map(col => col.id)
+  })
+
+  const [tableSortColumn, setTableSortColumn] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('approvals-sort-column') || ''
+    }
+    return ''
+  })
+
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('approvals-sort-direction') as 'asc' | 'desc') || 'desc'
+    }
+    return 'desc'
+  })
+
+  const resetTableSettings = () => {
+    setColumnVisibility({})
+    setColumnOrder(tableColumns.map(col => col.id))
+    setTableSortColumn('')
+    setTableSortDirection('desc')
+  }
 
   // Fetch quotations that need approval
   const fetchQuotationsForApproval = async () => {
@@ -643,20 +697,33 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
 
   return (
     <div className="space-y-4">
-      {/* Search Bar with Mic */}
-      <div className="relative w-full flex gap-2 items-center">
+      {/* Search Bar with Table Settings */}
+      <div className="relative mb-6 w-full flex gap-3 items-center">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Mic
+            onClick={() => alert("Voice input feature coming soon")}
+            className="pointer-events-auto absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer text-[#005180] hover:text-[#004875] transition-colors duration-200 z-10"
+          />
+          <Search className="pointer-events-none absolute left-12 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Find your approvals by ID, customer, or job..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-12 rounded-2xl border border-border/50 bg-white/90 pl-12 text-base font-medium shadow-[0_10px_30px_-20px_rgba(8,25,55,0.45)] focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:truncate"
+            className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
           />
         </div>
-        <Mic
-          onClick={() => alert("Voice input feature coming soon")}
-          className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
+        <TableSettingsButton
+          storageKey="approvals"
+          columns={tableColumns}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnOrder={columnOrder}
+          setColumnOrder={setColumnOrder}
+          sortColumn={tableSortColumn}
+          setSortColumn={setTableSortColumn}
+          sortDirection={tableSortDirection}
+          setSortDirection={setTableSortDirection}
+          onReset={resetTableSettings}
         />
       </div>
 
@@ -687,6 +754,11 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
             initialState={{
               pagination: { pageSize: 20, pageIndex: 0 },
             }}
+            state={{
+              columnVisibility,
+              sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
+            }}
+            onColumnVisibilityChange={setColumnVisibility}
             muiTablePaperProps={{
               sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
             }}

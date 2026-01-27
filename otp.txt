@@ -1,0 +1,883 @@
+// OTPAuthentication.cs
+// Complete OTP Authentication using Microsoft Graph API for Outlook Email
+// .NET Framework 4.8
+
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+using System.Data.SqlClient;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Threading.Tasks;
+using System.Web;
+using System.Web.Http;
+using Newtonsoft.Json;
+
+namespace YourNamespace.OTP
+{
+    #region ==================== MODELS ====================
+
+    /// <summary>
+    /// OTP Database Record
+    /// </summary>
+    public class OTPRecord
+    {
+        public int OTP_ID { get; set; }
+        public string Email { get; set; }
+        public string OTPCode { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+        public bool IsUsed { get; set; }
+        public DateTime? UsedAt { get; set; }
+        public string IPAddress { get; set; }
+        public string UserAgent { get; set; }
+    }
+
+    /// <summary>
+    /// Request to send OTP
+    /// </summary>
+    public class SendOTPRequest
+    {
+        public string Email { get; set; }
+        public string UserName { get; set; }
+        public string IPAddress { get; set; }
+        public string UserAgent { get; set; }
+    }
+
+    /// <summary>
+    /// Response for send OTP
+    /// </summary>
+    public class SendOTPResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; }
+        public int ExpirySeconds { get; set; }
+    }
+
+    /// <summary>
+    /// Request to verify OTP
+    /// </summary>
+    public class VerifyOTPRequest
+    {
+        public string Email { get; set; }
+        public string OTPCode { get; set; }
+        public string IPAddress { get; set; }
+        public string UserAgent { get; set; }
+    }
+
+    /// <summary>
+    /// Response for verify OTP
+    /// </summary>
+    public class VerifyOTPResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; }
+        public object UserData { get; set; }
+    }
+
+    #endregion
+
+    #region ==================== OUTLOOK GRAPH EMAIL SERVICE ====================
+
+    /// <summary>
+    /// Service to send emails using Microsoft Graph API
+    /// </summary>
+    public class OutlookGraphEmailService
+    {
+        private readonly string _tenantId;
+        private readonly string _clientId;
+        private readonly string _clientSecret;
+        private readonly string _senderEmail;
+        private readonly string _senderName;
+        private static string _accessToken;
+        private static DateTime _tokenExpiry;
+        private static readonly object _tokenLock = new object();
+
+        public OutlookGraphEmailService()
+        {
+            // Load from Web.config AppSettings
+            _tenantId = ConfigurationManager.AppSettings["OAUTH_TENANT_ID"];
+            _clientId = ConfigurationManager.AppSettings["OAUTH_CLIENT_ID"];
+            _clientSecret = ConfigurationManager.AppSettings["OAUTH_CLIENT_SECRET"];
+            _senderEmail = ConfigurationManager.AppSettings["EMAIL_ADDRESS"];
+            _senderName = ConfigurationManager.AppSettings["EMAIL_FROM_NAME"] ?? "Login OTP";
+        }
+
+        /// <summary>
+        /// Get Access Token using Client Credentials Flow (OAuth 2.0)
+        /// </summary>
+        private async Task<string> GetAccessTokenAsync()
+        {
+            // Return cached token if still valid
+            lock (_tokenLock)
+            {
+                if (!string.IsNullOrEmpty(_accessToken) && DateTime.UtcNow < _tokenExpiry)
+                {
+                    return _accessToken;
+                }
+            }
+
+            using (var client = new HttpClient())
+            {
+                var tokenEndpoint = $"https://login.microsoftonline.com/{_tenantId}/oauth2/v2.0/token";
+
+                var content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("client_id", _clientId),
+                    new KeyValuePair<string, string>("client_secret", _clientSecret),
+                    new KeyValuePair<string, string>("scope", "https://graph.microsoft.com/.default"),
+                    new KeyValuePair<string, string>("grant_type", "client_credentials")
+                });
+
+                var response = await client.PostAsync(tokenEndpoint, content);
+                var responseString = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Token Error: {responseString}");
+                    throw new Exception($"Failed to get access token: {response.StatusCode}");
+                }
+
+                dynamic tokenResponse = JsonConvert.DeserializeObject(responseString);
+                
+                lock (_tokenLock)
+                {
+                    _accessToken = tokenResponse.access_token;
+                    int expiresIn = tokenResponse.expires_in;
+                    _tokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn - 60); // 60 seconds buffer
+                }
+
+                return _accessToken;
+            }
+        }
+
+        /// <summary>
+        /// Send OTP Email via Microsoft Graph API
+        /// </summary>
+        public async Task<bool> SendOTPEmailAsync(string toEmail, string otpCode, string userName = "User")
+        {
+            try
+            {
+                var accessToken = await GetAccessTokenAsync();
+
+                using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                    var emailBody = new
+                    {
+                        message = new
+                        {
+                            subject = "Your ParkBuddy Login OTP",
+                            body = new
+                            {
+                                contentType = "HTML",
+                                content = GetOTPEmailTemplate(otpCode, userName)
+                            },
+                            toRecipients = new[]
+                            {
+                                new
+                                {
+                                    emailAddress = new
+                                    {
+                                        address = toEmail
+                                    }
+                                }
+                            },
+                            from = new
+                            {
+                                emailAddress = new
+                                {
+                                    address = _senderEmail,
+                                    name = _senderName
+                                }
+                            }
+                        },
+                        saveToSentItems = false
+                    };
+
+                    var jsonContent = JsonConvert.SerializeObject(emailBody);
+                    var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                    // Send email using Graph API
+                    var sendMailUrl = $"https://graph.microsoft.com/v1.0/users/{_senderEmail}/sendMail";
+                    
+                    System.Diagnostics.Debug.WriteLine($"Sending OTP email to: {toEmail}");
+                    
+                    var response = await client.PostAsync(sendMailUrl, httpContent);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        System.Diagnostics.Debug.WriteLine($"Graph API Error: {response.StatusCode} - {errorContent}");
+                        return false;
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"OTP email sent successfully to: {toEmail}");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SendOTPEmailAsync Error: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Generate OTP Email HTML Template
+        /// </summary>
+        private string GetOTPEmailTemplate(string otpCode, string userName)
+        {
+            // Split OTP into individual digits for better display
+            var otpDigits = string.Join("", otpCode.ToCharArray());
+            var otpBoxes = "";
+            foreach (char digit in otpCode)
+            {
+                otpBoxes += $@"<span style='display: inline-block; width: 45px; height: 55px; 
+                                           background-color: #f8f9fa; border: 2px solid #005180; 
+                                           border-radius: 8px; font-size: 28px; font-weight: bold; 
+                                           color: #005180; line-height: 55px; text-align: center;
+                                           margin: 0 4px;'>{digit}</span>";
+            }
+
+            return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+</head>
+<body style='margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, sans-serif; background-color: #f4f4f4;'>
+    <table role='presentation' style='width: 100%; border-collapse: collapse;'>
+        <tr>
+            <td align='center' style='padding: 40px 20px;'>
+                <table role='presentation' style='max-width: 500px; width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);'>
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style='padding: 40px 40px 30px 40px; text-align: center; background: linear-gradient(135deg, #005180 0%, #003d5c 100%); border-radius: 12px 12px 0 0;'>
+                            <h1 style='margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;'>ParkBuddy</h1>
+                            <p style='margin: 10px 0 0 0; color: rgba(255,255,255,0.8); font-size: 14px;'>Secure Login Verification</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Body -->
+                    <tr>
+                        <td style='padding: 40px;'>
+                            <h2 style='margin: 0 0 15px 0; color: #333333; font-size: 20px; font-weight: 600;'>Hello {userName},</h2>
+                            <p style='margin: 0 0 30px 0; color: #666666; font-size: 15px; line-height: 1.6;'>
+                                We received a login request for your ParkBuddy account. Use the verification code below to complete your sign-in:
+                            </p>
+                            
+                            <!-- OTP Box -->
+                            <table role='presentation' style='width: 100%; border-collapse: collapse;'>
+                                <tr>
+                                    <td align='center' style='padding: 25px 0;'>
+                                        {otpBoxes}
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Timer Warning -->
+                            <table role='presentation' style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
+                                <tr>
+                                    <td align='center'>
+                                        <div style='display: inline-block; padding: 12px 24px; background-color: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;'>
+                                            <span style='color: #856404; font-size: 14px;'>:stopwatch: This code expires in <strong>5 minutes</strong></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style='margin: 25px 0 0 0; color: #999999; font-size: 13px; line-height: 1.5;'>
+                                If you didn't request this code, you can safely ignore this email. Someone might have typed your email address by mistake.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style='padding: 25px 40px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center; border-top: 1px solid #eee;'>
+                            <p style='margin: 0 0 8px 0; color: #666666; font-size: 13px;'>
+                                Need help? Contact us at <a href='mailto:support@parksonspackaging.com' style='color: #005180; text-decoration: none;'>support@parksonspackaging.com</a>
+                            </p>
+                            <p style='margin: 0; color: #999999; font-size: 12px;'>
+                                © {DateTime.Now.Year} Parksons Packaging. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>";
+        }
+    }
+
+    #endregion
+
+    #region ==================== OTP SERVICE (DATABASE) ====================
+
+    /// <summary>
+    /// Service for OTP database operations
+    /// </summary>
+    public class OTPService
+    {
+        private readonly string _connectionString;
+        private readonly OutlookGraphEmailService _emailService;
+        private const int OTP_EXPIRY_MINUTES = 5;
+        private const int MAX_RESEND_ATTEMPTS = 3;
+        private const int RESEND_COOLDOWN_SECONDS = 60;
+
+        public OTPService()
+        {
+            _connectionString = ConfigurationManager.ConnectionStrings["aboraboraborababordefaultConnectionString"].ConnectionString;
+            _emailService = new OutlookGraphEmailService();
+        }
+
+        /// <summary>
+        /// Generate random 6-digit OTP
+        /// </summary>
+        private string GenerateOTP()
+        {
+            using (var rng = new System.Security.Cryptography.RNGCryptoServiceProvider())
+            {
+                byte[] randomBytes = new byte[4];
+                rng.GetBytes(randomBytes);
+                int randomNumber = Math.Abs(BitConverter.ToInt32(randomBytes, 0));
+                return (randomNumber % 900000 + 100000).ToString();
+            }
+        }
+
+        /// <summary>
+        /// Send OTP to email
+        /// </summary>
+        public async Task<SendOTPResponse> SendOTPAsync(SendOTPRequest request)
+        {
+            try
+            {
+                // Validate email
+                if (string.IsNullOrWhiteSpace(request.Email))
+                {
+                    return new SendOTPResponse
+                    {
+                        Success = false,
+                        Message = "Email is required.",
+                        ExpirySeconds = 0
+                    };
+                }
+
+                // Check cooldown (prevent spam)
+                var lastOTP = await GetLastOTPAsync(request.Email);
+                if (lastOTP != null && !lastOTP.IsUsed)
+                {
+                    var secondsSinceLastOTP = (DateTime.UtcNow - lastOTP.CreatedAt).TotalSeconds;
+                    if (secondsSinceLastOTP < RESEND_COOLDOWN_SECONDS)
+                    {
+                        int waitSeconds = RESEND_COOLDOWN_SECONDS - (int)secondsSinceLastOTP;
+                        return new SendOTPResponse
+                        {
+                            Success = false,
+                            Message = $"Please wait {waitSeconds} seconds before requesting a new OTP.",
+                            ExpirySeconds = waitSeconds
+                        };
+                    }
+                }
+
+                // Invalidate existing unused OTPs
+                await InvalidateExistingOTPsAsync(request.Email);
+
+                // Generate new OTP
+                string otpCode = GenerateOTP();
+                DateTime createdAt = DateTime.UtcNow;
+                DateTime expiresAt = createdAt.AddMinutes(OTP_EXPIRY_MINUTES);
+
+                // Save OTP to database
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    string query = @"
+                        INSERT INTO OTP (Email, OTPCode, CreatedAt, ExpiresAt, IsUsed, IPAddress, UserAgent)
+                        VALUES (@Email, @OTPCode, @CreatedAt, @ExpiresAt, 0, @IPAddress, @UserAgent);
+                        SELECT SCOPE_IDENTITY();";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Email", request.Email.Trim().ToLower());
+                        cmd.Parameters.AddWithValue("@OTPCode", otpCode);
+                        cmd.Parameters.AddWithValue("@CreatedAt", createdAt);
+                        cmd.Parameters.AddWithValue("@ExpiresAt", expiresAt);
+                        cmd.Parameters.AddWithValue("@IPAddress", (object)request.IPAddress ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@UserAgent", (object)request.UserAgent ?? DBNull.Value);
+
+                        var otpId = await cmd.ExecuteScalarAsync();
+                        System.Diagnostics.Debug.WriteLine($"OTP created with ID: {otpId}");
+                    }
+                }
+
+                // Send OTP via Outlook Graph API
+                string userName = !string.IsNullOrEmpty(request.UserName) ? request.UserName : "User";
+                bool emailSent = await _emailService.SendOTPEmailAsync(request.Email, otpCode, userName);
+
+                if (!emailSent)
+                {
+                    return new SendOTPResponse
+                    {
+                        Success = false,
+                        Message = "Failed to send OTP email. Please try again.",
+                        ExpirySeconds = 0
+                    };
+                }
+
+                return new SendOTPResponse
+                {
+                    Success = true,
+                    Message = "OTP sent successfully to your email.",
+                    ExpirySeconds = OTP_EXPIRY_MINUTES * 60
+                };
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SendOTPAsync Error: {ex.Message}\n{ex.StackTrace}");
+                return new SendOTPResponse
+                {
+                    Success = false,
+                    Message = "An error occurred while sending OTP. Please try again.",
+                    ExpirySeconds = 0
+                };
+            }
+        }
+
+        /// <summary>
+        /// Verify OTP
+        /// </summary>
+        public async Task<VerifyOTPResponse> VerifyOTPAsync(VerifyOTPRequest request)
+        {
+            try
+            {
+                // Validate inputs
+                if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.OTPCode))
+                {
+                    return new VerifyOTPResponse
+                    {
+                        Success = false,
+                        Message = "Email and OTP code are required.",
+                        UserData = null
+                    };
+                }
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    // Find valid OTP
+                    string query = @"
+                        SELECT TOP 1 OTP_ID, OTPCode, ExpiresAt, IsUsed
+                        FROM OTP
+                        WHERE Email = @Email 
+                          AND OTPCode = @OTPCode 
+                          AND IsUsed = 0
+                          AND ExpiresAt > @CurrentTime
+                        ORDER BY CreatedAt DESC";
+
+                    int? otpId = null;
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Email", request.Email.Trim().ToLower());
+                        cmd.Parameters.AddWithValue("@OTPCode", request.OTPCode.Trim());
+                        cmd.Parameters.AddWithValue("@CurrentTime", DateTime.UtcNow);
+
+                        using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
+                        {
+                            if (!reader.HasRows)
+                            {
+                                return new VerifyOTPResponse
+                                {
+                                    Success = false,
+                                    Message = "Invalid or expired OTP. Please try again.",
+                                    UserData = null
+                                };
+                            }
+
+                            await reader.ReadAsync();
+                            otpId = reader.GetInt32(0);
+                        }
+                    }
+
+                    // Mark OTP as used
+                    if (otpId.HasValue)
+                    {
+                        string updateQuery = @"
+                            UPDATE OTP 
+                            SET IsUsed = 1, UsedAt = @UsedAt 
+                            WHERE OTP_ID = @OTP_ID";
+
+                        using (SqlCommand updateCmd = new SqlCommand(updateQuery, conn))
+                        {
+                            updateCmd.Parameters.AddWithValue("@OTP_ID", otpId.Value);
+                            updateCmd.Parameters.AddWithValue("@UsedAt", DateTime.UtcNow);
+                            await updateCmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+
+                return new VerifyOTPResponse
+                {
+                    Success = true,
+                    Message = "OTP verified successfully.",
+                    UserData = null
+                };
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"VerifyOTPAsync Error: {ex.Message}\n{ex.StackTrace}");
+                return new VerifyOTPResponse
+                {
+                    Success = false,
+                    Message = "An error occurred while verifying OTP.",
+                    UserData = null
+                };
+            }
+        }
+
+        /// <summary>
+        /// Get last OTP for email (for cooldown check)
+        /// </summary>
+        private async Task<OTPRecord> GetLastOTPAsync(string email)
+        {
+            using (SqlConnection conn = new SqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+
+                string query = @"
+                    SELECT TOP 1 OTP_ID, Email, OTPCode, CreatedAt, ExpiresAt, IsUsed, UsedAt, IPAddress, UserAgent
+                    FROM OTP
+                    WHERE Email = @Email
+                    ORDER BY CreatedAt DESC";
+
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Email", email.Trim().ToLower());
+
+                    using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            return new OTPRecord
+                            {
+                                OTP_ID = reader.GetInt32(0),
+                                Email = reader.GetString(1),
+                                OTPCode = reader.GetString(2),
+                                CreatedAt = reader.GetDateTime(3),
+                                ExpiresAt = reader.GetDateTime(4),
+                                IsUsed = reader.GetBoolean(5),
+                                UsedAt = reader.IsDBNull(6) ? (DateTime?)null : reader.GetDateTime(6),
+                                IPAddress = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                UserAgent = reader.IsDBNull(8) ? null : reader.GetString(8)
+                            };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Invalidate existing unused OTPs for email
+        /// </summary>
+        private async Task InvalidateExistingOTPsAsync(string email)
+        {
+            using (SqlConnection conn = new SqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+
+                string query = @"
+                    UPDATE OTP 
+                    SET IsUsed = 1, UsedAt = @UsedAt 
+                    WHERE Email = @Email AND IsUsed = 0";
+
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Email", email.Trim().ToLower());
+                    cmd.Parameters.AddWithValue("@UsedAt", DateTime.UtcNow);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    #region ==================== API CONTROLLER ====================
+
+    /// <summary>
+    /// OTP API Controller
+    /// </summary>
+    [RoutePrefix("api/otp")]
+    public class OTPController : ApiController
+    {
+        private readonly OTPService _otpService;
+
+        public OTPController()
+        {
+            _otpService = new OTPService();
+        }
+
+        /// <summary>
+        /// Send OTP to email
+        /// POST /api/otp/send
+        /// Body: { "Email": "user@example.com", "UserName": "John" }
+        /// </summary>
+        [HttpPost]
+        [Route("send")]
+        public async Task<IHttpActionResult> SendOTP([FromBody] SendOTPRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest("Request body is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest("Email is required");
+            }
+
+            // Auto-fill IP and UserAgent if not provided
+            if (string.IsNullOrEmpty(request.IPAddress))
+            {
+                request.IPAddress = GetClientIPAddress();
+            }
+            if (string.IsNullOrEmpty(request.UserAgent))
+            {
+                request.UserAgent = GetUserAgent();
+            }
+
+            var result = await _otpService.SendOTPAsync(request);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Verify OTP
+        /// POST /api/otp/verify
+        /// Body: { "Email": "user@example.com", "OTPCode": "123456" }
+        /// </summary>
+        [HttpPost]
+        [Route("verify")]
+        public async Task<IHttpActionResult> VerifyOTP([FromBody] VerifyOTPRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest("Request body is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest("Email is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.OTPCode))
+            {
+                return BadRequest("OTP code is required");
+            }
+
+            // Auto-fill IP and UserAgent if not provided
+            if (string.IsNullOrEmpty(request.IPAddress))
+            {
+                request.IPAddress = GetClientIPAddress();
+            }
+            if (string.IsNullOrEmpty(request.UserAgent))
+            {
+                request.UserAgent = GetUserAgent();
+            }
+
+            var result = await _otpService.VerifyOTPAsync(request);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Resend OTP (same as send, but explicit endpoint)
+        /// POST /api/otp/resend
+        /// Body: { "Email": "user@example.com", "UserName": "John" }
+        /// </summary>
+        [HttpPost]
+        [Route("resend")]
+        public async Task<IHttpActionResult> ResendOTP([FromBody] SendOTPRequest request)
+        {
+            return await SendOTP(request);
+        }
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Get client IP address from request
+        /// </summary>
+        private string GetClientIPAddress()
+        {
+            try
+            {
+                var request = HttpContext.Current?.Request;
+                if (request == null) return null;
+
+                // Check for forwarded IP (behind proxy/load balancer)
+                string ip = request.ServerVariables["HTTP_X_FORWARDED_FOR"];
+                
+                if (string.IsNullOrEmpty(ip))
+                {
+                    ip = request.ServerVariables["REMOTE_ADDR"];
+                }
+                else
+                {
+                    // X-Forwarded-For can contain multiple IPs, take the first one
+                    ip = ip.Split(',')[0].Trim();
+                }
+
+                return ip;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get user agent from request
+        /// </summary>
+        private string GetUserAgent()
+        {
+            try
+            {
+                var userAgent = HttpContext.Current?.Request?.UserAgent;
+                // Truncate to 500 chars (database limit)
+                if (!string.IsNullOrEmpty(userAgent) && userAgent.Length > 500)
+                {
+                    userAgent = userAgent.Substring(0, 500);
+                }
+                return userAgent;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        #endregion
+    }
+
+    #endregion
+}
+
+/*
+=====================================================
+WEB.CONFIG SETTINGS - Add these to your Web.config
+=====================================================
+
+<configuration>
+  <appSettings>
+    <!-- Microsoft Graph API / OAuth2 Settings -->
+    <add key="OAUTH_TENANT_ID" value="YOUR_TENANT_ID" />
+    <add key="OAUTH_CLIENT_ID" value="YOUR_CLIENT_ID" />
+    <add key="OAUTH_CLIENT_SECRET" value="YOUR_CLIENT_SECRET" />
+    
+    <!-- Email Settings -->
+    <add key="EMAIL_ADDRESS" value="park.buddy@parksonspackaging.com" />
+    <add key="EMAIL_FROM_NAME" value="Login OTP" />
+  </appSettings>
+  
+  <connectionStrings>
+    <add name="DefaultConnection" 
+         connectionString="Server=YOUR_SERVER;Database=YOUR_DB;User Id=YOUR_USER;Password=YOUR_PASSWORD;" 
+         providerName="System.Data.SqlClient" />
+  </connectionStrings>
+</configuration>
+
+=====================================================
+SQL TABLE CREATION SCRIPT
+=====================================================
+
+CREATE TABLE [dbo].[OTP] (
+    [OTP_ID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    [Email] NVARCHAR(255) NOT NULL,
+    [OTPCode] NVARCHAR(6) NOT NULL,
+    [CreatedAt] DATETIME NOT NULL DEFAULT GETUTCDATE(),
+    [ExpiresAt] DATETIME NOT NULL,
+    [IsUsed] BIT NOT NULL DEFAULT 0,
+    [UsedAt] DATETIME NULL,
+    [IPAddress] NVARCHAR(50) NULL,
+    [UserAgent] NVARCHAR(500) NULL
+);
+
+-- Index for faster lookups
+CREATE NONCLUSTERED INDEX IX_OTP_Email_IsUsed_ExpiresAt 
+ON [dbo].[OTP] (Email, IsUsed, ExpiresAt DESC);
+
+CREATE NONCLUSTERED INDEX IX_OTP_Email_CreatedAt 
+ON [dbo].[OTP] (Email, CreatedAt DESC);
+
+=====================================================
+API ENDPOINTS
+=====================================================
+
+1. SEND OTP
+   POST /api/otp/send
+   Headers: Content-Type: application/json
+   Body: {
+       "Email": "user@example.com",
+       "UserName": "John Doe"  // Optional, for email greeting
+   }
+   Response: {
+       "Success": true,
+       "Message": "OTP sent successfully to your email.",
+       "ExpirySeconds": 300
+   }
+
+2. VERIFY OTP
+   POST /api/otp/verify
+   Headers: Content-Type: application/json
+   Body: {
+       "Email": "user@example.com",
+       "OTPCode": "123456"
+   }
+   Response: {
+       "Success": true,
+       "Message": "OTP verified successfully.",
+       "UserData": null
+   }
+
+3. RESEND OTP
+   POST /api/otp/resend
+   Headers: Content-Type: application/json
+   Body: {
+       "Email": "user@example.com",
+       "UserName": "John Doe"
+   }
+   Response: Same as Send OTP
+
+=====================================================
+NUGET PACKAGES REQUIRED
+=====================================================
+
+Install-Package Newtonsoft.Json
+Install-Package Microsoft.AspNet.WebApi.Core
+
+=====================================================
+FRONTEND LOGIN FLOW
+=====================================================
+
+1. User enters username/password
+2. Call existing login API → validates credentials
+3. If valid → Call POST /api/otp/send with user's email
+4. Show OTP input screen with 5-minute timer
+5. User enters 6-digit OTP
+6. Call POST /api/otp/verify
+7. If success → Complete login, redirect to dashboard
+8. If failed → Show error, allow retry
+
+*/

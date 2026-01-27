@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    body {
+      font-family: "Inter", "Segoe UI", system-ui, Arial, sans-serif;
+      background: linear-gradient(135deg, #eef2ff, #f8fafc);
+      margin: 0;
+      padding: 36px;
+      color: #111827;
+    }
+
+    h2 {
+      text-align: center;
+      font-weight: 500;
+      color: #1f2937;
+      margin-bottom: 32px;
+    }
+
+    h3 {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 22px;
+      color: #1f2937;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 30px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.08);
+      overflow-x: auto;
+      margin-bottom: 40px;
+    }
+
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    /* Download Button Styles */
+    .download-section {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #005180, #2563eb);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0, 81, 128, 0.3);
+    }
+
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 81, 128, 0.4);
+    }
+
+    .download-btn:active {
+      transform: translateY(0);
+    }
+
+    .download-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .card-download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .card-download-btn:hover {
+      background: #005180;
+      color: white;
+      border-color: #005180;
+    }
+
+    .card-download-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ===== SCREENSHOT PREVENTION STYLES ===== */
+    /* Disable text selection */
+    body {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    /* Disable image dragging */
+    img, svg {
+      -webkit-user-drag: none;
+      -khtml-user-drag: none;
+      -moz-user-drag: none;
+      -o-user-drag: none;
+      user-drag: none;
+      pointer-events: none;
+    }
+
+    /* Re-enable pointer events for buttons */
+    button, .card-download-btn, .download-btn {
+      pointer-events: auto;
+    }
+
+    /* Hide content when print is attempted */
+    @media print {
+      body {
+        display: none !important;
+      }
+      html::after {
+        content: "Printing is disabled for this document.";
+        display: block;
+        font-size: 24px;
+        text-align: center;
+        padding: 100px;
+      }
+    }
+
+    /* Black screen overlay when window loses focus */
+    .security-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000000;
+      z-index: 999999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .security-overlay.active {
+      display: flex;
+    }
+
+    .security-overlay-icon {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 24px;
+      color: #ffffff;
+    }
+
+    .security-overlay-text {
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .security-overlay-subtext {
+      color: #888888;
+      font-size: 14px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- Security Black Screen Overlay -->
+<div class="security-overlay" id="securityOverlay">
+  <svg class="security-overlay-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+  </svg>
+  <div class="security-overlay-text">Content Protected</div>
+  <div class="security-overlay-subtext">Click on this window to continue viewing</div>
+</div>
+
+<h2>ParkBuddy – Workflow, Security & Infrastructure Architecture</h2>
+
+<!-- Download All Button -->
+<div class="download-section">
+  <button class="download-btn" onclick="downloadAllAsPDF()" style="background: linear-gradient(135deg, #dc2626, #ea580c);">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+    Download All as PDF (High Quality)
+  </button>
+  <button class="download-btn" onclick="downloadAllDiagrams()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+    Download All as PNG
+  </button>
+</div>
+
+<!-- ================================================= -->
+<!-- WORKFLOW + SECURITY -->
+<!-- ================================================= -->
+
+<h3>ParkBuddy Workflow & Approval Logic</h3>
+
+<div class="card" id="workflow-card">
+  <div class="card-header">
+    <span class="card-title">Workflow Diagram</span>
+    <button class="card-download-btn" onclick="downloadDiagram('workflow-diagram', 'ParkBuddy-Workflow-Diagram')">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      Download PNG
+    </button>
+  </div>
+<div class="mermaid" id="workflow-diagram">
+
+flowchart LR
+
+%% ===== LANE LABELS (VISUAL ONLY) =====
+KAM_LANE["KAM (ParkBuddy Workflow)"]:::lane
+INDAS_LANE["Indas Backend (Parksons Secure Server)"]:::lane
+CORE_LANE["ParkBuddy Application Core"]:::lane
+OUT_LANE["Outbound Communication"]:::lane
+
+%% ===== KAM =====
+KAM[KAM Initiates Enquiry]
+MF[Manual Inquiry]
+DW[Dynamic Wizard]
+AI[AI Costing Bot]
+EM[Email Input]
+
+KAM --> MF
+KAM --> DW
+KAM --> AI
+KAM --> EM
+
+%% ===== INDAS BACKEND =====
+API[Indas Engine Backend]
+COST[Costing Calculation]
+CAPV{Costing Approval}
+
+MF --> API
+DW --> API
+AI --> API
+EM --> API
+
+API --> COST --> CAPV
+
+%% ===== PARKBUDDY CORE =====
+ENQ[Enquiry Created]
+QUO[Quotation Created]
+REV[Quotation Review]
+MCHK{Margin Check}
+L1[L1 Approval]
+L2[L2 Approval]
+APV[Approved]
+DAPV[Disapproved]
+REENQ[Re-initiate Enquiry]
+
+CAPV -->|Approved| ENQ
+CAPV -->|Disapproved| REENQ --> KAM
+
+ENQ --> QUO --> REV --> MCHK
+MCHK -->|≤ 5%| L1 --> APV
+MCHK -->|> 5% & ≤ 10%| L2 --> APV
+L1 -->|Reject| DAPV
+L2 -->|Reject| DAPV
+
+%% ===== OUTBOUND =====
+CUST[Quotation Sent to Customer]
+APV --> CUST
+
+%% ===== LANE ALIGNMENT (FORCE ROW) =====
+KAM_LANE --- KAM
+INDAS_LANE --- API
+CORE_LANE --- ENQ
+OUT_LANE --- CUST
+
+%% ===== STYLES =====
+classDef lane fill:#f8fafc,stroke:#c7d2fe,stroke-dasharray:4 4,color:#1f2937;
+classDef kam fill:#dbeafe,stroke:#2563eb;
+classDef backend fill:#e0e7ff,stroke:#4338ca;
+classDef core fill:#fef3c7,stroke:#d97706;
+classDef decision fill:#fde68a,stroke:#b45309;
+classDef approve fill:#dcfce7,stroke:#16a34a;
+classDef reject fill:#fee2e2,stroke:#dc2626;
+classDef outbound fill:#bbf7d0,stroke:#15803d;
+
+class MF,DW,AI,EM,KAM kam
+class API,COST,QUO,REV backend
+class CAPV,MCHK decision
+class ENQ,REENQ,L1,L2 core
+class APV approve
+class DAPV reject
+class CUST outbound
+
+</div>
+</div>
+
+<!-- ================================================= -->
+<!-- EMAIL PROCESSING FLOW -->
+<!-- ================================================= -->
+<h3>Email Processing Pipeline (Microsoft Graph Integration)</h3>
+
+<div class="card" id="email-card">
+  <div class="card-header">
+    <span class="card-title">Email Processing Flow Diagram</span>
+    <button class="card-download-btn" onclick="downloadDiagram('email-diagram', 'ParkBuddy-Email-Processing-Flow')">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      Download PNG
+    </button>
+  </div>
+  <div class="mermaid" id="email-diagram">
+
+flowchart LR
+
+%% ===== ENTRY POINT =====
+MAILBOX["Microsoft 365\nMailbox"]
+GRAPH["GraphEmailService\nPolls every 5 mins"]
+OAUTH["OAuth2 Auth\nvia Azure AD"]
+
+MAILBOX --> GRAPH
+OAUTH -.->|"Authentication"| GRAPH
+
+%% ===== STEP 1: EMAIL RETRIEVAL =====
+STEP1["Step 1: Email Retrieval\nDownload unread emails\nSave attachments\nStore in Attachments table"]
+
+GRAPH --> STEP1
+
+%% ===== STEP 1.5: REPLY DETECTION =====
+REPLY{{"Step 1.5:\nReply Detection\nCheck InReplyTo"}}
+MERGE["Merge with\nOriginal Enquiry"]
+
+STEP1 --> REPLY
+REPLY -->|"Matches FallbackEmailMessageId"| MERGE
+MERGE --> STEP4
+
+%% ===== STEP 2: CLASSIFICATION =====
+STEP2["Step 2: Classification\nOpenAI GPT-4"]
+CLASSIFY{{"Is this a\nbox enquiry?"}}
+SKIP["Skip Email\nNot Relevant"]
+
+REPLY -->|"New Email"| STEP2
+STEP2 --> CLASSIFY
+CLASSIFY -->|"No"| SKIP
+
+%% ===== STEP 3: CLIENT CHECK =====
+STEP3["Step 3: Client Check\nQuery LedgerMaster\nby email"]
+CLIENTCHK{{"Existing\nClient?"}}
+GETID["Get ClientId"]
+NEWLEAD["clientId = null\nNew Lead"]
+
+CLASSIFY -->|"Yes"| STEP3
+STEP3 --> CLIENTCHK
+CLIENTCHK -->|"Yes"| GETID
+CLIENTCHK -->|"No"| NEWLEAD
+GETID --> STEP4
+NEWLEAD --> STEP4
+
+%% ===== STEP 4: DATA EXTRACTION =====
+STEP4["Step 4: Data Extraction\nOpenAI GPT-4\nExtract 9 parameters:\nContentType, L, W, H,\nOpenFlap, PastingFlap,\nPaperQuality, Colors,\nAnnualQuantity"]
+
+%% ===== STEP 5: VALIDATION =====
+VALID{{"Step 5:\nAll params\npresent?"}}
+
+STEP4 --> VALID
+
+%% ===== STEP 7.5: FALLBACK EMAIL =====
+FALLBACK["Step 7.5: Send Fallback\nGraphEmailSenderService\nRequest missing params\nStore FallbackEmailMessageId\nStatus: WaitingForReply"]
+
+VALID -->|"No"| FALLBACK
+FALLBACK -.->|"Customer replies"| REPLY
+
+%% ===== STEP 6: CLIENT LOGGING =====
+STEP6["Step 6: Client Logging\nLog warning if new lead\nLedgerMaster READ-ONLY"]
+
+VALID -->|"Yes"| STEP6
+
+%% ===== STEP 7: SAVE ENQUIRY =====
+STEP7["Step 7: Save Enquiry\nInsert into Enquiry table\nStatus: ReadyForCosting"]
+
+STEP6 --> STEP7
+
+%% ===== STEP 8: CREATE KAM DRAFT =====
+STEP8["Step 8: Create KAM Draft\nInsert into KAMDraft\nPriority by client type\nStatus: Pending"]
+
+STEP7 --> STEP8
+
+%% ===== STEP 9: SEND TO API =====
+STEP9["Step 9: Send to\nIndus Analytics API\nPOST /api/enquiry/\nSaveMultipleEnquiry\nStore IndusEnquiryId"]
+
+STEP8 --> STEP9
+
+%% ===== CONNECTION TO WORKFLOW =====
+WORKFLOW["ParkBuddy Workflow\nEmail Input"]
+
+STEP9 --> WORKFLOW
+
+%% ===== STYLES =====
+classDef entry fill:#dbeafe,stroke:#2563eb,stroke-width:2;
+classDef process fill:#f3e8ff,stroke:#7c3aed,stroke-width:2;
+classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2;
+classDef openai fill:#dcfce7,stroke:#16a34a,stroke-width:2;
+classDef database fill:#e0e7ff,stroke:#4338ca,stroke-width:2;
+classDef fallback fill:#fed7aa,stroke:#ea580c,stroke-width:2;
+classDef skip fill:#fee2e2,stroke:#dc2626,stroke-width:2;
+classDef api fill:#d1fae5,stroke:#059669,stroke-width:2;
+
+class MAILBOX,GRAPH,OAUTH entry
+class STEP1,STEP3,STEP6 process
+class REPLY,CLASSIFY,CLIENTCHK,VALID decision
+class STEP2,STEP4 openai
+class STEP7,STEP8,MERGE,GETID,NEWLEAD database
+class FALLBACK fallback
+class SKIP skip
+class STEP9 api
+class WORKFLOW entry
+
+  </div>
+</div>
+
+<!-- ================================================= -->
+<!-- OTP AUTHENTICATION FLOW -->
+<!-- ================================================= -->
+<h3>OTP Authentication Flow (Session & Device Security)</h3>
+
+<div class="card" id="otp-card">
+  <div class="card-header">
+    <span class="card-title">OTP Login Flow Diagram</span>
+    <button class="card-download-btn" onclick="downloadDiagram('otp-diagram', 'ParkBuddy-OTP-Login-Flow')">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      Download PNG
+    </button>
+  </div>
+  <div class="mermaid" id="otp-diagram">
+
+flowchart LR
+
+%% ===== USER ENTRY =====
+USER["User Accesses\nApplication"]
+
+%% ===== SESSION CHECK =====
+SESSCHK{{"Check Session\nStatus"}}
+
+%% ===== ACTIVE SESSION PATH =====
+DEVCHK{{"Check IP/MAC\nAddress"}}
+
+%% ===== TIMEOUT PATH - REQUIRES FULL RE-AUTH =====
+TIMEOUT["Session Timeout"]
+RECREDS["Enter Username\n& Password"]
+REVERIFY{{"Verify\nCredentials"}}
+
+%% ===== NEW DEVICE/IP PATH =====
+NEWDEV["New IP/MAC\nDetected"]
+GENOTP["Generate\n6-Digit OTP"]
+STORE["Store OTP in DB\n(5 min TTL)"]
+OUTLOOK["Send OTP via\nOutlook Graph API"]
+OTPIN["Enter OTP"]
+OTPVFY{{"Verify OTP"}}
+SAVEDEV["Save Trusted\nIP/MAC"]
+
+%% ===== RESULTS =====
+LOGIN["Login Success\nSession Created"]
+FAIL["Authentication\nFailed"]
+
+%% ===== MAIN FLOW =====
+USER --> SESSCHK
+
+%% Session Active - Check Device
+SESSCHK -->|"Session Active"| DEVCHK
+
+%% Session Timeout - Full Re-authentication Required
+SESSCHK -->|"Session Expired"| TIMEOUT
+TIMEOUT --> RECREDS --> REVERIFY
+REVERIFY -->|"Invalid"| FAIL
+REVERIFY -->|"Valid"| DEVCHK
+
+%% Device Check Paths
+DEVCHK -->|"Same IP/MAC\n(Trusted Device)"| LOGIN
+DEVCHK -->|"New IP/MAC"| NEWDEV
+
+%% OTP Flow for New Device
+NEWDEV --> GENOTP --> STORE --> OUTLOOK --> OTPIN --> OTPVFY
+OTPVFY -->|"Valid OTP"| SAVEDEV --> LOGIN
+OTPVFY -->|"Invalid/Expired"| FAIL
+
+%% ===== STYLES =====
+classDef user fill:#dbeafe,stroke:#2563eb,stroke-width:2;
+classDef session fill:#fef3c7,stroke:#d97706,stroke-width:2;
+classDef device fill:#e0e7ff,stroke:#4338ca,stroke-width:2;
+classDef timeout fill:#fed7aa,stroke:#ea580c,stroke-width:2;
+classDef otp fill:#f3e8ff,stroke:#7c3aed,stroke-width:2;
+classDef outlook fill:#dbeafe,stroke:#0078d4,stroke-width:2;
+classDef success fill:#dcfce7,stroke:#16a34a,stroke-width:2;
+classDef fail fill:#fee2e2,stroke:#dc2626,stroke-width:2;
+classDef save fill:#d1fae5,stroke:#059669,stroke-width:2;
+
+class USER user
+class SESSCHK session
+class DEVCHK device
+class TIMEOUT,RECREDS timeout
+class REVERIFY,OTPVFY session
+class NEWDEV,GENOTP,STORE,OTPIN otp
+class OUTLOOK outlook
+class LOGIN success
+class FAIL fail
+class SAVEDEV save
+
+  </div>
+</div>
+
+<!-- ================================================= -->
+<!-- INFRASTRUCTURE + DATA FLOW -->
+<!-- ================================================= -->
+<h3>Infrastructure & Data Flow (Security View)</h3>
+
+<div class="card" id="infrastructure-card">
+  <div class="card-header">
+    <span class="card-title">Infrastructure Diagram</span>
+    <button class="card-download-btn" onclick="downloadDiagram('infrastructure-diagram', 'ParkBuddy-Infrastructure-Diagram')">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      Download PNG
+    </button>
+  </div>
+  <div class="mermaid" id="infrastructure-diagram">
+
+flowchart LR
+
+%% =========================
+%% PARKSONS SECURE SERVER
+%% =========================
+subgraph SZ["🔒 Parksons Secure Server - Private Network"]
+  direction LR
+  DB["🗄️ MS SQL Server\nPrivate Network"]
+  API["⚙️ Indas Engine Backend\n.NET on IIS\nBasic Auth Enabled"]
+end
+
+%% =========================
+%% PUBLIC INTERNET
+%% =========================
+subgraph PZ["🌐 Public Internet"]
+  direction LR
+  FE["🖥️ Vercel Frontend\nHTTPS Enabled"]
+  USER["👤 User Browser"]
+end
+
+%% =========================
+%% DATABASE → BACKEND
+%% =========================
+DB <-->|"🔐 Secure DB Queries\n& Results"| API
+
+%% =========================
+%% BACKEND → FRONTEND
+%% =========================
+API <-->|"🔑 HTTPS API\nBasic Auth"| FE
+
+%% =========================
+%% FRONTEND → USER
+%% =========================
+FE <-->|"🌍 HTTPS\nRendered UI"| USER
+
+%% =========================
+%% STYLES
+%% =========================
+classDef public fill:#eef6ff,stroke:#2563eb,stroke-width:2,color:#1e3a8a;
+classDef backend fill:#f3e8ff,stroke:#7c3aed,stroke-width:2,color:#4c1d95;
+classDef database fill:#ecfdf5,stroke:#16a34a,stroke-width:2,color:#065f46;
+
+class USER,FE public
+class API backend
+class DB database
+
+  </div>
+</div>
+
+<footer>
+ParkBuddy • Workflow, Security & Infrastructure • Enterprise Ready
+</footer>
+
+<script>
+  // ===== SCREENSHOT PREVENTION =====
+
+  // Disable right-click context menu
+  document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+  });
+
+  // Block keyboard shortcuts for screenshots and copying
+  document.addEventListener('keydown', function(e) {
+    // Block Print Screen
+    if (e.key === 'PrintScreen') {
+      e.preventDefault();
+      return false;
+    }
+
+    // Block Ctrl+P (Print)
+    if (e.ctrlKey && e.key === 'p') {
+      e.preventDefault();
+      return false;
+    }
+
+    // Block Ctrl+S (Save)
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      return false;
+    }
+
+    // Block Ctrl+Shift+S (Save As)
+    if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+      e.preventDefault();
+      return false;
+    }
+
+    // Block Ctrl+C (Copy) - optional, may affect usability
+    // if (e.ctrlKey && e.key === 'c') {
+    //   e.preventDefault();
+    //   return false;
+    // }
+
+    // Block Ctrl+Shift+I (DevTools)
+    if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+      e.preventDefault();
+      return false;
+    }
+
+    // Block F12 (DevTools)
+    if (e.key === 'F12') {
+      e.preventDefault();
+      return false;
+    }
+
+    // Block Ctrl+U (View Source)
+    if (e.ctrlKey && e.key === 'u') {
+      e.preventDefault();
+      return false;
+    }
+
+    // Block Mac screenshot shortcuts (Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5)
+    if (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(e.key)) {
+      e.preventDefault();
+      return false;
+    }
+
+    // Block Cmd+P (Print on Mac)
+    if (e.metaKey && e.key === 'p') {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  // Disable drag and drop
+  document.addEventListener('dragstart', function(e) {
+    e.preventDefault();
+    return false;
+  });
+
+  // Black screen when window loses focus (to prevent screen capture)
+  const securityOverlay = document.getElementById('securityOverlay');
+
+  function showBlackScreen() {
+    securityOverlay.classList.add('active');
+  }
+
+  function hideBlackScreen() {
+    securityOverlay.classList.remove('active');
+  }
+
+  // Show black screen when window loses focus
+  window.addEventListener('blur', showBlackScreen);
+  window.addEventListener('focus', hideBlackScreen);
+
+  // Show black screen when tab is hidden
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      showBlackScreen();
+    } else {
+      hideBlackScreen();
+    }
+  });
+
+  // Click on overlay to dismiss (requires clicking back on window)
+  securityOverlay.addEventListener('click', function() {
+    hideBlackScreen();
+  });
+
+  // ===== END SCREENSHOT PREVENTION =====
+
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "base",
+    flowchart: {
+      nodeSpacing: 80,
+      rankSpacing: 120
+    },
+    themeVariables: {
+      fontFamily: "Inter, Segoe UI, Arial",
+      edgeLabelBackground: "#ffffff",
+      lineColor: "#6b7280",
+      fontSize: "14px"
+    }
+  });
+
+  // Function to download a single diagram as SVG (more reliable)
+  function downloadDiagramSVG(elementId, filename) {
+    const element = document.getElementById(elementId);
+    const svg = element.querySelector('svg');
+
+    if (!svg) {
+      alert('Diagram not ready yet. Please wait a moment and try again.');
+      return;
+    }
+
+    // Clone SVG
+    const clonedSvg = svg.cloneNode(true);
+
+    // Add white background rect
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('width', '100%');
+    bgRect.setAttribute('height', '100%');
+    bgRect.setAttribute('fill', '#ffffff');
+    clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+
+    // Serialize and download
+    const svgData = new XMLSerializer().serializeToString(clonedSvg);
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename + '.svg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  // Function to download a single diagram as PNG
+  function downloadDiagram(elementId, filename) {
+    const element = document.getElementById(elementId);
+    const svg = element.querySelector('svg');
+
+    if (!svg) {
+      alert('Diagram not ready yet. Please wait a moment and try again.');
+      return;
+    }
+
+    // Get dimensions
+    const svgRect = svg.getBoundingClientRect();
+    const width = svgRect.width || 1200;
+    const height = svgRect.height || 800;
+    const scale = 2; // High resolution
+
+    // Clone and prepare SVG
+    const clonedSvg = svg.cloneNode(true);
+    clonedSvg.setAttribute('width', width);
+    clonedSvg.setAttribute('height', height);
+
+    // Add xmlns if missing
+    if (!clonedSvg.getAttribute('xmlns')) {
+      clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    }
+
+    // Add white background
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('x', '0');
+    bgRect.setAttribute('y', '0');
+    bgRect.setAttribute('width', '100%');
+    bgRect.setAttribute('height', '100%');
+    bgRect.setAttribute('fill', '#ffffff');
+    clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+
+    // Convert to data URL
+    const svgData = new XMLSerializer().serializeToString(clonedSvg);
+    const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
+    const imgSrc = 'data:image/svg+xml;base64,' + svgBase64;
+
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext('2d');
+
+    // Draw white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Load and draw image
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = function() {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // Download
+      try {
+        const pngUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = pngUrl;
+        link.download = filename + '.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (e) {
+        console.error('PNG download failed, trying SVG:', e);
+        // Fallback to SVG download
+        downloadDiagramSVG(elementId, filename);
+      }
+    };
+
+    img.onerror = function() {
+      console.error('Image load failed, downloading as SVG instead');
+      // Fallback to SVG download
+      downloadDiagramSVG(elementId, filename);
+    };
+
+    img.src = imgSrc;
+  }
+
+  // Function to download all diagrams as PNG
+  function downloadAllDiagrams() {
+    downloadDiagram('workflow-diagram', 'ParkBuddy-Workflow-Diagram');
+    setTimeout(() => downloadDiagram('email-diagram', 'ParkBuddy-Email-Processing-Flow'), 1000);
+    setTimeout(() => downloadDiagram('otp-diagram', 'ParkBuddy-OTP-Login-Flow'), 2000);
+    setTimeout(() => downloadDiagram('infrastructure-diagram', 'ParkBuddy-Infrastructure-Diagram'), 3000);
+  }
+
+  // Function to convert SVG to high-quality PNG data URL
+  async function svgToHighQualityPNG(elementId, scale = 4) {
+    return new Promise((resolve, reject) => {
+      const element = document.getElementById(elementId);
+      const svg = element.querySelector('svg');
+
+      if (!svg) {
+        reject(new Error('SVG not found'));
+        return;
+      }
+
+      // Get dimensions
+      const svgRect = svg.getBoundingClientRect();
+      const width = svgRect.width || 1200;
+      const height = svgRect.height || 800;
+
+      // Clone and prepare SVG
+      const clonedSvg = svg.cloneNode(true);
+      clonedSvg.setAttribute('width', width);
+      clonedSvg.setAttribute('height', height);
+
+      // Add xmlns if missing
+      if (!clonedSvg.getAttribute('xmlns')) {
+        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      }
+
+      // Add white background
+      const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bgRect.setAttribute('x', '0');
+      bgRect.setAttribute('y', '0');
+      bgRect.setAttribute('width', '100%');
+      bgRect.setAttribute('height', '100%');
+      bgRect.setAttribute('fill', '#ffffff');
+      clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+
+      // Convert to data URL
+      const svgData = new XMLSerializer().serializeToString(clonedSvg);
+      const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
+      const imgSrc = 'data:image/svg+xml;base64,' + svgBase64;
+
+      // Create canvas with high resolution
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+
+      // Enable high quality rendering
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      // Draw white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Load and draw image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      img.onload = function() {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        try {
+          const pngDataUrl = canvas.toDataURL('image/png', 1.0);
+          resolve({
+            dataUrl: pngDataUrl,
+            width: width,
+            height: height,
+            scaledWidth: width * scale,
+            scaledHeight: height * scale
+          });
+        } catch (e) {
+          reject(e);
+        }
+      };
+
+      img.onerror = function() {
+        reject(new Error('Image load failed'));
+      };
+
+      img.src = imgSrc;
+    });
+  }
+
+  // Function to download all diagrams as a single high-quality PDF
+  async function downloadAllAsPDF() {
+    const { jsPDF } = window.jspdf;
+
+    // Show loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'pdf-loading';
+    loadingDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;color:white;font-family:system-ui;';
+    loadingDiv.innerHTML = '<div style="font-size:24px;margin-bottom:16px;">Generating High-Quality PDF...</div><div id="pdf-progress" style="font-size:16px;">Preparing diagrams...</div>';
+    document.body.appendChild(loadingDiv);
+
+    const updateProgress = (text) => {
+      document.getElementById('pdf-progress').textContent = text;
+    };
+
+    try {
+      const diagrams = [
+        { id: 'workflow-diagram', title: 'ParkBuddy Workflow & Approval Logic' },
+        { id: 'email-diagram', title: 'Email Processing Pipeline (Microsoft Graph Integration)' },
+        { id: 'otp-diagram', title: 'OTP Authentication Flow (Session & Device Security)' },
+        { id: 'infrastructure-diagram', title: 'Infrastructure & Data Flow (Security View)' }
+      ];
+
+      // Create PDF in landscape for better diagram visibility
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a3', // A3 for higher quality
+        compress: false
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const titleHeight = 20;
+      const availableWidth = pageWidth - (margin * 2);
+      const availableHeight = pageHeight - (margin * 2) - titleHeight;
+
+      // Add cover page
+      pdf.setFillColor(0, 81, 128); // #005180
+      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(36);
+      pdf.text('ParkBuddy', pageWidth / 2, pageHeight / 2 - 30, { align: 'center' });
+
+      pdf.setFontSize(24);
+      pdf.text('Workflow, Security & Infrastructure Architecture', pageWidth / 2, pageHeight / 2, { align: 'center' });
+
+      pdf.setFontSize(14);
+      pdf.text('Enterprise Documentation', pageWidth / 2, pageHeight / 2 + 20, { align: 'center' });
+
+      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      pdf.setFontSize(12);
+      pdf.text('Generated: ' + today, pageWidth / 2, pageHeight - 30, { align: 'center' });
+
+      // Process each diagram
+      for (let i = 0; i < diagrams.length; i++) {
+        const diagram = diagrams[i];
+        updateProgress(`Processing diagram ${i + 1} of ${diagrams.length}: ${diagram.title}...`);
+
+        try {
+          // Convert SVG to high-quality PNG (4x scale for print quality)
+          const pngData = await svgToHighQualityPNG(diagram.id, 4);
+
+          // Add new page
+          pdf.addPage();
+
+          // Add title
+          pdf.setTextColor(0, 81, 128);
+          pdf.setFontSize(18);
+          pdf.text(diagram.title, pageWidth / 2, margin + 10, { align: 'center' });
+
+          // Calculate image dimensions to fit page while maintaining aspect ratio
+          const imgAspect = pngData.width / pngData.height;
+          const pageAspect = availableWidth / availableHeight;
+
+          let imgWidth, imgHeight;
+          if (imgAspect > pageAspect) {
+            // Image is wider than available space
+            imgWidth = availableWidth;
+            imgHeight = availableWidth / imgAspect;
+          } else {
+            // Image is taller than available space
+            imgHeight = availableHeight;
+            imgWidth = availableHeight * imgAspect;
+          }
+
+          // Center the image
+          const xPos = margin + (availableWidth - imgWidth) / 2;
+          const yPos = margin + titleHeight + (availableHeight - imgHeight) / 2;
+
+          // Add image to PDF
+          pdf.addImage(pngData.dataUrl, 'PNG', xPos, yPos, imgWidth, imgHeight, undefined, 'FAST');
+
+          // Add page number
+          pdf.setTextColor(128, 128, 128);
+          pdf.setFontSize(10);
+          pdf.text(`Page ${i + 2} of ${diagrams.length + 1}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+
+        } catch (err) {
+          console.error(`Error processing ${diagram.id}:`, err);
+          // Add error page
+          pdf.addPage();
+          pdf.setTextColor(220, 38, 38);
+          pdf.setFontSize(16);
+          pdf.text(`Error loading: ${diagram.title}`, pageWidth / 2, pageHeight / 2, { align: 'center' });
+        }
+      }
+
+      updateProgress('Saving PDF...');
+
+      // Save PDF
+      pdf.save('ParkBuddy-Architecture-Diagrams-HighQuality.pdf');
+
+      // Remove loading indicator
+      document.body.removeChild(loadingDiv);
+
+      alert('PDF downloaded successfully!');
+
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      document.body.removeChild(loadingDiv);
+      alert('Error generating PDF: ' + error.message + '\n\nTry downloading individual diagrams as PNG instead.');
+    }
+  }
+</script>
+
+
+</body>
+</html>

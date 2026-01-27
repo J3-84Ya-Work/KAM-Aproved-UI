@@ -648,6 +648,70 @@ export class EnquiryAPI {
       }
     }
   }
+
+  /**
+   * Get Concern Persons for a Client/Ledger
+   * Endpoint: GET /api/enquiry/getconcernperson/{LedgerID}
+   */
+  static async getConcernPersons(ledgerId: number, session: any) {
+    try {
+      const headers = getHeaders(session)
+      console.log('🔵 EnquiryAPI.getConcernPersons - Fetching for LedgerID:', ledgerId)
+      console.log('🔵 EnquiryAPI.getConcernPersons - Headers:', headers)
+
+      const response = await fetch(`${API_BASE_URL}/api/enquiry/getconcernperson/${ledgerId}`, {
+        method: 'GET',
+        headers: headers,
+      })
+
+      console.log('🔵 EnquiryAPI.getConcernPersons - Response status:', response.status, response.ok)
+
+      let data = await response.json()
+      console.log('🔵 EnquiryAPI.getConcernPersons - Raw response:', data)
+      console.log('🔵 EnquiryAPI.getConcernPersons - Raw response type:', typeof data)
+
+      // Handle triple-encoded JSON string response
+      // Response format: "\"[{\\\"ConcernPersonID\\\":3,\\\"Name\\\":\\\"Seema\\\",\\\"Mobile\\\":\\\"898784557\\\"}]\""
+      let parseAttempts = 0
+      while (typeof data === 'string' && parseAttempts < 5) {
+        try {
+          console.log(`🔵 EnquiryAPI.getConcernPersons - Parse attempt ${parseAttempts + 1}, current type:`, typeof data)
+          data = JSON.parse(data)
+          parseAttempts++
+          console.log(`🔵 EnquiryAPI.getConcernPersons - After parse ${parseAttempts}:`, data)
+        } catch (e) {
+          console.error('🔵 EnquiryAPI.getConcernPersons - Parse error at attempt', parseAttempts + 1, ':', e)
+          break
+        }
+      }
+
+      // Handle different response formats
+      let concernPersons: { ConcernPersonID: number; Name: string; Mobile: string }[] = []
+      if (Array.isArray(data)) {
+        concernPersons = data
+      } else if (data && data.data && Array.isArray(data.data)) {
+        concernPersons = data.data
+      } else if (data && data.Data && Array.isArray(data.Data)) {
+        concernPersons = data.Data
+      }
+
+      console.log('🔵 EnquiryAPI.getConcernPersons - Final parsed concern persons:', concernPersons)
+      console.log('🔵 EnquiryAPI.getConcernPersons - Count:', concernPersons.length)
+
+      return {
+        success: response.ok && concernPersons.length > 0,
+        data: concernPersons,
+        error: response.ok ? null : `Failed to fetch concern persons: ${response.status}`,
+      }
+    } catch (error: any) {
+      console.error('🔵 EnquiryAPI.getConcernPersons - Error:', error)
+      return {
+        success: false,
+        data: [],
+        error: `Failed to fetch concern persons: ${error.message}`,
+      }
+    }
+  }
 }
 
 // Master Data APIs
@@ -1968,6 +2032,68 @@ export class QuotationsAPI {
         success: false,
         data: null,
         error: `Failed to update enquiry: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Generate Quote Revision
+   * Creates a new revision of the quotation with a target cost
+   * Endpoint: POST /api/planwindow/generatequoterevision
+   */
+  static async generateQuoteRevision(request: {
+    BookingID: string
+    TargetedCost: string
+  }, session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/planwindow/generatequoterevision`
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('📡 API CALL: generateQuoteRevision')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('🔗 URL:', url)
+      console.log('📋 Method: POST')
+      console.log('📦 Request Body:', JSON.stringify(request, null, 2))
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(session),
+        body: JSON.stringify(request),
+      })
+
+      console.log('📡 Response status:', response.status, response.statusText)
+
+      const rawText = await response.text()
+      console.log('📡 Raw response text:', rawText)
+
+      let result
+      try {
+        result = JSON.parse(rawText)
+      } catch {
+        // Response might be plain text or just a number (new BookingID)
+        result = rawText
+      }
+
+      console.log('═══════════════════════════════════════════════════════════════')
+      console.log('✅ API RESPONSE: generateQuoteRevision')
+      console.log('─────────────────────────────────────────────────────────────')
+      console.log('📊 Status:', response.status, response.statusText)
+      console.log('📊 Response OK:', response.ok)
+      console.log('📦 Result:', result)
+      console.log('═══════════════════════════════════════════════════════════════')
+
+      return {
+        success: response.ok,
+        data: result,
+        error: response.ok ? null : `Failed to generate quote revision: ${result || response.status}`,
+      }
+    } catch (error: any) {
+      console.log('❌ API Exception:', error.message)
+      return {
+        success: false,
+        data: null,
+        error: `Failed to generate quote revision: ${error.message}`,
       }
     }
   }

@@ -924,11 +924,25 @@ export default function RateQueriesPage() {
                 <div className="space-y-2">
                   {filteredItems.map((item, index) => {
                     // Handle different property name cases from API
-                    const itemName = item.ItemName || item.itemName || item.Name || '-'
+                    const rawName = item.ItemName || item.itemName || item.Name || '-'
                     const itemId = item.ItemID || item.itemId || item.ID || index
-                    const gsm = item.GSM || item.gsm || null
                     const mill = item.Mill || item.mill || null
                     const rate = item.Rate || item.rate || item.EstimationRate || item.estimationRate || null
+
+                    // Extract GSM from item properties or from name (second part after comma)
+                    let gsm = item.GSM || item.gsm || null
+                    if (!gsm && rawName.includes(',')) {
+                      const parts = rawName.split(',')
+                      if (parts.length >= 2) {
+                        const potentialGsm = parts[1].trim()
+                        if (/^\d+$/.test(potentialGsm)) {
+                          gsm = potentialGsm
+                        }
+                      }
+                    }
+
+                    // Extract just the quality name (first part before comma) - removes sheet/reel size
+                    const displayName = rawName.split(',')[0].trim()
 
                     return (
                       <div
@@ -936,9 +950,16 @@ export default function RateQueriesPage() {
                         className="border border-[#005180]/20 rounded-lg p-3 bg-white hover:bg-[#005180]/5 transition-colors"
                       >
                         <div className="flex items-start justify-between">
-                          <p className="font-medium text-sm text-gray-900 flex-1">
-                            {itemName}
-                          </p>
+                          <div className="flex items-center gap-2 flex-1">
+                            <p className="font-medium text-sm text-gray-900">
+                              {displayName}
+                            </p>
+                            {gsm && (
+                              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
+                                {gsm} GSM
+                              </span>
+                            )}
+                          </div>
                           {rate && (
                             <span className="bg-[#005180] text-white px-2 py-0.5 rounded text-xs font-medium ml-2">
                               ₹{rate}
@@ -946,7 +967,6 @@ export default function RateQueriesPage() {
                           )}
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-600">
-                          {gsm && <span className="bg-gray-100 px-2 py-0.5 rounded">GSM: {gsm}</span>}
                           {mill && <span className="bg-gray-100 px-2 py-0.5 rounded">Mill: {mill}</span>}
                           {!rate && <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">No rate</span>}
                         </div>

@@ -5,6 +5,7 @@ import "./globals.css"
 import { FontSizeProvider } from "@/lib/font-size-context"
 import { SplashScreen } from "@/components/splash-screen"
 import { Toaster } from "@/components/ui/sonner"
+// import { ScreenshotPrevention } from "@/components/screenshot-prevention"
 
 export const metadata: Metadata = {
   title: "ParkBuddy",
@@ -28,6 +29,7 @@ export default function RootLayout({
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif' }}
     >
       <body className="font-sans antialiased">
+        {/* <ScreenshotPrevention /> */}
         <SplashScreen />
         <FontSizeProvider>
           <Suspense fallback={null}>{children}</Suspense>

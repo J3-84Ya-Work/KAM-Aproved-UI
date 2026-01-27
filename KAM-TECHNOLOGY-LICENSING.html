@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>ParkBuddy - Technology Stack & Licensing Report</title>
+<style>
+  body {
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    margin: 1in;
+    color: #333;
+  }
+  h1 {
+    font-size: 24pt;
+    color: #005180;
+    text-align: center;
+    border-bottom: 3px solid #005180;
+    padding-bottom: 10px;
+    margin-bottom: 30px;
+  }
+  h2 {
+    font-size: 16pt;
+    color: #005180;
+    border-bottom: 1px solid #005180;
+    padding-bottom: 5px;
+    margin-top: 25px;
+  }
+  h3 {
+    font-size: 13pt;
+    color: #333;
+    margin-top: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 10pt;
+  }
+  th {
+    background-color: #005180;
+    color: white;
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: bold;
+  }
+  td {
+    padding: 8px;
+    border: 1px solid #ddd;
+  }
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  .free {
+    color: #28a745;
+    font-weight: bold;
+  }
+  .paid {
+    color: #dc3545;
+    font-weight: bold;
+  }
+  .optional {
+    color: #ffc107;
+    font-weight: bold;
+  }
+  .summary-box {
+    background-color: #e8f4f8;
+    border: 2px solid #005180;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+  }
+  .warning-box {
+    background-color: #fff3cd;
+    border: 2px solid #ffc107;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+  }
+  .cost-table td:last-child {
+    text-align: right;
+    font-weight: bold;
+  }
+  .header-info {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #666;
+  }
+  .toc {
+    background-color: #f5f5f5;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 5px;
+  }
+  .toc h3 {
+    margin-top: 0;
+  }
+  .toc ul {
+    list-style-type: none;
+    padding-left: 0;
+  }
+  .toc li {
+    padding: 5px 0;
+  }
+  .footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+    font-size: 9pt;
+    color: #666;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>ParkBuddy<br>Technology Stack & Licensing Report</h1>
+
+<div class="toc">
+  <h3>Table of Contents</h3>
+  <ul>
+    <li>1. Executive Summary</li>
+    <li>2. Frontend Framework Technologies</li>
+    <li>3. UI Component Libraries</li>
+    <li>4. Styling Technologies</li>
+    <li>5. Data Management & Forms</li>
+    <li>6. Charts & Visualization</li>
+    <li>7. Document Export (PDF/Excel)</li>
+    <li>8. Database Technology</li>
+    <li>9. Development Tools</li>
+    <li>10. Hosting & Deployment</li>
+    <li>11. License Summary & Cost Analysis</li>
+  </ul>
+</div>
+
+<h2>1. Executive Summary</h2>
+
+<div class="summary-box">
+  <p><strong>Total NPM Packages Used:</strong> 50+ packages</p>
+  <p><strong>Open Source Packages (MIT/Apache):</strong> 100% of frontend packages</p>
+  <p><strong>Packages Requiring License:</strong> 0 (all frontend packages are free)</p>
+  <p><strong>Potential Costs:</strong> SQL Server (if exceeding Express limits), Hosting infrastructure</p>
+</div>
+
+<p>The ParkBuddy is built using modern web technologies with a focus on open-source solutions. All frontend libraries and frameworks used are licensed under permissive open-source licenses (MIT or Apache 2.0), which allow free commercial use without royalty payments.</p>
+
+<h2>2. Frontend Framework Technologies</h2>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>Next.js</strong></td>
+    <td>14.2.33</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>React framework for production with server-side rendering, developed by Vercel</td>
+  </tr>
+  <tr>
+    <td><strong>React</strong></td>
+    <td>18.x</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>JavaScript library for building user interfaces, developed by Meta (Facebook)</td>
+  </tr>
+  <tr>
+    <td><strong>React DOM</strong></td>
+    <td>18.x</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>React package for DOM rendering</td>
+  </tr>
+  <tr>
+    <td><strong>TypeScript</strong></td>
+    <td>5.x</td>
+    <td>Apache 2.0</td>
+    <td class="free">FREE</td>
+    <td>Typed superset of JavaScript, developed by Microsoft</td>
+  </tr>
+</table>
+
+<h2>3. UI Component Libraries</h2>
+
+<h3>3.1 Material UI (MUI) Ecosystem</h3>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>@mui/material</strong></td>
+    <td>7.3.7</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Core Material UI components (Community Edition)</td>
+  </tr>
+  <tr>
+    <td><strong>@mui/icons-material</strong></td>
+    <td>7.3.7</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Material Design icons for React</td>
+  </tr>
+  <tr>
+    <td><strong>@mui/x-date-pickers</strong></td>
+    <td>8.25.0</td>
+    <td>MIT (Community)</td>
+    <td class="free">FREE</td>
+    <td>Date and time picker components (Community Edition)</td>
+  </tr>
+  <tr>
+    <td><strong>Material React Table</strong></td>
+    <td>3.2.1</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Feature-rich data table built on MUI and TanStack Table</td>
+  </tr>
+</table>
+
+<div class="warning-box">
+  <strong>Note on MUI X Pro/Premium:</strong> The project uses the free Community edition of MUI X components. If advanced features like Excel export, row grouping, or tree data are needed in the future, MUI X Pro ($249/dev/year) or Premium ($599/dev/year) licenses may be required.
+</div>
+
+<h3>3.2 Radix UI Primitives</h3>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-accordion</td>
+    <td>1.2.2</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-alert-dialog</td>
+    <td>1.1.4</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-checkbox</td>
+    <td>1.1.3</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-dialog</td>
+    <td>1.1.4</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-dropdown-menu</td>
+    <td>2.1.4</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-popover</td>
+    <td>1.1.4</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-select</td>
+    <td>2.1.4</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-tabs</td>
+    <td>1.1.2</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-toast</td>
+    <td>1.2.4</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td>@radix-ui/react-tooltip</td>
+    <td>1.1.6</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+  </tr>
+  <tr>
+    <td colspan="4"><em>+ 15 additional Radix UI components (all MIT licensed, FREE)</em></td>
+  </tr>
+</table>
+
+<h3>3.3 Other UI Components</h3>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Purpose</th>
+  </tr>
+  <tr>
+    <td><strong>Lucide React</strong></td>
+    <td>0.454.0</td>
+    <td>ISC</td>
+    <td class="free">FREE</td>
+    <td>Beautiful & consistent icon library</td>
+  </tr>
+  <tr>
+    <td><strong>cmdk</strong></td>
+    <td>1.0.4</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Command palette component</td>
+  </tr>
+  <tr>
+    <td><strong>Sonner</strong></td>
+    <td>1.7.4</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Toast notification library</td>
+  </tr>
+  <tr>
+    <td><strong>Vaul</strong></td>
+    <td>0.9.9</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Drawer/sheet component</td>
+  </tr>
+  <tr>
+    <td><strong>Embla Carousel</strong></td>
+    <td>8.5.1</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Carousel/slider component</td>
+  </tr>
+  <tr>
+    <td><strong>React Day Picker</strong></td>
+    <td>9.8.0</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Date picker component</td>
+  </tr>
+  <tr>
+    <td><strong>React Resizable Panels</strong></td>
+    <td>2.1.7</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Resizable panel layouts</td>
+  </tr>
+  <tr>
+    <td><strong>Input OTP</strong></td>
+    <td>1.4.1</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>OTP input component</td>
+  </tr>
+</table>
+
+<h2>4. Styling Technologies</h2>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>Tailwind CSS</strong></td>
+    <td>4.1.9</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Utility-first CSS framework</td>
+  </tr>
+  <tr>
+    <td><strong>@emotion/react</strong></td>
+    <td>11.14.0</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>CSS-in-JS library for React</td>
+  </tr>
+  <tr>
+    <td><strong>@emotion/styled</strong></td>
+    <td>11.14.1</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Styled components for Emotion</td>
+  </tr>
+  <tr>
+    <td><strong>class-variance-authority</strong></td>
+    <td>0.7.1</td>
+    <td>Apache 2.0</td>
+    <td class="free">FREE</td>
+    <td>Creating variant class styles</td>
+  </tr>
+  <tr>
+    <td><strong>clsx</strong></td>
+    <td>2.1.1</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Utility for constructing className strings</td>
+  </tr>
+  <tr>
+    <td><strong>tailwind-merge</strong></td>
+    <td>2.5.5</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Merge Tailwind CSS classes</td>
+  </tr>
+  <tr>
+    <td><strong>tailwindcss-animate</strong></td>
+    <td>1.0.7</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Animation utilities for Tailwind</td>
+  </tr>
+  <tr>
+    <td><strong>Autoprefixer</strong></td>
+    <td>10.4.20</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>PostCSS plugin for vendor prefixes</td>
+  </tr>
+  <tr>
+    <td><strong>PostCSS</strong></td>
+    <td>8.5.x</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>CSS transformation tool</td>
+  </tr>
+</table>
+
+<h2>5. Data Management & Forms</h2>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>React Hook Form</strong></td>
+    <td>7.60.0</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Performant form validation library</td>
+  </tr>
+  <tr>
+    <td><strong>@hookform/resolvers</strong></td>
+    <td>3.10.0</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Validation resolvers for React Hook Form</td>
+  </tr>
+  <tr>
+    <td><strong>Zod</strong></td>
+    <td>3.25.76</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>TypeScript-first schema validation</td>
+  </tr>
+  <tr>
+    <td><strong>date-fns</strong></td>
+    <td>4.1.0</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Modern JavaScript date utility library</td>
+  </tr>
+</table>
+
+<h2>6. Charts & Visualization</h2>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>Recharts</strong></td>
+    <td>Latest</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Composable charting library built on React components</td>
+  </tr>
+</table>
+
+<h2>7. Document Export (PDF/Excel)</h2>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>jsPDF</strong></td>
+    <td>3.0.3</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Client-side PDF generation</td>
+  </tr>
+  <tr>
+    <td><strong>jspdf-autotable</strong></td>
+    <td>5.0.2</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Table plugin for jsPDF</td>
+  </tr>
+  <tr>
+    <td><strong>xlsx</strong></td>
+    <td>0.18.5</td>
+    <td>Apache 2.0</td>
+    <td class="free">FREE</td>
+    <td>Excel spreadsheet parser and writer</td>
+  </tr>
+  <tr>
+    <td><strong>xlsx-js-style</strong></td>
+    <td>1.2.0</td>
+    <td>Apache 2.0</td>
+    <td class="free">FREE</td>
+    <td>Excel styling extension</td>
+  </tr>
+  <tr>
+    <td><strong>html2canvas</strong></td>
+    <td>1.4.1</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Screenshots with JavaScript</td>
+  </tr>
+  <tr>
+    <td><strong>react-to-print</strong></td>
+    <td>3.2.0</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Print React components</td>
+  </tr>
+</table>
+
+<h2>8. Database Technology</h2>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>mssql (Node.js driver)</strong></td>
+    <td>12.0.0</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Microsoft SQL Server client for Node.js</td>
+  </tr>
+</table>
+
+<div class="warning-box">
+  <strong>Important: SQL Server Licensing</strong>
+  <p>The <code>mssql</code> npm package is just the Node.js driver and is free. However, <strong>Microsoft SQL Server itself requires licensing</strong>:</p>
+  <table>
+    <tr>
+      <th>Edition</th>
+      <th>Cost</th>
+      <th>Limitations</th>
+    </tr>
+    <tr>
+      <td>SQL Server Express</td>
+      <td class="free">FREE</td>
+      <td>10GB max database size, 1GB RAM, 4 cores</td>
+    </tr>
+    <tr>
+      <td>SQL Server Standard</td>
+      <td class="paid">~$3,945/2-core or $931/CAL</td>
+      <td>No limitations for most use cases</td>
+    </tr>
+    <tr>
+      <td>SQL Server Enterprise</td>
+      <td class="paid">~$15,123/2-core</td>
+      <td>Full features, unlimited scale</td>
+    </tr>
+  </table>
+</div>
+
+<h2>9. Development Tools</h2>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>ESLint</strong></td>
+    <td>8.57.1</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>JavaScript/TypeScript linter</td>
+  </tr>
+  <tr>
+    <td><strong>eslint-config-next</strong></td>
+    <td>15.5.5</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>ESLint configuration for Next.js</td>
+  </tr>
+  <tr>
+    <td><strong>@types/node</strong></td>
+    <td>22.19.1</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>TypeScript definitions for Node.js</td>
+  </tr>
+  <tr>
+    <td><strong>@types/react</strong></td>
+    <td>18.3.26</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>TypeScript definitions for React</td>
+  </tr>
+  <tr>
+    <td><strong>@types/react-dom</strong></td>
+    <td>18.3.7</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>TypeScript definitions for React DOM</td>
+  </tr>
+  <tr>
+    <td><strong>dotenv</strong></td>
+    <td>17.2.3</td>
+    <td>BSD-2-Clause</td>
+    <td class="free">FREE</td>
+    <td>Environment variable loader</td>
+  </tr>
+</table>
+
+<h2>10. Hosting & Deployment</h2>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Version</th>
+    <th>License</th>
+    <th>Cost</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><strong>@vercel/analytics</strong></td>
+    <td>1.5.0</td>
+    <td>MIT</td>
+    <td class="free">FREE (package)</td>
+    <td>Analytics package for Vercel</td>
+  </tr>
+  <tr>
+    <td><strong>next-themes</strong></td>
+    <td>0.4.6</td>
+    <td>MIT</td>
+    <td class="free">FREE</td>
+    <td>Theme management for Next.js</td>
+  </tr>
+  <tr>
+    <td><strong>Geist Font</strong></td>
+    <td>1.3.1</td>
+    <td>SIL OFL 1.1</td>
+    <td class="free">FREE</td>
+    <td>Vercel's font family</td>
+  </tr>
+</table>
+
+
+
+<h2>11. License Summary & Cost Analysis</h2>
+
+<h3>11.1 License Distribution</h3>
+
+<table>
+  <tr>
+    <th>License Type</th>
+    <th>Count</th>
+    <th>Commercial Use</th>
+    <th>Attribution Required</th>
+  </tr>
+  <tr>
+    <td><strong>MIT License</strong></td>
+    <td>45+ packages</td>
+    <td class="free">YES - FREE</td>
+    <td>Yes (in source code)</td>
+  </tr>
+  <tr>
+    <td><strong>Apache 2.0 License</strong></td>
+    <td>5+ packages</td>
+    <td class="free">YES - FREE</td>
+    <td>Yes (with NOTICE file)</td>
+  </tr>
+  <tr>
+    <td><strong>ISC License</strong></td>
+    <td>2 packages</td>
+    <td class="free">YES - FREE</td>
+    <td>Yes (in source code)</td>
+  </tr>
+  <tr>
+    <td><strong>BSD-2-Clause</strong></td>
+    <td>1 package</td>
+    <td class="free">YES - FREE</td>
+    <td>Yes (in source code)</td>
+  </tr>
+</table>
+
+<h3>11.2 Total Cost Analysis</h3>
+
+<table class="cost-table">
+  <tr>
+    <th>Category</th>
+    <th>Item</th>
+    <th>Cost</th>
+  </tr>
+  <tr>
+    <td>Frontend Packages</td>
+    <td>All npm dependencies (50+ packages)</td>
+    <td class="free">$0</td>
+  </tr>
+  <tr>
+    <td>Database Driver</td>
+    <td>mssql npm package</td>
+    <td class="free">$0</td>
+  </tr>
+  <tr>
+    <td>Development Tools</td>
+    <td>ESLint, TypeScript, etc.</td>
+    <td class="free">$0</td>
+  </tr>
+  <tr style="background-color: #e8f4f8;">
+    <td colspan="2"><strong>TOTAL (NPM Packages)</strong></td>
+    <td><strong class="free">$0</strong></td>
+  </tr>
+</table>
+
+<h3>11.3 Potential Additional Costs</h3>
+
+<table class="cost-table">
+  <tr>
+    <th>Item</th>
+    <th>When Required</th>
+    <th>Estimated Cost</th>
+  </tr>
+  <tr>
+    <td>SQL Server Standard</td>
+    <td>If database exceeds 10GB or needs more resources</td>
+    <td>$931 - $3,945</td>
+  </tr>
+  <tr>
+    <td>Vercel Pro Hosting</td>
+    <td>For production deployment with team features</td>
+    <td>$20/user/month</td>
+  </tr>
+  <tr>
+    <td>MUI X Pro License</td>
+    <td>If advanced data grid features needed</td>
+    <td>$249/dev/year</td>
+  </tr>
+  <tr>
+    <td>Domain & SSL</td>
+    <td>For production deployment</td>
+    <td>$10-50/year</td>
+  </tr>
+</table>
+</body>
+</html>

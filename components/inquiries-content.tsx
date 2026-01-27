@@ -685,9 +685,10 @@ export function InquiriesContent() {
   const [selectedInquiry, setSelectedInquiry] = useState<any>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
-  // MRT Column Definitions
+  // MRT Column Definitions - id must match tableColumns for visibility to work
   const mrtColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
     {
+      id: 'hod',
       accessorKey: 'hodName',
       header: 'HOD',
       size: 160,
@@ -696,6 +697,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'kam',
       accessorKey: 'kamName',
       header: 'KAM Name',
       size: 160,
@@ -704,6 +706,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'id',
       accessorKey: 'id',
       header: 'ID / Customer',
       size: 200,
@@ -715,6 +718,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'job',
       accessorKey: 'job',
       header: 'Job Name',
       size: 220,
@@ -726,6 +730,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'jobType',
       accessorKey: 'jobType',
       header: 'Job Type',
       size: 160,
@@ -736,6 +741,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'category',
       accessorKey: 'categoryName',
       header: 'Category',
       size: 180,
@@ -746,6 +752,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'quantity',
       accessorKey: 'quantityRange',
       header: 'Quantity',
       size: 140,
@@ -756,6 +763,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'productionUnit',
       accessorKey: 'productionUnitName',
       header: 'Production Unit',
       size: 180,
@@ -766,6 +774,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'status',
       accessorKey: 'status',
       header: 'Status',
       size: 150,
@@ -774,6 +783,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'source',
       accessorKey: 'Source',
       header: 'Source',
       size: 140,
@@ -782,6 +792,7 @@ export function InquiriesContent() {
       ),
     },
     {
+      id: 'date',
       accessorKey: 'date',
       header: 'Date',
       size: 180,
@@ -796,7 +807,7 @@ export function InquiriesContent() {
 
   return (
     <div className="section-spacing">
-      <div className="relative w-full flex gap-3 items-center">
+      <div className="relative mb-6 w-full flex gap-3 items-center">
         <div className="relative flex-1">
           <Mic
             onClick={isListening ? undefined : startListening}
@@ -840,11 +851,12 @@ export function InquiriesContent() {
           manualPagination={false}
           initialState={{
             pagination: { pageSize: 20, pageIndex: 0 },
-            columnVisibility: {
-              hodName: !isKAMUser && !isHODUser,
-              kamName: !isKAMUser,
-            },
           }}
+          state={{
+            columnVisibility,
+            sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
+          }}
+          onColumnVisibilityChange={setColumnVisibility}
           muiTablePaperProps={{
             sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
           }}

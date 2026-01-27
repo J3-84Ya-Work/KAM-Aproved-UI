@@ -1,11 +1,11 @@
 "use client"
 import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { CheckCircle2, Clock, AlertCircle, Search, RefreshCw, Mic } from "lucide-react"
+import { TableSettingsButton } from "@/components/ui/table-settings"
 import {
   MaterialReactTable,
   type MRT_ColumnDef,
@@ -268,6 +268,29 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
   const [selectedProject, setSelectedProject] = useState<any | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
+  // Table settings state
+  const tableColumns = [
+    { id: 'hod', label: 'HOD Name' },
+    { id: 'kam', label: 'KAM Name' },
+    { id: 'id', label: 'ID / Customer' },
+    { id: 'job', label: 'Job Details' },
+    { id: 'location', label: 'Location / Plant' },
+    { id: 'status', label: 'Status' },
+    { id: 'progress', label: 'Progress' },
+  ]
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
+    hod: true, kam: true, id: true, job: true, location: true, status: true, progress: true
+  })
+  const [columnOrder, setColumnOrder] = useState<string[]>(['hod', 'kam', 'id', 'job', 'location', 'status', 'progress'])
+  const [tableSortColumn, setTableSortColumn] = useState<string>('')
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('asc')
+  const resetTableSettings = () => {
+    setColumnVisibility({ hod: true, kam: true, id: true, job: true, location: true, status: true, progress: true })
+    setColumnOrder(['hod', 'kam', 'id', 'job', 'location', 'status', 'progress'])
+    setTableSortColumn('')
+    setTableSortDirection('asc')
+  }
+
   // Filtered data (search only, MRT handles pagination)
   const filteredSDO = sdoProjects.filter(p => {
     const matchesSearch =
@@ -319,21 +342,24 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
     return matchesSearch
   })
 
-  // MRT Column definitions for SDO
+  // MRT Column definitions for SDO - id must match tableColumns for visibility to work
   const sdoColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
     {
+      id: 'hod',
       accessorKey: 'hodName',
       header: 'HOD Name',
       size: 150,
       Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>,
     },
     {
+      id: 'kam',
       accessorKey: 'kamName',
       header: 'KAM Name',
       size: 150,
       Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>,
     },
     {
+      id: 'id',
       accessorKey: 'id',
       header: 'ID / Customer',
       size: 180,
@@ -345,6 +371,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       ),
     },
     {
+      id: 'job',
       accessorKey: 'job',
       header: 'Job Details',
       size: 220,
@@ -356,18 +383,14 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       ),
     },
     {
+      id: 'location',
       accessorKey: 'executionLocation',
       header: 'Execution Location',
       size: 180,
       Cell: ({ row }) => <span className="text-sm">{row.original.executionLocation || '-'}</span>,
     },
     {
-      accessorKey: 'productionPlant',
-      header: 'Production Plant',
-      size: 180,
-      Cell: ({ row }) => <span className="text-sm">{row.original.productionPlant || '-'}</span>,
-    },
-    {
+      id: 'status',
       accessorKey: 'status',
       header: 'Status',
       size: 160,
@@ -383,21 +406,24 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
     },
   ], [])
 
-  // MRT Column definitions for JDO
+  // MRT Column definitions for JDO - id must match tableColumns for visibility to work
   const jdoColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
     {
+      id: 'hod',
       accessorKey: 'hodName',
       header: 'HOD Name',
       size: 150,
       Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>,
     },
     {
+      id: 'kam',
       accessorKey: 'kamName',
       header: 'KAM Name',
       size: 150,
       Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>,
     },
     {
+      id: 'id',
       accessorKey: 'id',
       header: 'ID / Customer',
       size: 180,
@@ -409,6 +435,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       ),
     },
     {
+      id: 'job',
       accessorKey: 'job',
       header: 'Job Details',
       size: 220,
@@ -420,18 +447,14 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       ),
     },
     {
+      id: 'location',
       accessorKey: 'prePressPlant',
       header: 'Pre-Press Plant',
       size: 180,
       Cell: ({ row }) => <span className="text-sm">{row.original.prePressPlant || '-'}</span>,
     },
     {
-      accessorKey: 'productionPlant',
-      header: 'Production Plant',
-      size: 180,
-      Cell: ({ row }) => <span className="text-sm">{row.original.productionPlant || '-'}</span>,
-    },
-    {
+      id: 'status',
       accessorKey: 'artworkStatus',
       header: 'Artwork',
       size: 120,
@@ -446,6 +469,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       },
     },
     {
+      id: 'progress',
       accessorKey: 'bomStatus',
       header: 'BOM',
       size: 120,
@@ -459,37 +483,26 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
         )
       },
     },
-    {
-      accessorKey: 'routingStatus',
-      header: 'Routing',
-      size: 120,
-      Cell: ({ row }) => {
-        const StatusIcon = getStatusIcon(row.original.routingStatus)
-        return (
-          <Badge className={`${getStatusBadge(row.original.routingStatus)} border`}>
-            <StatusIcon className="mr-1 h-3 w-3" />
-            {row.original.routingStatus}
-          </Badge>
-        )
-      },
-    },
   ], [])
 
-  // MRT Column definitions for Commercial
+  // MRT Column definitions for Commercial - id must match tableColumns for visibility to work
   const commercialColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
     {
+      id: 'hod',
       accessorKey: 'hodName',
       header: 'HOD Name',
       size: 150,
       Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>,
     },
     {
+      id: 'kam',
       accessorKey: 'kamName',
       header: 'KAM Name',
       size: 150,
       Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>,
     },
     {
+      id: 'id',
       accessorKey: 'id',
       header: 'ID / Customer',
       size: 180,
@@ -501,6 +514,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       ),
     },
     {
+      id: 'job',
       accessorKey: 'job',
       header: 'Job Details',
       size: 220,
@@ -512,24 +526,14 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       ),
     },
     {
-      accessorKey: 'quantity',
-      header: 'Quantity',
-      size: 120,
-      Cell: ({ row }) => <span className="text-sm font-medium">{row.original.quantity || '-'}</span>,
-    },
-    {
+      id: 'location',
       accessorKey: 'prePressPlant',
       header: 'Pre-Press Plant',
       size: 160,
       Cell: ({ row }) => <span className="text-sm">{row.original.prePressPlant || '-'}</span>,
     },
     {
-      accessorKey: 'productionPlant',
-      header: 'Production Plant',
-      size: 160,
-      Cell: ({ row }) => <span className="text-sm">{row.original.productionPlant || '-'}</span>,
-    },
-    {
+      id: 'status',
       accessorKey: 'status',
       header: 'Status',
       size: 140,
@@ -545,21 +549,24 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
     },
   ], [])
 
-  // MRT Column definitions for PN
+  // MRT Column definitions for PN - id must match tableColumns for visibility to work
   const pnColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
     {
+      id: 'hod',
       accessorKey: 'hodName',
       header: 'HOD Name',
       size: 150,
       Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.hodName || "N/A"}</p>,
     },
     {
+      id: 'kam',
       accessorKey: 'kamName',
       header: 'KAM Name',
       size: 150,
       Cell: ({ row }) => <p className="text-sm font-medium text-foreground">{row.original.kamName || "N/A"}</p>,
     },
     {
+      id: 'id',
       accessorKey: 'id',
       header: 'ID / Customer',
       size: 180,
@@ -571,6 +578,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       ),
     },
     {
+      id: 'job',
       accessorKey: 'job',
       header: 'Job Details',
       size: 220,
@@ -582,18 +590,14 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       ),
     },
     {
-      accessorKey: 'quantity',
-      header: 'Quantity',
-      size: 120,
-      Cell: ({ row }) => <span className="text-sm font-medium">{row.original.quantity || '-'}</span>,
-    },
-    {
+      id: 'location',
       accessorKey: 'plant',
       header: 'Plant',
       size: 120,
       Cell: ({ row }) => <span className="text-sm">{row.original.plant || '-'}</span>,
     },
     {
+      id: 'status',
       accessorKey: 'status',
       header: 'Status',
       size: 140,
@@ -608,6 +612,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       },
     },
     {
+      id: 'progress',
       accessorKey: 'progress',
       header: 'Progress',
       size: 120,
@@ -790,7 +795,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
       <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
         {/* SDO Tab */}
         <TabsContent value="sdo">
-          <div className="relative mb-4 w-full flex gap-3 items-center">
+          <div className="relative mb-6 w-full flex gap-3 items-center">
             <div className="relative flex-1">
               <Mic
                 onClick={() => alert("Voice input feature coming soon")}
@@ -804,6 +809,19 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
               />
             </div>
+            <TableSettingsButton
+              storageKey="projects-sdo"
+              columns={tableColumns}
+              columnVisibility={columnVisibility}
+              setColumnVisibility={setColumnVisibility}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+              sortColumn={tableSortColumn}
+              setSortColumn={setTableSortColumn}
+              sortDirection={tableSortDirection}
+              setSortDirection={setTableSortDirection}
+              onReset={resetTableSettings}
+            />
           </div>
 
           <ThemeProvider theme={mrtTheme}>
@@ -818,6 +836,11 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
               enableSorting={true}
               enableGlobalFilter={false}
               initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
+              state={{
+                columnVisibility,
+                sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
+              }}
+              onColumnVisibilityChange={setColumnVisibility}
               muiTablePaperProps={{
                 sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
               }}
@@ -866,7 +889,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
 
         {/* JDO Tab */}
         <TabsContent value="jdo">
-          <div className="relative mb-4 w-full flex gap-3 items-center">
+          <div className="relative mb-6 w-full flex gap-3 items-center">
             <div className="relative flex-1">
               <Mic
                 onClick={() => alert("Voice input feature coming soon")}
@@ -880,6 +903,19 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
               />
             </div>
+            <TableSettingsButton
+              storageKey="projects-jdo"
+              columns={tableColumns}
+              columnVisibility={columnVisibility}
+              setColumnVisibility={setColumnVisibility}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+              sortColumn={tableSortColumn}
+              setSortColumn={setTableSortColumn}
+              sortDirection={tableSortDirection}
+              setSortDirection={setTableSortDirection}
+              onReset={resetTableSettings}
+            />
           </div>
 
           <ThemeProvider theme={mrtTheme}>
@@ -894,6 +930,11 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
               enableSorting={true}
               enableGlobalFilter={false}
               initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
+              state={{
+                columnVisibility,
+                sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
+              }}
+              onColumnVisibilityChange={setColumnVisibility}
               muiTablePaperProps={{
                 sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
               }}
@@ -942,7 +983,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
 
         {/* Commercial Tab */}
         <TabsContent value="commercial">
-          <div className="relative mb-4 w-full flex gap-3 items-center">
+          <div className="relative mb-6 w-full flex gap-3 items-center">
             <div className="relative flex-1">
               <Mic
                 onClick={() => alert("Voice input feature coming soon")}
@@ -956,7 +997,21 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
               />
             </div>
+            <TableSettingsButton
+              storageKey="projects-commercial"
+              columns={tableColumns}
+              columnVisibility={columnVisibility}
+              setColumnVisibility={setColumnVisibility}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+              sortColumn={tableSortColumn}
+              setSortColumn={setTableSortColumn}
+              sortDirection={tableSortDirection}
+              setSortDirection={setTableSortDirection}
+              onReset={resetTableSettings}
+            />
           </div>
+
           <ThemeProvider theme={mrtTheme}>
             <MaterialReactTable
               columns={commercialColumns}
@@ -968,6 +1023,12 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
               enablePagination={true}
               enableSorting={true}
               enableGlobalFilter={false}
+              initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
+              state={{
+                columnVisibility,
+                sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
+              }}
+              onColumnVisibilityChange={setColumnVisibility}
               muiTablePaperProps={{
                 elevation: 0,
                 sx: { borderRadius: '8px', border: '1px solid #e5e7eb' },
@@ -1010,7 +1071,7 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
 
         {/* PN Tab */}
         <TabsContent value="pn">
-          <div className="relative mb-4 w-full flex gap-3 items-center">
+          <div className="relative mb-6 w-full flex gap-3 items-center">
             <div className="relative flex-1">
               <Mic
                 onClick={() => alert("Voice input feature coming soon")}
@@ -1024,7 +1085,21 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
               />
             </div>
+            <TableSettingsButton
+              storageKey="projects-pn"
+              columns={tableColumns}
+              columnVisibility={columnVisibility}
+              setColumnVisibility={setColumnVisibility}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+              sortColumn={tableSortColumn}
+              setSortColumn={setTableSortColumn}
+              sortDirection={tableSortDirection}
+              setSortDirection={setTableSortDirection}
+              onReset={resetTableSettings}
+            />
           </div>
+
           <ThemeProvider theme={mrtTheme}>
             <MaterialReactTable
               columns={pnColumns}
@@ -1036,6 +1111,12 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
               enablePagination={true}
               enableSorting={true}
               enableGlobalFilter={false}
+              initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
+              state={{
+                columnVisibility,
+                sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
+              }}
+              onColumnVisibilityChange={setColumnVisibility}
               muiTablePaperProps={{
                 elevation: 0,
                 sx: { borderRadius: '8px', border: '1px solid #e5e7eb' },

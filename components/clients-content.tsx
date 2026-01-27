@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, Upload, CheckCircle2, XCircle, AlertCircle, Mic } from "lucide-react"
+import { TableSettingsButton } from "@/components/ui/table-settings"
 import {
   MaterialReactTable,
   type MRT_ColumnDef,
@@ -336,6 +337,66 @@ export function ClientsContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Table settings state
+  const tableColumns = useMemo(() => [
+    { id: 'hodName', label: 'HOD' },
+    { id: 'kamName', label: 'KAM Name' },
+    { id: 'id', label: 'Customer ID' },
+    { id: 'name', label: 'Company Name' },
+    { id: 'code', label: 'Customer Code' },
+    { id: 'phone', label: 'Contact' },
+    { id: 'status', label: 'Status' },
+    { id: 'complianceStatus', label: 'Compliance' },
+    { id: 'totalOrders', label: 'Total Orders' },
+  ], [])
+
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('clients-column-visibility')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) { }
+      }
+    }
+    return {
+      hodName: !isKAM && !isHODUser,
+      kamName: !isKAM,
+    }
+  })
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('clients-column-order')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) { }
+      }
+    }
+    return tableColumns.map(col => col.id)
+  })
+
+  const [tableSortColumn, setTableSortColumn] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('clients-sort-column') || ''
+    }
+    return ''
+  })
+
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('clients-sort-direction') as 'asc' | 'desc') || 'desc'
+    }
+    return 'desc'
+  })
+
+  const resetTableSettings = () => {
+    setColumnVisibility({
+      hodName: !isKAM && !isHODUser,
+      kamName: !isKAM,
+    })
+    setColumnOrder(tableColumns.map(col => col.id))
+    setTableSortColumn('')
+    setTableSortDirection('desc')
+  }
+
   // Fetch customers from GetSbClient API (direct fetch to avoid caching issues)
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -545,20 +606,33 @@ export function ClientsContent() {
 
   return (
     <div className="space-y-4">
-      {/* Search Bar Only */}
-      <div className="relative flex gap-2 items-center">
+      {/* Search Bar with Table Settings */}
+      <div className="relative mb-6 w-full flex gap-3 items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Mic
+            onClick={() => alert("Voice input feature coming soon")}
+            className="pointer-events-auto absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer text-[#005180] hover:text-[#004875] transition-colors duration-200 z-10"
+          />
+          <Search className="pointer-events-none absolute left-12 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Find your customers by name, ID, or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 placeholder:truncate"
+            className="h-12 rounded-full border-2 border-[#005180] bg-white pl-20 pr-4 text-base font-medium focus-visible:ring-2 focus-visible:ring-[#005180]/40 focus-visible:border-[#005180] placeholder:truncate"
           />
         </div>
-        <Mic
-          onClick={() => alert("Voice input feature coming soon")}
-          className="h-6 w-6 text-[#005180] cursor-pointer hover:text-[#004875] transition-colors duration-200 flex-shrink-0"
+        <TableSettingsButton
+          storageKey="clients"
+          columns={tableColumns}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnOrder={columnOrder}
+          setColumnOrder={setColumnOrder}
+          sortColumn={tableSortColumn}
+          setSortColumn={setTableSortColumn}
+          sortDirection={tableSortDirection}
+          setSortDirection={setTableSortDirection}
+          onReset={resetTableSettings}
         />
       </div>
 
@@ -594,6 +668,11 @@ export function ClientsContent() {
             initialState={{
               pagination: { pageSize: 20, pageIndex: 0 },
             }}
+            state={{
+              columnVisibility,
+              sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
+            }}
+            onColumnVisibilityChange={setColumnVisibility}
             muiTablePaperProps={{
               sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
             }}
