@@ -47,24 +47,26 @@ const getHeaders = (session?: any) => {
 }
 
 // Helper function to get headers for approvals (fetch all quotations)
+// NOTE: Uses UserID: "2" to fetch all quotations for approvals
 const getHeadersForApprovals = (session?: any) => {
   // Get user auth data from localStorage
   const authData = getUserAuthData()
 
   // Use localStorage values first, then session, then defaults
   const companyId = authData?.companyId?.toString() || session?.CompanyID?.toString() || '2'
-  const userId = authData?.userId?.toString() || session?.UserID?.toString() || '2'
   const fyear = authData?.fyear || session?.Fyear || '2025-2026'
   const productionUnitId = authData?.productionUnitId?.toString() || session?.ProductionUnitID?.toString() || '1'
 
   const headers = {
     'CompanyID': companyId,
-    'UserID': userId,
+    'UserID': '2', // Hardcoded to fetch all quotations for approvals
     'Fyear': fyear,
     'ProductionUnitID': productionUnitId,
     'Authorization': `Basic ${btoa('parksonsnew:parksonsnew')}`,
     'Content-Type': 'application/json',
   }
+
+  console.log('📋 Approvals API Headers (UserID: 2):', headers)
 
   return headers
 }
@@ -1822,6 +1824,59 @@ export class QuotationsAPI {
         success: false,
         data: null,
         error: `Failed to fetch raw email body: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Calculate Flap Dimensions
+   * Auto-calculates Open Flap and Pasting Flap based on L/W/H and content type
+   * Endpoint: POST /api/planwindow/calculate-flap-dimensions
+   */
+  static async calculateFlapDimensions(data: {
+    length: number
+    width: number
+    height: number
+    contentType: string
+    isCorrugated?: boolean
+  }, session: any) {
+    try {
+      const url = `${API_BASE_URL}/api/planwindow/calculate-flap-dimensions`
+
+      const body = {
+        length: data.length,
+        width: data.width,
+        height: data.height,
+        contentType: data.contentType,
+        isCorrugated: data.isCorrugated ?? false,
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(session),
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        return {
+          success: false,
+          data: null,
+          error: `Failed to calculate flap dimensions: ${response.status}`,
+        }
+      }
+
+      const result = await response.json()
+
+      return {
+        success: true,
+        data: result,
+        error: null,
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        data: null,
+        error: `Failed to calculate flap dimensions: ${error.message}`,
       }
     }
   }

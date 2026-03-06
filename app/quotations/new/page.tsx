@@ -43,7 +43,12 @@ function NewQuotationContent() {
 
           {mode === 'dynamic' && (
             <div className="w-full">
-              <PrintingWizard />
+              <PrintingWizard
+                onQuotationCreated={(quotationNumber) => {
+                  // Don't redirect - let user view the costing summary
+                  // User will click "Done" when ready to leave
+                }}
+              />
             </div>
           )}
         </div>

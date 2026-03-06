@@ -203,6 +203,15 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
   const [selectedContent, setSelectedContent] = useState<any>(null)
   const [pendingContentTypeToSelect, setPendingContentTypeToSelect] = useState<string | null>(null)
 
+  // Track if there's unsaved content data (content selected but not applied)
+  const [hasUnsavedContent, setHasUnsavedContent] = useState(false)
+
+  // Flap auto-calculation state
+  const [calculatingFlaps, setCalculatingFlaps] = useState(false)
+
+  // Track which content card is being edited (keeps card in grid, replaces on apply)
+  const [editingContentId, setEditingContentId] = useState<number | null>(null)
+
   // Dropdown data for material properties
   const [qualities, setQualities] = useState<any[]>([])
   const [gsmOptions, setGsmOptions] = useState<any[]>([])
@@ -422,8 +431,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         // Add enquiry type and sales type from rawData or direct fields
         enquiryType: initialData.enquiryType || initialData.rawData?.EnquiryType || '',
         salesType: initialData.salesType || initialData.rawData?.SalesType || '',
-        // Additional fields for edit
-        concernPerson: initialData.concernPerson || initialData.rawData?.ConcernPerson || initialData.rawData?.ConcernPersonName || initialData.rawData?.ContactPerson || '',
+        // Additional fields for edit - Use concernPersonId (the ID) for dropdown, not the name
+        concernPerson: initialData.concernPersonId?.toString() || initialData.rawData?.ConcernPersonID?.toString() || '',
         concernPersonMobile: initialData.concernPersonMobile || initialData.rawData?.Mobile || '',
         divisionName: initialData.divisionName || initialData.rawData?.DivisionName || 'Packaging',
         supplyLocation: initialData.supplyLocation || initialData.rawData?.SupplyLocation || '',
@@ -455,7 +464,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       clientLogger.log('[Edit Mode] Enquiry Type:', initialData.enquiryType)
       clientLogger.log('[Edit Mode] Sales Type:', initialData.salesType)
       clientLogger.log('[Edit Mode] Type of Printing:', initialData.typeOfPrinting)
-      clientLogger.log('[Edit Mode] Concern Person:', initialData.concernPerson)
+      clientLogger.log('[Edit Mode] Concern Person ID:', initialData.concernPersonId)
+      clientLogger.log('[Edit Mode] Concern Person Name:', initialData.concernPerson)
       clientLogger.log('[Edit Mode] Concern Person Mobile:', initialData.concernPersonMobile)
       clientLogger.log('[Edit Mode] Annual Quantity:', initialData.annualQuantity)
       clientLogger.log('[Edit Mode] Has Detailed Data:', !!initialData.detailedData)
@@ -595,56 +605,14 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             setContentGridData(gridData)
             clientLogger.log('[Edit Mode] Populated contentGridData with', gridData.length, 'contents')
 
-            // Also set the first content for form display (for backwards compatibility)
-            const firstContent = detailedData.TblBookingContents[0]
-            if (firstContent.ContentSizeValues) {
-              const sizeValues: Record<string, string> = {}
-              const pairs = firstContent.ContentSizeValues.split('AndOr')
-              pairs.forEach((pair: string) => {
-                const [key, value] = pair.split('=')
-                if (key && value) {
-                  sizeValues[key] = value
-                }
-              })
-              setPlanDetails(prev => ({ ...prev, ...sizeValues }))
-            }
-
-            const contentTypeToSelect = firstContent.PlanContentType || firstContent.PlanContName || firstContent.ContentName || firstContent.ContentType || firstContent.ContName || firstContent.ContentDomainType || firstContent.PlanContDomainType || firstContent.DomainType
-            const contentIdFromApi = firstContent.ContentID || firstContent.PlanContentID || firstContent.ContID || firstContent.ContentMasterID
-
+            // In edit mode, DON'T auto-fill content form - let user choose
+            // The contentGridData shows existing contents, but form stays empty for adding new content
             console.log('═══════════════════════════════════════════════════════════════')
             console.log('🎯 EDIT MODE - MULTI-CONTENT LOADED')
             console.log('─────────────────────────────────────────────────────────────')
             console.log('📋 Total contents loaded:', gridData.length)
-            console.log('📋 First content type:', contentTypeToSelect)
-            console.log('📋 First content ID:', contentIdFromApi)
+            console.log('📋 Content form left empty - user will choose content type')
             console.log('═══════════════════════════════════════════════════════════════')
-
-            if (contentTypeToSelect) {
-              setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
-              setPendingContentTypeToSelect(contentTypeToSelect)
-            }
-
-            if (contentIdFromApi) {
-              setSelectedContentIds([Number(contentIdFromApi)])
-            }
-          }
-
-          // Parse TblBookingProcess for processes (for first content - backwards compatibility)
-          if (detailedData.TblBookingProcess && detailedData.TblBookingProcess.length > 0) {
-            // Get processes for first content only (for form display)
-            const firstContentName = detailedData.TblBookingContents?.[0]?.PlanContentType || detailedData.TblBookingContents?.[0]?.PlanContName
-            const firstContentProcesses = detailedData.TblBookingProcess
-              .filter((p: any) => !firstContentName || p.PlanContName === firstContentName || p.PlanContentType === firstContentName)
-              .map((p: any) => ({
-                ProcessID: Number(p.ProcessID),
-                ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
-              }))
-            clientLogger.log('[Edit Mode] Processes for first content:', firstContentProcesses)
-            setSelectedProcesses(firstContentProcesses.length > 0 ? firstContentProcesses : detailedData.TblBookingProcess.map((p: any) => ({
-              ProcessID: Number(p.ProcessID),
-              ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
-            })))
           }
 
         } else {
@@ -757,77 +725,15 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             // Set contentGridData with all contents
             setContentGridData(gridData)
             clientLogger.log('[Edit Mode] Populated contentGridData with', gridData.length, 'contents')
-
-            // Also set the first content for form display (for backwards compatibility)
-            const firstDetails = detailedData.DetailsData[0]
-            if (firstDetails.ContentSizeValues) {
-              const sizeValues: Record<string, string> = {}
-              const pairs = firstDetails.ContentSizeValues.split('AndOr')
-              pairs.forEach((pair: string) => {
-                const [key, value] = pair.split('=')
-                if (key && value) {
-                  sizeValues[key] = value
-                }
-              })
-              setPlanDetails(prev => ({ ...prev, ...sizeValues }))
-            }
-
-            // Store content type to be selected after content types are loaded
-            const contentTypeToSelect = firstDetails.PlanContentType || firstDetails.PlanContName || firstDetails.ContentName || firstDetails.ContentType
-            const contentIdFromApi = firstDetails.ContentID || firstDetails.PlanContentID
-
-            clientLogger.log('[Edit Mode] Content type to select:', contentTypeToSelect)
-            clientLogger.log('[Edit Mode] Content ID from API:', contentIdFromApi)
-
-            if (contentTypeToSelect) {
-              setFormData(prev => ({ ...prev, contentType: contentTypeToSelect }))
-              setPendingContentTypeToSelect(contentTypeToSelect)
-            }
-
-            if (contentIdFromApi) {
-              setSelectedContentIds([Number(contentIdFromApi)])
-            }
-          }
-
-          // Populate selected processes if available (for first content)
-          if (detailedData.ProcessData && detailedData.ProcessData.length > 0) {
-            const firstContentName = detailedData.DetailsData?.[0]?.PlanContentType || detailedData.DetailsData?.[0]?.PlanContName
-            const firstContentProcesses = detailedData.ProcessData
-              .filter((p: any) => !firstContentName || p.PlanContName === firstContentName || p.PlanContentType === firstContentName)
-              .map((p: any) => ({
-                ProcessID: Number(p.ProcessID),
-                ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
-              }))
-            setSelectedProcesses(firstContentProcesses.length > 0 ? firstContentProcesses : detailedData.ProcessData.map((p: any) => ({
-              ProcessID: Number(p.ProcessID),
-              ProcessName: p.ProcessName || p.ProcessID?.toString() || ''
-            })))
+            // In edit mode, DON'T auto-fill content form - let user choose
+            clientLogger.log('[Edit Mode] Content form left empty - user will choose content type')
           }
         }
       } else {
         clientLogger.log('[Edit Mode] No detailed data available')
       }
 
-      // If no content was found from detailedData, try to get it from rawData
-      // This handles the case where the enquiry was created without detailed content
-      if (selectedContentIds.length === 0 && initialData.rawData) {
-        clientLogger.log('[Edit Mode] Checking rawData for content info...')
-        const rawContentType = initialData.rawData.ContentType || initialData.rawData.ContentName || initialData.rawData.PlanContentType
-        const rawContentId = initialData.rawData.ContentID
-
-        clientLogger.log('[Edit Mode] rawData ContentType:', rawContentType)
-        clientLogger.log('[Edit Mode] rawData ContentID:', rawContentId)
-
-        if (rawContentType && !formData.contentType) {
-          setFormData(prev => ({ ...prev, contentType: rawContentType }))
-          setPendingContentTypeToSelect(rawContentType)
-          clientLogger.log('[Edit Mode] Set pendingContentTypeToSelect from rawData:', rawContentType)
-        }
-
-        if (rawContentId) {
-          setSelectedContentIds([Number(rawContentId)])
-        }
-      }
+      // In edit mode, DON'T auto-fill from rawData either - let user choose their own content
 
       // Set form type to 'detailed' for edit mode if there is detailed data
       if (initialData.detailedData || initialData.rawData) {
@@ -1278,6 +1184,59 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     fetchFinish()
   }, [planDetails.ItemPlanMill, planDetails.ItemPlanQuality, planDetails.ItemPlanGsm])
 
+  // Auto-calculate Open Flap and Pasting Flap when L/W/H change
+  useEffect(() => {
+    const calculateFlaps = async () => {
+      const length = parseFloat(planDetails.SizeLength)
+      const width = parseFloat(planDetails.SizeWidth)
+      const height = parseFloat(planDetails.SizeHeight)
+
+      // Need all three dimensions to calculate
+      if (!length || !width || !height) return
+
+      // Only calculate if the content type has flap fields
+      if (selectedContentIds.length === 0) return
+      const selectedContentItem = contentTypes.find((c) => c.ContentID === selectedContentIds[0])
+      if (!selectedContentItem?.ContentSizes) return
+
+      const sizeFields = selectedContentItem.ContentSizes.split(',').map((s: string) => s.trim())
+      const hasFlaps = sizeFields.includes('SizeOpenflap') || sizeFields.includes('SizePastingflap')
+      if (!hasFlaps) return
+
+      // Build contentType param — remove spaces for API (e.g. "Crash Lock With Pasting" -> "CrashLockWithPasting")
+      const contentTypeName = (selectedContentItem.ContentName || '').replace(/\s+/g, '')
+
+      try {
+        setCalculatingFlaps(true)
+        const response = await QuotationsAPI.calculateFlapDimensions({
+          length,
+          width,
+          height,
+          contentType: contentTypeName,
+          isCorrugated: false,
+        }, null)
+
+        if (response.success && response.data?.success && response.data.values) {
+          const { SizeOpenflap, SizePastingflap } = response.data.values
+          if (SizeOpenflap != null) {
+            handlePlanDetailChange('SizeOpenflap', String(SizeOpenflap))
+          }
+          if (SizePastingflap != null) {
+            handlePlanDetailChange('SizePastingflap', String(SizePastingflap))
+          }
+        }
+      } catch (error) {
+        // Silently fail — user can still fill manually
+      } finally {
+        setCalculatingFlaps(false)
+      }
+    }
+
+    // Debounce to avoid calling API on every keystroke
+    const timer = setTimeout(calculateFlaps, 600)
+    return () => clearTimeout(timer)
+  }, [planDetails.SizeLength, planDetails.SizeWidth, planDetails.SizeHeight, selectedContentIds, contentTypes])
+
   // Fetch enquiry number on component mount
   useEffect(() => {
     const fetchEnquiryNumber = async () => {
@@ -1421,15 +1380,24 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     // Check if content is actually changing
     const isChanging = !selectedContentIds.includes(contentId)
 
+    // Find the content object for the selected ID
+    const contentObj = contentTypes.find(c => c.ContentID === contentId)
+
     setSelectedContentIds((prev) => {
       // Only allow single selection
       if (prev.includes(contentId)) {
         // Deselect if clicking the same content
+        setSelectedContent(null) // Also clear selectedContent when deselecting
         return []
       }
       // Replace with new selection
       return [contentId]
     })
+
+    // Update selectedContent state with the full content object
+    if (contentObj && isChanging) {
+      setSelectedContent(contentObj)
+    }
 
     // If content changed, clear sizes, quality, processes
     if (isChanging) {
@@ -1464,6 +1432,37 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       return
     }
 
+    // Validate mandatory fields before applying content
+    const missingFields: string[] = []
+
+    // Check mandatory material fields
+    if (!planDetails.ItemPlanQuality) {
+      missingFields.push('Board')
+    }
+    if (!planDetails.ItemPlanGsm) {
+      missingFields.push('GSM')
+    }
+    if (!planDetails.ItemPlanMill) {
+      missingFields.push('Mill')
+    }
+
+    // Check mandatory dimension fields (at least height and length required)
+    if (!planDetails.SizeHeight) {
+      missingFields.push('Height')
+    }
+    if (!planDetails.SizeLength) {
+      missingFields.push('Length')
+    }
+
+    if (missingFields.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Missing Mandatory Fields",
+        description: `Please fill in: ${missingFields.join(', ')}`,
+      })
+      return
+    }
+
     const selectedContents = contentTypes.filter((c) => selectedContentIds.includes(c.ContentID))
 
     const newContentData = selectedContents.map((content) => {
@@ -1488,10 +1487,41 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
 
       const otherDetailsString = otherDetailsParts.length > 0 ? otherDetailsParts.join(', ') : '-'
 
+      // When editing an existing card, keep its original name; otherwise generate unique name
+      const baseContentName = content.ContentName
+      let uniqueContentName = baseContentName
+
+      if (!editingContentId) {
+        // Only generate suffix for new content, not when updating existing
+        // Check existing content names in grid (including ones being added in this batch)
+        const existingNames = contentGridData.map(c => c.ContentName || c.contentName)
+
+        // Find the highest suffix number for this content type
+        let suffixNum = 0
+        const namePattern = new RegExp(`^${baseContentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d*)$`)
+
+        existingNames.forEach(name => {
+          const match = name?.match(namePattern)
+          if (match) {
+            const num = match[1] ? parseInt(match[1], 10) : 0
+            if (num >= suffixNum) {
+              suffixNum = num + 1
+            } else if (suffixNum === 0) {
+              suffixNum = 1
+            }
+          }
+        })
+
+        // If there's already content with same name, add suffix
+        if (suffixNum > 0) {
+          uniqueContentName = `${baseContentName}${suffixNum}`
+        }
+      }
+
       return {
-        id: Date.now() + content.ContentID,
-        contentName: content.ContentName,
-        ContentName: content.ContentName,
+        id: editingContentId || (Date.now() + content.ContentID),
+        contentName: uniqueContentName,
+        ContentName: uniqueContentName,
         Size: sizeString,
         OtherDetails: otherDetailsString,
         rawData: {
@@ -1504,29 +1534,84 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       }
     })
 
-    setContentGridData((prev) => [...prev, ...newContentData])
+    if (editingContentId) {
+      // Replace the existing card in-place
+      setContentGridData((prev) => prev.map((c) =>
+        c.id === editingContentId ? newContentData[0] : c
+      ))
+    } else {
+      // Add new content(s) to the grid
+      setContentGridData((prev) => [...prev, ...newContentData])
+    }
+
+    const wasEditing = !!editingContentId
 
     // Reset selections
     setSelectedContentIds([])
+    setSelectedContent(null)
     setSelectedProcesses([])
     setPlanDetails({})
+    setHasUnsavedContent(false)
+    setEditingContentId(null)
 
     toast({
       title: "Success",
-      description: `${newContentData.length} content(s) added successfully`,
+      description: wasEditing ? "Content updated successfully" : `${newContentData.length} content(s) added successfully`,
     })
   }
 
   const handleContentDelete = (contentId: number) => {
+    // If deleting the card currently being edited, clear the edit state
+    if (editingContentId === contentId) {
+      setEditingContentId(null)
+      setSelectedContentIds([])
+      setSelectedContent(null)
+      setSelectedProcesses([])
+      setPlanDetails({})
+      setHasUnsavedContent(false)
+    }
     setContentGridData((prev) => prev.filter((c) => c.id !== contentId))
   }
 
-  // Edit content - loads content back to form for modification and removes from grid
+  // Edit content - loads content into form for modification, keeps card in grid highlighted
   const handleContentEdit = (content: any) => {
+    // Prevent double-click issues - check if content still exists in grid
+    const contentExists = contentGridData.some(c => c.id === content.id)
+    if (!contentExists) {
+      return // Content already removed, ignore
+    }
+
+    // Check if there's unsaved content - require Apply first
+    if (hasUnsavedContent && selectedContentIds.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Unsaved Content",
+        description: "Please click 'Apply Content' first to save your current changes before editing another content.",
+      })
+      return
+    }
+
     const { rawData } = content
     if (rawData) {
-      // Restore content selection
-      if (rawData.content?.ContentID) {
+      // Mark this card as being edited (keep it in grid, highlight it)
+      setEditingContentId(content.id)
+
+      // Restore content selection - match by name from master contentTypes
+      const contentName = rawData.content?.ContentName || content.ContentName || content.contentName || ''
+      const normalizeStr = (str: string) => (str || '').toLowerCase().replace(/[\s\-_]+/g, '')
+      const masterContent = contentTypes.find(c =>
+        c.ContentName === contentName ||
+        normalizeStr(c.ContentName) === normalizeStr(contentName) ||
+        c.ContentCode === contentName ||
+        normalizeStr(c.ContentCode) === normalizeStr(contentName)
+      )
+
+      if (masterContent) {
+        // Use the master content type ID so dropdown recognizes it
+        setSelectedContentIds([masterContent.ContentID])
+        setSelectedContent(masterContent)
+      } else if (rawData.content?.ContentID) {
+        // Fallback to raw ID if no master match found
         setSelectedContentIds([rawData.content.ContentID])
         setSelectedContent(rawData.content)
       }
@@ -1541,22 +1626,44 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
         setSelectedProcesses(rawData.processes)
       }
 
-      // Remove the content from grid since we're editing it
-      setContentGridData((prev) => prev.filter((c) => c.id !== content.id))
+      // Mark as having unsaved content
+      setHasUnsavedContent(true)
 
       toast({
         title: "Content Loaded for Edit",
-        description: "Make your changes and click Apply to update.",
+        description: "Make your changes and click Update Content to save.",
       })
     }
   }
 
   // Duplicate content - loads content data to form but keeps original in grid
   const handleContentDuplicate = (content: any) => {
+    // Check if there's unsaved content - require Apply first
+    if (hasUnsavedContent && selectedContentIds.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Unsaved Content",
+        description: "Please click 'Apply Content' first to save your current changes before duplicating another content.",
+      })
+      return
+    }
+
     const { rawData } = content
     if (rawData) {
-      // Restore content selection
-      if (rawData.content?.ContentID) {
+      // Restore content selection - match by name from master contentTypes
+      const contentName = rawData.content?.ContentName || content.ContentName || content.contentName || ''
+      const normalizeStr = (str: string) => (str || '').toLowerCase().replace(/[\s\-_]+/g, '')
+      const masterContent = contentTypes.find(c =>
+        c.ContentName === contentName ||
+        normalizeStr(c.ContentName) === normalizeStr(contentName) ||
+        c.ContentCode === contentName ||
+        normalizeStr(c.ContentCode) === normalizeStr(contentName)
+      )
+
+      if (masterContent) {
+        setSelectedContentIds([masterContent.ContentID])
+        setSelectedContent(masterContent)
+      } else if (rawData.content?.ContentID) {
         setSelectedContentIds([rawData.content.ContentID])
         setSelectedContent(rawData.content)
       }
@@ -1570,6 +1677,9 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
       if (rawData.processes && rawData.processes.length > 0) {
         setSelectedProcesses(rawData.processes)
       }
+
+      // Mark as having unsaved content
+      setHasUnsavedContent(true)
 
       // Keep the original content in grid (don't remove it)
       toast({
@@ -1786,7 +1896,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           LedgerID: getLedgerID(),
           SalesEmployeeID: getEmployeeID(),
           CategoryID: getCategoryID(),
-          ConcernPersonID: null,
+          ConcernPersonID: formData.concernPerson ? parseInt(formData.concernPerson) : null,
           JobName: formData.jobName,
           FileName: formData.attachments.length > 0 ? formData.attachments[0].name : '',
           EnquiryDate: formatEnquiryDate(formData.enquiryDate),
@@ -1802,6 +1912,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           IsDetailed: 1,
           Source: 'parkbuddy',
           Quantity: String(parseInt(formData.quantity) || 0),
+          SupplyLocation: formData.supplyLocation || '',
+          PaymentTerms: formData.paymentTerms || '',
         }
 
         // Helper function to build ContentSizeValues string from plan details
@@ -1830,6 +1942,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           if (plan.ItemPlanMill) parts.push(`ItemPlanMill=${plan.ItemPlanMill}`)
           if (plan.ItemPlanFinish) parts.push(`ItemPlanFinish=${plan.ItemPlanFinish}`)
           if (plan.PlanWastageType) parts.push(`PlanWastageType=${plan.PlanWastageType}`)
+          if (plan.WastageValue) parts.push(`WastageValue=${plan.WastageValue}`)
           return parts.join('AndOr')
         }
 
@@ -1932,6 +2045,8 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             Quantity: String(parseInt(formData.quantity) || 0),
             AnnualQuantity: parseInt(formData.annualQuantity || formData.quantity) || 0,
             Source: 'parkbuddy',
+            SupplyLocation: formData.supplyLocation || '',
+            PaymentTerms: formData.paymentTerms || '',
           }],
         }
 
@@ -2355,29 +2470,25 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                 </SelectContent>
               </Select>
             </div>
-            {formType === 'detailed' && (
-              <>
-                <div className="md:col-span-3">
-                  <Label htmlFor="supplyLocation">Supply Location</Label>
-                  <Input
-                    id="supplyLocation"
-                    value={formData.supplyLocation}
-                    onChange={(e) => handleInputChange("supplyLocation", e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="paymentTerms">Payment Terms</Label>
-                  <Input
-                    id="paymentTerms"
-                    value={formData.paymentTerms}
-                    onChange={(e) => handleInputChange("paymentTerms", e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-              </>
-            )}
-            <div className={formType === 'basic' ? "md:col-span-3" : "md:col-span-3"}>
+            <div className="md:col-span-3">
+              <Label htmlFor="supplyLocation">Supply Location</Label>
+              <Input
+                id="supplyLocation"
+                value={formData.supplyLocation}
+                onChange={(e) => handleInputChange("supplyLocation", e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="paymentTerms">Payment Terms</Label>
+              <Input
+                id="paymentTerms"
+                value={formData.paymentTerms}
+                onChange={(e) => handleInputChange("paymentTerms", e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="md:col-span-3">
               <Label htmlFor="salesPerson">
                 Sales Person <span className="text-red-500">*</span>
               </Label>
@@ -2797,15 +2908,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       </div>
                     )}
 
-                    {/* Open Flap and Pasting Flap in 2 columns */}
+                    {/* Open Flap and Pasting Flap in 2 columns - Auto-calculated */}
                     {flapFields.length > 0 && (
                       <div className="grid grid-cols-2 gap-2 mb-3">
                         {flapFields.map((field: string) => {
                           const label = fieldLabels[field] || field
+                          const hasAutoValue = planDetails.SizeLength && planDetails.SizeWidth && planDetails.SizeHeight
                           return (
                             <div key={field}>
                               <Label htmlFor={`content-${field}`} className="text-sm">
-                                {label} <span className="text-red-500">*</span>
+                                {label} {hasAutoValue && <span className="text-xs text-blue-600 ml-1">(Auto)</span>}
+                                {calculatingFlaps && <Loader2 className="inline h-3 w-3 ml-1 animate-spin text-blue-500" />}
                               </Label>
                               <Input
                                 id={`content-${field}`}
@@ -2815,7 +2928,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                                 value={planDetails[field] || ''}
                                 onChange={(e) => handlePlanDetailChange(field, e.target.value)}
                                 onWheel={(e) => e.currentTarget.blur()}
-                                className="text-sm h-10"
+                                className={`text-sm h-10 ${hasAutoValue ? 'bg-blue-50 text-blue-900' : ''}`}
                               />
                             </div>
                           )
@@ -2902,7 +3015,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
           {/* Colors Section */}
           {selectedContentIds.length > 0 && (
             <div className="border rounded-lg p-3 md:p-4 mb-4">
-              <span className="text-sm font-medium block mb-3">Colors</span>
+              <span className="text-sm font-medium block mb-3">Colors (0-9)</span>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="planFColor" className="text-sm">Front Color</Label>
@@ -2911,10 +3024,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     type="number"
                     step="1"
                     min="0"
+                    max="9"
                     value={planDetails.PlanFColor || ''}
-                    onChange={(e) => handlePlanDetailChange('PlanFColor', e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '' || (Number(val) >= 0 && Number(val) <= 9)) {
+                        handlePlanDetailChange('PlanFColor', val)
+                      }
+                    }}
                     onWheel={(e) => e.currentTarget.blur()}
                     className="text-sm h-10"
+                    placeholder="0-9"
                   />
                 </div>
                 <div>
@@ -2924,10 +3044,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     type="number"
                     step="1"
                     min="0"
+                    max="9"
                     value={planDetails.PlanBColor || ''}
-                    onChange={(e) => handlePlanDetailChange('PlanBColor', e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '' || (Number(val) >= 0 && Number(val) <= 9)) {
+                        handlePlanDetailChange('PlanBColor', val)
+                      }
+                    }}
                     onWheel={(e) => e.currentTarget.blur()}
                     className="text-sm h-10"
+                    placeholder="0-9"
                   />
                 </div>
                 <div>
@@ -2937,10 +3064,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     type="number"
                     step="1"
                     min="0"
+                    max="9"
                     value={planDetails.PlanSpeFColor || ''}
-                    onChange={(e) => handlePlanDetailChange('PlanSpeFColor', e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '' || (Number(val) >= 0 && Number(val) <= 9)) {
+                        handlePlanDetailChange('PlanSpeFColor', val)
+                      }
+                    }}
                     onWheel={(e) => e.currentTarget.blur()}
                     className="text-sm h-10"
+                    placeholder="0-9"
                   />
                 </div>
                 <div>
@@ -2950,10 +3084,17 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                     type="number"
                     step="1"
                     min="0"
+                    max="9"
                     value={planDetails.PlanSpeBColor || ''}
-                    onChange={(e) => handlePlanDetailChange('PlanSpeBColor', e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '' || (Number(val) >= 0 && Number(val) <= 9)) {
+                        handlePlanDetailChange('PlanSpeBColor', val)
+                      }
+                    }}
                     onWheel={(e) => e.currentTarget.blur()}
                     className="text-sm h-10"
+                    placeholder="0-9"
                   />
                 </div>
               </div>
@@ -3328,16 +3469,42 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             )}
           </div>
 
-          {/* Apply Content Button */}
-          <div className="flex justify-end mt-4">
+          {/* Apply / Update Content Button */}
+          <div className="flex items-center justify-end gap-2 mt-4">
+            {(editingContentId || hasUnsavedContent) && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingContentId(null)
+                  setSelectedContentIds([])
+                  setSelectedContent(null)
+                  setSelectedProcesses([])
+                  setPlanDetails({})
+                  setHasUnsavedContent(false)
+                }}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+            )}
             <Button
               type="button"
               onClick={handleApplyContent}
               disabled={selectedContentIds.length === 0}
-              className="bg-[#005180] hover:bg-[#004875]"
+              className={editingContentId ? "bg-blue-600 hover:bg-blue-700" : "bg-[#005180] hover:bg-[#004875]"}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Apply Content
+              {editingContentId ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Update Content
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Apply Content
+                </>
+              )}
             </Button>
           </div>
 
@@ -3346,23 +3513,33 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
             <div className="mt-6">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium">Applied Contents ({contentGridData.length})</h4>
+                {/* Mobile: View All if > 2, Desktop: View All if > 4 */}
                 {contentGridData.length > 2 && (
                   <Button
                     type="button"
                     variant="link"
-                    className="text-sm text-primary p-0 h-auto"
+                    className={`text-sm text-primary p-0 h-auto ${contentGridData.length > 4 ? '' : 'md:hidden'}`}
                     onClick={() => setViewAllContentsOpen(true)}
                   >
                     View All
                   </Button>
                 )}
               </div>
-              <div className="flex gap-4 overflow-x-auto pb-2">
-                {contentGridData.slice(0, 2).map((content) => (
+              {/* Desktop: 4 per row grid, Mobile: 2 per row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                {/* Desktop shows first 4, Mobile shows first 2 */}
+                {contentGridData.slice(0, 4).map((content, index) => (
                   <div
                     key={content.id}
-                    className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow min-w-[280px] flex-shrink-0"
+                    className={`border rounded-lg p-3 md:p-4 shadow-sm hover:shadow-md transition-shadow ${index >= 2 ? 'hidden md:block' : ''} ${editingContentId === content.id ? 'border-blue-500 border-2 bg-blue-50 ring-2 ring-blue-200' : 'bg-white'}`}
                   >
+                    {/* Editing indicator */}
+                    {editingContentId === content.id && (
+                      <div className="text-xs font-medium text-blue-600 mb-2 flex items-center gap-1">
+                        <Edit className="h-3 w-3" />
+                        Editing...
+                      </div>
+                    )}
                     {/* Card Header with Content Name and Actions */}
                     <div className="flex items-start justify-between mb-3">
                       <h5 className="font-semibold text-base text-primary truncate max-w-[150px]" title={content.ContentName || content.contentName}>
@@ -3464,8 +3641,15 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
                       {contentGridData.map((content) => (
                         <div
                           key={content.id}
-                          className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow"
+                          className={`border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow ${editingContentId === content.id ? 'border-blue-500 border-2 bg-blue-50 ring-2 ring-blue-200' : 'bg-white'}`}
                         >
+                          {/* Editing indicator */}
+                          {editingContentId === content.id && (
+                            <div className="text-xs font-medium text-blue-600 mb-2 flex items-center gap-1">
+                              <Edit className="h-3 w-3" />
+                              Editing...
+                            </div>
+                          )}
                           {/* Card Header with Content Name and Actions */}
                           <div className="flex items-start justify-between mb-3">
                             <h5 className="font-semibold text-base text-primary truncate max-w-[200px]" title={content.ContentName || content.contentName}>

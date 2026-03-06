@@ -372,6 +372,52 @@ export async function getAllMachinesAPI() {
   return items.map((it) => ({ MachineID: it.MachineID ?? it.MachineId ?? it.id ?? it.ID, MachineName: it.MachineName ?? it.Name ?? it.name ?? String(it), ...it }))
 }
 
+// Helper: fetch machine grid (printing machines)
+export async function fetchMachineGrid() {
+  const endpoint = `api/planwindow/machigrid`
+  return apiClient.get(endpoint)
+}
+
+// Stable wrapper: getMachineGridAPI
+export async function getMachineGridAPI() {
+  const res = await fetchMachineGrid()
+
+  let items: any[] = []
+  if (!res) return items
+
+  // Handle double-encoded JSON string response
+  let parsed = res
+  if (typeof res === 'string') {
+    try {
+      parsed = JSON.parse(res)
+      // Check if it's still a string (double-encoded)
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed)
+      }
+    } catch (e) {
+      console.error('Failed to parse machine grid response', e)
+      return items
+    }
+  }
+
+  if (Array.isArray(parsed)) items = parsed
+  else if (parsed?.data && Array.isArray(parsed.data)) items = parsed.data
+  else if (parsed?.Data && Array.isArray(parsed.Data)) items = parsed.Data
+  else if (parsed?.d && Array.isArray(parsed.d)) items = parsed.d
+  else if (typeof parsed === 'object') {
+    const firstArray = Object.values(parsed).find((v) => Array.isArray(v))
+    if (Array.isArray(firstArray)) items = firstArray as any[]
+  }
+
+  return items.map((it) => ({
+    MachineID: it.MachineID ?? it.MachineId ?? it.id ?? it.ID,
+    MachineName: it.MachineName ?? it.Name ?? it.name ?? String(it),
+    DepartmentID: it.DepartmentID,
+    DepartmentName: it.DepartmentName,
+    ...it
+  }))
+}
+
 // Helper: fetch machine production unit list
 export async function fetchMachineProductionUnitList() {
   const endpoint = `api/machinemaster/getmachineproductionunitlist`

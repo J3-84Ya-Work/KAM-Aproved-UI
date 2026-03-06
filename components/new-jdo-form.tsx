@@ -768,11 +768,14 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                     <SelectValue placeholder={isLoadingClients ? "Loading..." : "Select customer"} />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {clients.map((client) => (
-                      <SelectItem key={`customer-${client.LedgerID}`} value={String(client.LedgerID)}>
-                        {client.LedgerName}
-                      </SelectItem>
-                    ))}
+                    {clients.map((client, index) => {
+                      const ledgerId = client.LedgerID ?? client.ledgerId ?? client.id ?? index
+                      return (
+                        <SelectItem key={`customer-${ledgerId}-${index}`} value={String(ledgerId)}>
+                          {client.LedgerName || client.ledgerName || client.name || `Client ${index + 1}`}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -819,7 +822,7 @@ export function NewJDOForm({ onClose, onSubmit, projectType = "JDO" }: NewJDOFor
                   Carton Style
                 </Label>
                 <Select
-                  value={formData.cartonStyle}
+                  value={formData.cartonStyle || undefined}
                   onValueChange={(value) => handleChange("cartonStyle", value)}
                 >
                   <SelectTrigger className="mt-1.5 truncate">

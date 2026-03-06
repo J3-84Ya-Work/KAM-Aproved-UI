@@ -478,11 +478,14 @@ export function NewSDOForm({ onClose, onSubmit }: NewSDOFormProps) {
                     <SelectValue placeholder={isLoadingClients ? "Loading..." : "Select customer"} />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {clients.map((client) => (
-                      <SelectItem key={`customer-${client.LedgerID}`} value={String(client.LedgerID)}>
-                        {client.LedgerName}
-                      </SelectItem>
-                    ))}
+                    {clients.map((client, index) => {
+                      const ledgerId = client.LedgerID ?? client.ledgerId ?? client.id ?? index
+                      return (
+                        <SelectItem key={`customer-${ledgerId}-${index}`} value={String(ledgerId)}>
+                          {client.LedgerName || client.ledgerName || client.name || `Client ${index + 1}`}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>

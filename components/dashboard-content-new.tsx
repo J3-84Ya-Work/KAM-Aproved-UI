@@ -844,52 +844,36 @@ export function DashboardContent() {
         </div>
       )}
 
-      {/* KPI Tiles - 4 Cards: 2 per row on mobile, 4 in one row on desktop */}
+      {/* KPI Tiles - 2x2 grid on mobile, 4 in one row on desktop */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {kpiData.map((kpi: any, index: number) => {
-          // Define color scheme based on card type - using only brand colors with blue text for Card 2
           const colorSchemes = [
-            { bg: "bg-gradient-to-br from-blue-50 to-[#005180]/10", iconBg: "bg-[#005180]/15", iconColor: "text-[#005180]", borderColor: "border-[#005180]/30", valueColor: "text-[#005180]", titleColor: "text-[#005180]/80" },
-            { bg: "bg-gradient-to-br from-emerald-50 to-[#78BE20]/10", iconBg: "bg-[#78BE20]/15", iconColor: "text-[#78BE20]", borderColor: "border-[#78BE20]/30", valueColor: "text-[#005180]", titleColor: "text-[#005180]/70" },
-            { bg: "bg-gradient-to-br from-cyan-50 to-[#005180]/5", iconBg: "bg-[#005180]/12", iconColor: "text-[#005180]", borderColor: "border-[#005180]/25", valueColor: "text-[#005180]", titleColor: "text-[#005180]/70" },
-            { bg: "bg-gradient-to-br from-slate-50 to-gray-100", iconBg: "bg-gray-500/15", iconColor: "text-gray-700", borderColor: "border-gray-300", valueColor: "text-gray-800", titleColor: "text-gray-600" },
+            { bg: "bg-[#005180]/8", border: "border-[#005180]/25", title: "text-[#005180]", value: "text-[#005180]", icon: "text-[#005180]/20", arrow: "bg-[#005180]/10 text-[#005180] border-[#005180]/25" },
+            { bg: "bg-[#B92221]/8", border: "border-[#B92221]/25", title: "text-[#B92221]", value: "text-[#B92221]", icon: "text-[#B92221]/20", arrow: "bg-[#B92221]/10 text-[#B92221] border-[#B92221]/25" },
+            { bg: "bg-[#78BE20]/8", border: "border-[#78BE20]/25", title: "text-[#78BE20]", value: "text-[#78BE20]", icon: "text-[#78BE20]/20", arrow: "bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/25" },
+            { bg: "bg-[#005180]/5", border: "border-[#005180]/20", title: "text-[#005180]", value: "text-[#005180]", icon: "text-[#005180]/15", arrow: "bg-[#005180]/10 text-[#005180] border-[#005180]/20" },
           ]
           const scheme = colorSchemes[index]
 
           return (
-            <Card
+            <div
               key={kpi.title}
-              className={`${scheme.bg} border-2 ${scheme.borderColor} shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] overflow-hidden relative`}
+              className={`${scheme.bg} border-2 ${scheme.border} rounded-2xl p-4 relative overflow-hidden min-h-[140px] flex flex-col justify-between`}
             >
-              <CardContent className="p-4 h-full flex flex-col justify-between relative">
-                {/* Icon in top left */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`p-2.5 rounded-xl ${scheme.iconBg} ${scheme.iconColor} shadow-sm`}>
-                    <kpi.icon className="h-5 w-5" />
-                  </div>
+              {/* Title */}
+              <p className={`text-sm font-bold ${scheme.title} leading-tight`}>{kpi.title}</p>
 
-                  {/* Change percentage badge */}
-                  <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm ${
-                    kpi.trend === "up"
-                      ? "bg-[#78BE20]/20 text-[#78BE20] border border-[#78BE20]/40"
-                      : "bg-[#B92221]/20 text-[#B92221] border border-[#B92221]/40"
-                  }`}>
-                    {kpi.change}
-                    {kpi.trend === "up" ? (
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    ) : (
-                      <TrendingDown className="h-3.5 w-3.5" />
-                    )}
-                  </div>
-                </div>
+              {/* Value + Decorative Icon */}
+              <div className="flex items-end justify-between mt-2">
+                <h3 className={`text-4xl md:text-5xl font-extrabold ${scheme.value} leading-none tracking-tight`}>{kpi.value}</h3>
+                <kpi.icon className={`h-16 w-16 md:h-20 md:w-20 ${scheme.icon} flex-shrink-0 -mr-2 -mb-2`} strokeWidth={1.2} />
+              </div>
 
-                {/* Value and title */}
-                <div className="space-y-1.5">
-                  <h3 className={`text-3xl font-bold ${scheme.valueColor} leading-none tracking-tight`}>{kpi.value}</h3>
-                  <p className={`text-xs font-semibold ${scheme.titleColor} leading-tight`}>{kpi.title}</p>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Arrow link button - bottom right */}
+              <div className={`absolute bottom-3 right-3 w-7 h-7 rounded-full border ${scheme.arrow} flex items-center justify-center`}>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </div>
+            </div>
           )
         })}
       </div>

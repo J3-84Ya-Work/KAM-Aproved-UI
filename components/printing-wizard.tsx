@@ -178,13 +178,24 @@ function getContentImagePath(contentName: string): string {
   return `/images/${imageName}`;
 }
 
+// Helper: convert PascalCase ContentName to display name with spaces
+// e.g. "ReverseTuckIn" -> "Reverse Tuck In", "CrashLockWithPasting" -> "Crash Lock With Pasting"
+function getContentDisplayName(contentName: string): string {
+  if (!contentName) return ''
+  // If already has spaces, return as-is
+  if (contentName.includes(' ')) return contentName
+  // Insert space before each uppercase letter (except the first), then trim
+  return contentName.replace(/([A-Z])/g, ' $1').trim()
+}
+
 interface PrintingWizardProps {
   onStepChange?: (stepName: string) => void
   onToggleSidebar?: () => void
   onNavigateToClientMaster?: () => void // Added prop for navigation to client master
+  onQuotationCreated?: (quotationNumber: string) => void // Navigate to quotations page after creation
 }
 
-export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClientMaster }: PrintingWizardProps = {}) {
+export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClientMaster, onQuotationCreated }: PrintingWizardProps = {}) {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
   const [showDetailedCosting, setShowDetailedCosting] = useState<number | null>(null)
@@ -565,13 +576,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     }
   }, [contents, jobData.cartonType])
 
-  // Load machines list
+  // Load machines list (printing machines from machigridRequest API)
   const loadMachines = useCallback(async () => {
     try {
       setLoadingMachines(true)
       setMachinesError(null)
-      const { getAllMachinesAPI } = await import('@/lib/api-config')
-      const res = await getAllMachinesAPI()
+      const { getMachineGridAPI } = await import('@/lib/api-config')
+      const res = await getMachineGridAPI()
       if (Array.isArray(res) && res.length > 0) setMachinesList(res)
       else setMachinesList([])
       return Array.isArray(res) ? res : []
@@ -761,6 +772,43 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
     fetchCategories()
   }, [])
 
+  // Keyboard navigation - Enter key to move to next step (desktop only)
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Only on desktop (screen width > 768px)
+      if (window.innerWidth <= 768) return
+
+      // Check if Enter key is pressed
+      if (event.key === 'Enter') {
+        // Don't trigger if user is typing in an input, textarea, or select
+        const target = event.target as HTMLElement
+        const tagName = target.tagName.toLowerCase()
+        const isContentEditable = target.isContentEditable
+
+        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || isContentEditable) {
+          return
+        }
+
+        // Prevent default behavior
+        event.preventDefault()
+
+        // Trigger next step if not on last step and not loading
+        if (currentStep < steps.length - 1 && !planningLoading) {
+          nextStep()
+        }
+      }
+    }
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyPress)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, planningLoading])
+
   // When selectedCategoryId changes (including '0'), fetch contents
   useEffect(() => {
     if (selectedCategoryId !== undefined && selectedCategoryId !== null && selectedCategoryId !== '') {
@@ -769,6 +817,75 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       setContents([])
     }
   }, [selectedCategoryId])
+
+  // Auto-calculate Open Flap and Pasting Flap when L/W/H change
+  const [calculatingFlaps, setCalculatingFlaps] = useState(false)
+  useEffect(() => {
+    const calculateFlaps = async () => {
+      const dims = jobData.dimensions as any
+      const length = parseFloat(dims.length)
+      const width = parseFloat(dims.width)
+      const height = parseFloat(dims.height)
+
+      // Need all three dimensions
+      if (!length || !width || !height) return
+
+      // Check if selected content has flap fields
+      const selected = contents.find((c: any) =>
+        String(c.ContentID) === String(jobData.cartonType) ||
+        String(c.ContentName) === String(jobData.cartonType)
+      )
+      if (!selected) return
+
+      const sizesCsv = selected.ContentSizes ?? selected.ContentSize ?? ''
+      if (!sizesCsv) return
+
+      const hasFlaps = sizesCsv.toLowerCase().includes('openflap') || sizesCsv.toLowerCase().includes('pastingflap')
+      if (!hasFlaps) return
+
+      // Build contentType param (remove spaces)
+      const contentTypeName = (selected.ContentName || '').replace(/\s+/g, '')
+
+      try {
+        setCalculatingFlaps(true)
+        const { API_CONFIG, getDefaultHeaders } = await import('@/lib/api-config')
+        const url = `${API_CONFIG.baseUrl}/api/planwindow/calculate-flap-dimensions`
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: getDefaultHeaders(),
+          body: JSON.stringify({
+            length,
+            width,
+            height,
+            contentType: contentTypeName,
+            isCorrugated: false,
+          }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data?.success && data.values) {
+            const updatedDimensions: any = { ...dims }
+            if (data.values.SizeOpenflap != null) {
+              updatedDimensions.openFlap = String(data.values.SizeOpenflap)
+            }
+            if (data.values.SizePastingflap != null) {
+              updatedDimensions.pastingFlap = String(data.values.SizePastingflap)
+            }
+            setJobData(prev => ({ ...prev, dimensions: updatedDimensions }))
+          }
+        }
+      } catch {
+        // Silently fail — user can still fill manually
+      } finally {
+        setCalculatingFlaps(false)
+      }
+    }
+
+    const timer = setTimeout(calculateFlaps, 600)
+    return () => clearTimeout(timer)
+  }, [(jobData.dimensions as any).length, (jobData.dimensions as any).width, (jobData.dimensions as any).height, jobData.cartonType, contents])
 
   // Load categories from API and normalize
   async function fetchCategories() {
@@ -842,6 +959,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       const missing = []
       if (!jobData.clientName) missing.push('Customer Name')
       if (!jobData.jobName) missing.push('Job Name')
+      if (!jobData.productionUnit && !jobData.productionUnitId) missing.push('Production Unit')
       if (!jobData.quantity) missing.push('Quantity')
       if (!jobData.annualQuantity) missing.push('Annual Quantity')
       if (missing.length > 0) {
@@ -971,36 +1089,40 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             })(),
             PlanWastageValue: 0,
             ProductionUnitID: Number(jobData.productionUnitId) || 1,
-            Trimmingleft: 0,
-            Trimmingright: 0,
-            Trimmingtop: 0,
-            Trimmingbottom: 0,
+            Trimmingleft: Number(dims.trimming?.left) || 0,
+            Trimmingright: Number(dims.trimming?.right) || 0,
+            Trimmingtop: Number(dims.trimming?.top) || 0,
+            Trimmingbottom: Number(dims.trimming?.bottom) || 0,
             Stripingleft: 0,
             Stripingright: 0,
             Stripingtop: 0,
             Stripingbottom: 0,
-            PlanPrintingGrain: 'Both',
+            PlanPrintingGrain: jobData.grainDirection === 'along' ? 'With Grain' :
+                               jobData.grainDirection === 'across' ? 'Across Grain' : 'Both',
             ItemPlanQuality: paper.quality || '',
             ItemPlanGsm: Number(paper.gsm) || 0,
-            ItemPlanMill: '',
+            ItemPlanBF: 0,
+            CertificationType: 'NA',
+            CertificationValue: 0,
+            ItemPlanMill: paper.mill || '',
             PlanPlateType: 'CTP Plate',
             PlanWastageType: 'Machine Default',
             PlanContQty: Number(jobData.quantity) || 0,
-            PlanSpeFColor: 0,
-            PlanSpeBColor: 0,
+            PlanSpeFColor: Number(paper.specialFrontColor) || 0,
+            PlanSpeBColor: Number(paper.specialBackColor) || 0,
             PlanContName: jobData.cartonType || '',
-            ItemPlanFinish: '',
+            ItemPlanFinish: paper.finish || '',
             OperId: '',
-            JobBottomPerc: 50,
+            JobBottomPerc: 0,
             JobPrePlan: `H:${dims.height || 0},L:${dims.length || 0},W:${dims.width || 0},OF:${dims.openFlap || 0},PF:${dims.pastingFlap || 0}`,
             ChkPlanInSpecialSizePaper: true,
-            ChkPlanInStandardSizePaper: false,
-            MachineId: '',
+            ChkPlanInStandardSizePaper: true,
+            MachineId: String(jobData.machineId || ''),
             PlanOnlineCoating: '',
-            PaperTrimleft: 0,
-            PaperTrimright: 0,
-            PaperTrimtop: 0,
-            PaperTrimbottom: 0,
+            PaperTrimleft: Number(dims.trimming?.left) || 0,
+            PaperTrimright: Number(dims.trimming?.right) || 0,
+            PaperTrimtop: Number(dims.trimming?.top) || 0,
+            PaperTrimbottom: Number(dims.trimming?.bottom) || 0,
             ChkPaperByClient: false,
             JobFoldInL: parseFloat(dims.JobFoldInL || '2') || 2,
             JobFoldInH: parseFloat(dims.JobFoldInH || '1') || 1,
@@ -1036,7 +1158,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             ChkBackToBackPastingRequired: false,
             JobAcrossUps: 0,
             JobAroundUps: 0,
-            SizeBottomflapPer: 50,
+            SizeBottomflapPer: 0,
             SizeZipperLength: 0,
             ZipperWeightPerMeter: 0,
             JobSizeInputUnit: 'MM',
@@ -1072,7 +1194,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             TypeOfPrinting: null,
             EnquiryType: 'Bid',
             SalesType: 'Export',
-            Source: 'D KAM APP',
+            Source: 'KAM App',
           }
 
           // Log to both clientLogger and console for visibility
@@ -1163,6 +1285,13 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
           // Keep form data for viewing - don't clear it
           clientLogger.log('✅ Form data preserved for viewing')
+
+          // Show success message - don't navigate away
+          if (onQuotationCreated) {
+            onQuotationCreated(quotationNum)
+          } else {
+            showToast(`Quotation #${quotationNum} created successfully!`, 'success')
+          }
 
           // Move to next step on success
           const newStep = currentStep + 1
@@ -1550,6 +1679,58 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             placeholder="Enter annual quantity"
           />
         </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="production-unit" className="text-sm font-medium text-slate-700">
+            Production Unit <span className="text-red-600 font-bold text-xl ml-1">*</span>
+          </Label>
+          <Select
+            value={jobData.productionUnit ? String(jobData.productionUnitId || jobData.productionUnit) : ''}
+            onValueChange={(value) => {
+              if (!isReadOnly) {
+                const selectedUnit = productionUnitsList.find(
+                  (u) => String(u.ProductionUnitID) === value || String(u.ProductionUnitName) === value
+                )
+                setJobData({
+                  ...jobData,
+                  productionUnit: selectedUnit?.ProductionUnitName || value,
+                  productionUnitId: selectedUnit?.ProductionUnitID || value
+                })
+              }
+            }}
+            disabled={isReadOnly}
+          >
+            <SelectTrigger className="h-10 border-slate-300 focus:border-[#005180]">
+              <SelectValue placeholder="Select Production Unit" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px] overflow-y-auto">
+              {loadingProductionUnits ? (
+                <SelectItem value="__loading" disabled>Loading...</SelectItem>
+              ) : productionUnitsError ? (
+                <SelectItem value="__error" disabled>{productionUnitsError}</SelectItem>
+              ) : productionUnitsList && productionUnitsList.length > 0 ? (
+                productionUnitsList.map((unit) => {
+                  const unitValue = String(unit.ProductionUnitID ?? unit.ProductionUnitName ?? '')
+                  if (!unitValue || unitValue === '' || unitValue === 'undefined' || unitValue === 'null') {
+                    return null
+                  }
+                  return (
+                    <SelectItem
+                      key={String(unit.ProductionUnitID ?? Math.random())}
+                      value={unitValue}
+                      className="truncate max-w-[250px]"
+                      title={unit.ProductionUnitName ?? `Unit ${unit.ProductionUnitID}`}
+                    >
+                      <span className="truncate block">{unit.ProductionUnitName ?? `Unit ${unit.ProductionUnitID}`}</span>
+                    </SelectItem>
+                  )
+                }).filter(Boolean)
+              ) : (
+                <SelectItem value="__none" disabled>No production units available</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
     )
@@ -1569,6 +1750,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
     const filteredContents = contents.filter(content =>
       content.ContentName?.toLowerCase().includes(contentSearch.toLowerCase()) ||
+      getContentDisplayName(content.ContentName)?.toLowerCase().includes(contentSearch.toLowerCase()) ||
       content.ContentDomainType?.toLowerCase().includes(contentSearch.toLowerCase())
     )
 
@@ -1691,7 +1873,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                           <div className="w-full h-24 sm:h-32 rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center">
                             <img
                               src={getContentImagePath(content.ContentName)}
-                              alt={content.ContentName}
+                              alt={getContentDisplayName(content.ContentName)}
                               className="w-full h-full object-contain p-2"
                               onError={(e) => {
                                 // Fallback to default image if content image doesn't exist
@@ -1706,14 +1888,9 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold text-slate-900 text-xs sm:text-sm line-clamp-2 mb-1 sm:mb-2 break-words">
-                            {content.ContentName}
+                            {getContentDisplayName(content.ContentName)}
                           </h3>
                           <div className="space-y-1 min-w-0">
-                            {content.ContentDomainType && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 truncate max-w-full">
-                                {content.ContentDomainType}
-                              </span>
-                            )}
                             {content.ContentL && content.ContentH && (
                               <div className="text-xs text-slate-500 mt-1 truncate">
                                 📏 {content.ContentL} × {content.ContentH}
@@ -1875,17 +2052,19 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
               {/* Width field removed for brochure types - not needed */}
 
-              {/* Open Flap and Pasting Flap in one row */}
+              {/* Open Flap and Pasting Flap in one row - Auto-calculated */}
               {flapFields.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 bg-white rounded-lg p-3 border border-slate-200">
                   {flapFields.map((f: string) => {
                     const { key, label } = mapField(f)
-                    // Only show asterisk if this field is in the ContentSizes for this carton type
                     const isRequired = fields.includes(f)
+                    const hasAutoValue = (jobData.dimensions as any).length && (jobData.dimensions as any).width && (jobData.dimensions as any).height
                     return (
                       <div key={f} className="flex flex-col gap-1">
                         <Label className="text-sm font-medium text-slate-700">
-                          {label} {isRequired && <span className="text-red-500 font-bold text-lg ml-1">*</span>}
+                          {label} {hasAutoValue && <span className="text-xs text-blue-600 ml-1">(Auto)</span>}
+                          {calculatingFlaps && <Loader2 className="inline h-3 w-3 ml-1 animate-spin text-blue-500" />}
+                          {!hasAutoValue && isRequired && <span className="text-red-500 font-bold text-lg ml-1">*</span>}
                         </Label>
                         <Input
                           type="number"
@@ -1901,7 +2080,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                             })
                           }}
                           onWheel={(e) => e.currentTarget.blur()}
-                          className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                          className={`h-8 border-slate-300 focus:border-blue-400 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReadOnly ? 'bg-slate-100 cursor-not-allowed' : ''} ${hasAutoValue ? 'bg-blue-50 text-blue-900' : ''}`}
                         />
                       </div>
                     )
@@ -2191,7 +2370,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       </div>
 
       <Card className="p-4 bg-white border border-slate-200" data-trimming>
-        <Label className="text-sm font-medium text-slate-700 mb-3 block">Trimming:</Label>
+        <Label className="text-sm font-medium text-slate-700 mb-3 block">Paper Trimming:</Label>
         <div className="grid grid-cols-2 gap-3">
           {[
             { key: "top", label: "Top (T)" },
@@ -2250,8 +2429,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
 
       <div className={`space-y-4 ${isReadOnly ? 'pointer-events-none opacity-75' : ''}`}>
         {/* Paper Board and GSM in first row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-lg p-3 border border-slate-200">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-200 min-w-0 overflow-hidden">
             <Label className="text-sm font-medium text-slate-700 mb-2 block">Board <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
             <Select
               value={String(jobData.paperDetails.qualityId ?? jobData.paperDetails.quality)}
@@ -2268,8 +2447,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                 }
               }}
             >
-              <SelectTrigger className="h-8 w-full">
-                <SelectValue placeholder="Select board" />
+              <SelectTrigger className="h-8 w-full [&>span]:truncate [&>span]:block [&>span]:max-w-[calc(100%-20px)]">
+                <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-hidden">
                 <div className="p-2 bg-white border-b">
@@ -2319,14 +2498,14 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             </Select>
           </div>
 
-          <div className="bg-white rounded-lg p-3 border border-slate-200">
+          <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-200 min-w-0 overflow-hidden">
             <Label className="text-sm font-medium text-slate-700 mb-2 block">GSM <span className="text-red-500 font-bold text-lg ml-1">*</span></Label>
             <div className="flex items-center gap-2">
               <Select
                 value={String(jobData.paperDetails.gsm ?? '')}
                 onValueChange={(value) => setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, gsm: String(value) } })}
               >
-                <SelectTrigger className="h-8">
+                <SelectTrigger className="h-8 w-full [&>span]:truncate [&>span]:block [&>span]:max-w-[calc(100%-20px)]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px] overflow-hidden">
@@ -2377,8 +2556,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         </div>
 
         {/* Mill and Finish in second row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-lg p-3 border border-slate-200">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-200 min-w-0 overflow-hidden">
             <Label className="text-sm font-medium text-slate-700 mb-2 block">Mill</Label>
             <div className="flex items-center gap-2">
               <Select
@@ -2387,7 +2566,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, mill: String(value) } })
                 }
               >
-                <SelectTrigger className="h-8">
+                <SelectTrigger className="h-8 w-full [&>span]:truncate [&>span]:block [&>span]:max-w-[calc(100%-20px)]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -2418,7 +2597,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-3 border border-slate-200">
+          <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-200 min-w-0 overflow-hidden">
             <Label className="text-sm font-medium text-slate-700 mb-2 block">Finish</Label>
             <div className="flex items-center gap-2">
               <Select
@@ -2427,8 +2606,8 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, finish: value } })
                 }
               >
-                <SelectTrigger className="h-8">
-                  <SelectValue placeholder="Select finish" className="truncate" />
+                <SelectTrigger className="h-8 w-full [&>span]:truncate [&>span]:block [&>span]:max-w-[calc(100%-20px)]">
+                  <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
                   {loadingFinish ? (
@@ -2459,59 +2638,60 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
           </div>
         </div>
 
-        {/* Production Unit */}
-        <div className="bg-white rounded-lg p-3 border border-slate-200">
-          <Label className="text-sm font-medium text-slate-700 mb-2 block">
-            Production Unit <span className="text-red-500 font-bold text-lg ml-1">*</span>
+        {/* Machine Selection */}
+        <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-200 min-w-0 overflow-hidden">
+          <Label className="text-xs sm:text-sm font-medium text-slate-700 mb-2 block">
+            Machine
           </Label>
           <Select
-            value={String(jobData.productionUnitId ?? jobData.productionUnit)}
+            value={String(jobData.machineId ?? '')}
             onValueChange={(value) => {
-              const matched = productionUnitsList.find(
-                (p) => String(p.ProductionUnitID) === String(value) || String(p.ProductionUnitName) === String(value)
+              const matched = machinesList.find(
+                (m) => String(m.MachineID) === String(value)
               )
               if (matched) {
                 setJobData({
                   ...jobData,
-                  productionUnit: matched.ProductionUnitName ?? String(value),
-                  productionUnitId: matched.ProductionUnitID ?? String(value),
+                  machine: matched.MachineName ?? String(value),
+                  machineId: String(matched.MachineID),
+                  machineName: matched.MachineName,
                 })
               } else {
                 setJobData({
                   ...jobData,
-                  productionUnit: String(value),
-                  productionUnitId: value,
+                  machine: String(value),
+                  machineId: value,
                 })
               }
             }}
           >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Select production unit" />
+            <SelectTrigger className="h-8 w-full [&>span]:truncate [&>span]:block [&>span]:max-w-[calc(100%-20px)]">
+              <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px] overflow-y-auto">
-              {loadingProductionUnits ? (
+              {loadingMachines ? (
                 <SelectItem value="__loading" disabled>Loading...</SelectItem>
-              ) : productionUnitsError ? (
-                <SelectItem value="__error" disabled>{productionUnitsError}</SelectItem>
-              ) : productionUnitsList && productionUnitsList.length > 0 ? (
-                productionUnitsList.map((unit) => {
-                  const unitValue = String(unit.ProductionUnitID ?? unit.ProductionUnitName ?? '')
-                  if (!unitValue || unitValue === '' || unitValue === 'undefined' || unitValue === 'null') {
+              ) : machinesError ? (
+                <SelectItem value="__error" disabled>{machinesError}</SelectItem>
+              ) : machinesList && machinesList.length > 0 ? (
+                machinesList.map((machine) => {
+                  const machineValue = String(machine.MachineID ?? '')
+                  if (!machineValue || machineValue === '' || machineValue === 'undefined' || machineValue === 'null') {
                     return null
                   }
                   return (
                     <SelectItem
-                      key={String(unit.ProductionUnitID ?? Math.random())}
-                      value={unitValue}
+                      key={String(machine.MachineID ?? Math.random())}
+                      value={machineValue}
                       className="truncate max-w-[250px]"
-                      title={unit.ProductionUnitName ?? `Unit ${unit.ProductionUnitID}`}
+                      title={machine.MachineName ?? `Machine ${machine.MachineID}`}
                     >
-                      <span className="truncate block">{unit.ProductionUnitName ?? `Unit ${unit.ProductionUnitID}`}</span>
+                      <span className="truncate block">{machine.MachineName ?? `Machine ${machine.MachineID}`}</span>
                     </SelectItem>
                   )
                 }).filter(Boolean)
               ) : (
-                <SelectItem value="__none" disabled>No production units available</SelectItem>
+                <SelectItem value="__none" disabled>No machines available</SelectItem>
               )}
             </SelectContent>
           </Select>
@@ -2534,12 +2714,16 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   type="number"
                   step="1"
                   min="0"
+                  max="9"
                   className="h-8 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="0"
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
-                  onChange={(e) =>
-                    setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: e.target.value } })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val === '' || (Number(val) >= 0 && Number(val) <= 9)) {
+                      setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: val } })
+                    }
+                  }}
                   onWheel={(e) => e.currentTarget.blur()}
                 />
               </div>
@@ -2557,12 +2741,16 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
                   type="number"
                   step="1"
                   min="0"
+                  max="9"
                   className="h-8 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="0"
                   value={String(jobData.paperDetails[key as keyof typeof jobData.paperDetails] ?? '')}
-                  onChange={(e) =>
-                    setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: e.target.value } })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val === '' || (Number(val) >= 0 && Number(val) <= 9)) {
+                      setJobData({ ...jobData, paperDetails: { ...jobData.paperDetails, [key]: val } })
+                    }
+                  }}
                   onWheel={(e) => e.currentTarget.blur()}
                 />
               </div>
@@ -3336,6 +3524,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
       // Material details - USER PROVIDED
       ItemPlanQuality: pd.quality || '',
       ItemPlanGsm: Number(pd.gsm) || 0,
+      ItemPlanBF: 0,
       ItemPlanMill: pd.mill || '-',
       PlanPlateType: 'CTP Plate',  // DEFAULT
       PlanWastageType: 'Percentage',  // DEFAULT
@@ -3506,6 +3695,7 @@ export function PrintingWizard({ onStepChange, onToggleSidebar, onNavigateToClie
         PlanPrintingGrain: 'Both',
         ItemPlanQuality: paper.quality || '',
         ItemPlanGsm: Number(paper.gsm) || 0,
+        ItemPlanBF: 0,
         ItemPlanMill: '',
         PlanPlateType: 'CTP Plate',
         PlanWastageType: 'Machine Default',
@@ -3783,7 +3973,7 @@ Quotation Details
 ================
 Client: ${jobData.clientName || 'N/A'}
 Job: ${jobData.jobName || 'N/A'}
-Carton Type: ${jobData.cartonType || 'N/A'}
+Carton Type: ${getContentDisplayName(jobData.cartonType) || 'N/A'}
 
 Quantities & Pricing:
 ${jobData.quantities.map((q, i) => `
@@ -4073,7 +4263,7 @@ Generated with KAM Printing Wizard
           autoTable(pdf, {
             startY: yPos,
             body: [
-              ['Content Name', detailsData.ContentName || 'N/A', 'Job Size (mm)', `${detailsData.JobSizeH || 0} x ${detailsData.JobSizeL || 0}`],
+              ['Content Name', getContentDisplayName(detailsData.ContentName) || 'N/A', 'Job Size (mm)', `${detailsData.JobSizeH || 0} x ${detailsData.JobSizeL || 0}`],
               ['Color Details', `Front: ${detailsData.PlanFColor || 0} + ${detailsData.PlanFSpColor || 0} | Back: ${detailsData.PlanBColor || 0} + ${detailsData.PlanBSpColor || 0}`, 'Job Size (Inch)', `H: ${detailsData.SizeHeight || 0}" L: ${detailsData.SizeLength || 0}"`],
               ['Quality', detailsData.QualityName || 'N/A', 'Paper GSM', detailsData.PaperGSM || 'N/A'],
               ['Mill', detailsData.MillName || 'N/A', 'Finish', detailsData.FinishName || 'N/A'],
@@ -4332,7 +4522,7 @@ Generated with KAM Printing Wizard
         const jobName = price.JobName || jobData.jobName || 'N/A'
         const jobDate = price.Job_Date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         const categoryName = price.CategoryName || details.CategoryName || 'N/A'
-        const contentName = details.Content_Name || jobData.cartonType || 'N/A'
+        const contentName = getContentDisplayName(details.Content_Name || jobData.cartonType) || 'N/A'
         const paperBy = details.Paperby || 'N/A'
         const quantity = price.PlanContQty || Number(jobData.quantity) || 0
         const unitCost = price.UnitCost || price.UnitCost1000 || 0
@@ -4854,9 +5044,9 @@ Generated with KAM Printing Wizard
 
           <Button
             onClick={() => {
-              // If on Final Cost step with quotation, redirect to inquiries
+              // If on Final Cost step with quotation, user clicked "Done" - go to quotations
               if (currentStep === steps.length - 1 && quotationNumber && quotationData) {
-                router.push('/inquiries')
+                router.push('/quotations')
               } else {
                 nextStep()
               }

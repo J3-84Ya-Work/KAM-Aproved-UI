@@ -302,7 +302,7 @@ export function AppSidebar() {
     // Fetch ask rate count (pending)
     const fetchAskRateCount = async () => {
       try {
-        const RATE_API_URL = process.env.NEXT_PUBLIC_RATE_API_BASE_URL || 'http://localhost:5003/api/raterequest'
+        const RATE_API_URL = process.env.NEXT_PUBLIC_RATE_API_BASE_URL || 'https://api.indusanalytics.co.in/api/raterequest'
         const response = await fetch(`${RATE_API_URL}/all`, {
           method: 'GET',
           headers: {

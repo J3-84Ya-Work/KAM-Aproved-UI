@@ -293,11 +293,15 @@ interface ApprovalsContentProps {
 }
 
 export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps) {
+  console.log('🚀 APPROVALS CONTENT COMPONENT LOADED')
+
   const viewableKams = getViewableKAMs()
   const isRestrictedUser = viewableKams.length > 0 && viewableKams.length < 4 // Not Vertical Head
   const isKAMUser = viewableKams.length === 1 // KAM can only see themselves
   const isHODUser = isHOD() // HOD user check
   const isVerticalHeadUser = isVerticalHead() // Vertical Head user check
+
+  console.log('🚀 USER ROLES:', { isHODUser, isVerticalHeadUser, isKAMUser, isRestrictedUser, viewableKamsCount: viewableKams.length })
 
   const [search, setSearch] = useState("")
   const [selectedApproval, setSelectedApproval] = useState<any | null>(null)
@@ -308,6 +312,12 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   const [quotationsForApproval, setQuotationsForApproval] = useState<any[]>([])
   const [isLoadingQuotations, setIsLoadingQuotations] = useState(true)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+
+  // Confirmation and result dialogs
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState<{bookingId: string, status: 'Approved' | 'Disapproved'} | null>(null)
+  const [resultDialogOpen, setResultDialogOpen] = useState(false)
+  const [resultMessage, setResultMessage] = useState({ type: 'success' as 'success' | 'error', message: '' })
 
   // Table settings state
   const tableColumns = useMemo(() => [
@@ -365,6 +375,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
   // Fetch quotations that need approval
   const fetchQuotationsForApproval = async () => {
       try {
+        console.log('🔍 FETCHING APPROVALS - Start')
         setIsLoadingQuotations(true)
 
         // Use wide date range to get all quotations
@@ -374,7 +385,9 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
           ToDate: '2026-10-10',
         }
 
+        console.log('🔍 Request params:', requestParams)
         const response = await QuotationsAPI.getAllQuotationsForApproval(requestParams, null)
+        console.log('🔍 API Response:', { success: response.success, dataLength: response.data?.length, error: response.error })
 
         if (response.success && response.data) {
           // Log total quotations from API
@@ -475,8 +488,11 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
           setQuotationsForApproval(pendingQuotations)
         }
       } catch (error) {
+        console.error('🔍 ERROR fetching quotations:', error)
         clientLogger.error('Error fetching quotations for approval:', error)
       } finally {
+        console.log('🔍 FETCHING APPROVALS - Complete')
+
         setIsLoadingQuotations(false)
       }
     }
@@ -485,23 +501,25 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
     fetchQuotationsForApproval()
   }, [])
 
-  // Handle approval/rejection
-  const handleApprovalAction = async (bookingId: string, status: 'Approved' | 'Disapproved') => {
+  // Show confirmation dialog
+  const showConfirmDialog = (bookingId: string, status: 'Approved' | 'Disapproved') => {
     if (!bookingId) {
-      alert('Invalid quotation ID')
+      setResultMessage({ type: 'error', message: 'Invalid quotation ID' })
+      setResultDialogOpen(true)
       return
     }
+    setPendingAction({ bookingId, status })
+    setConfirmDialogOpen(true)
+  }
 
-    // Confirm action
-    const confirmMessage = status === 'Approved'
-      ? `Are you sure you want to APPROVE quotation ${bookingId}?${remark ? `\n\nYour remark: ${remark}` : ''}`
-      : `Are you sure you want to REJECT quotation ${bookingId}?${remark ? `\n\nYour remark: ${remark}` : ''}`
+  // Handle approval/rejection after confirmation
+  const handleApprovalAction = async () => {
+    if (!pendingAction) return
 
-    if (!confirm(confirmMessage)) {
-      return
-    }
-
+    const { bookingId, status } = pendingAction
+    setConfirmDialogOpen(false)
     setIsUpdatingStatus(true)
+
     try {
       // Try adding IsInternalApproved field as well
       const requestBody = {
@@ -513,31 +531,62 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
       const response = await QuotationsAPI.updateQuotationStatus(requestBody, null)
 
       if (response.success) {
-        alert(`Quotation ${status.toLowerCase()} successfully!${remark ? `\nRemark: ${remark}` : ''}`)
+        setResultMessage({
+          type: 'success',
+          message: `Quotation ${status.toLowerCase()} successfully!${remark ? `\nRemark: ${remark}` : ''}`
+        })
+        setResultDialogOpen(true)
         setRemark("")
         setSelectedApproval(null)
+        setDetailDialogOpen(false)
 
         // Refresh the data from API
         await new Promise(resolve => setTimeout(resolve, 1000))
         await fetchQuotationsForApproval()
       } else {
-        alert(`Failed to ${status.toLowerCase()} quotation: ${response.error || 'Unknown error'}`)
+        setResultMessage({
+          type: 'error',
+          message: `Failed to ${status.toLowerCase()} quotation: ${response.error || 'Unknown error'}`
+        })
+        setResultDialogOpen(true)
       }
     } catch (error: any) {
       clientLogger.error(`Error ${status.toLowerCase()} quotation:`, error)
-      alert(`Error: ${error.message}`)
+      setResultMessage({ type: 'error', message: `Error: ${error.message}` })
+      setResultDialogOpen(true)
     } finally {
       setIsUpdatingStatus(false)
+      setPendingAction(null)
     }
   }
 
   // Use only API quotations (no hardcoded data)
   const allPendingApprovals = quotationsForApproval
 
-  // Filter data based on user role - HOD/VH see all quotations sent to them
-  const userFilteredPending = (isRestrictedUser && !isHODUser && !isVerticalHeadUser)
-    ? allPendingApprovals.filter(a => a.kamName && viewableKams.includes(a.kamName))
-    : allPendingApprovals
+  console.log('🔍 APPROVALS DEBUG:', {
+    totalApprovals: allPendingApprovals.length,
+    isHODUser,
+    isVerticalHeadUser,
+    isRestrictedUser,
+    approvals: allPendingApprovals.map(a => ({ id: a.id, status: a.status, level: a.level }))
+  })
+
+  // Filter data based on user role - HOD/VH see quotations relevant to their level
+  let userFilteredPending = allPendingApprovals
+
+  if (isRestrictedUser && !isHODUser && !isVerticalHeadUser) {
+    // Restricted users only see their KAMs' quotations
+    userFilteredPending = allPendingApprovals.filter(a => a.kamName && viewableKams.includes(a.kamName))
+    console.log('🔍 Filtered for restricted user:', userFilteredPending.length)
+  } else if (isHODUser && !isVerticalHeadUser) {
+    // HOD users only see L1 quotations (Sent to HOD)
+    userFilteredPending = allPendingApprovals.filter(a => a.level === 'L1')
+    console.log('🔍 Filtered for HOD (L1):', userFilteredPending.length)
+  } else if (isVerticalHeadUser) {
+    // VH users only see L2 quotations (Sent to Vertical Head)
+    userFilteredPending = allPendingApprovals.filter(a => a.level === 'L2')
+    console.log('🔍 Filtered for VH (L2):', userFilteredPending.length, userFilteredPending.map(a => ({ id: a.id, level: a.level })))
+  }
 
   // For now, history is empty (only showing pending approvals from API)
   const userFilteredHistory: any[] = []
@@ -648,9 +697,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
               onClick={(e) => {
                 e.stopPropagation()
                 if (row.original.type === 'Quotation') {
-                  handleApprovalAction(row.original.bookingId || row.original.id, 'Disapproved')
-                } else {
-                  alert(`Disapproving ${row.original.id}`)
+                  showConfirmDialog(row.original.bookingId || row.original.id, 'Disapproved')
                 }
               }}
               disabled={isUpdatingStatus}
@@ -664,9 +711,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
               onClick={(e) => {
                 e.stopPropagation()
                 if (row.original.type === 'Quotation') {
-                  handleApprovalAction(row.original.bookingId || row.original.id, 'Approved')
-                } else {
-                  alert(`Approving ${row.original.id}`)
+                  showConfirmDialog(row.original.bookingId || row.original.id, 'Approved')
                 }
               }}
               disabled={isUpdatingStatus}
@@ -759,6 +804,16 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
               sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
             }}
             onColumnVisibilityChange={setColumnVisibility}
+            onSortingChange={(updater) => {
+              const newSorting = typeof updater === 'function' ? updater(tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : []) : updater
+              if (newSorting.length > 0) {
+                setTableSortColumn(newSorting[0].id)
+                setTableSortDirection(newSorting[0].desc ? 'desc' : 'asc')
+              } else {
+                setTableSortColumn('')
+                setTableSortDirection('asc')
+              }
+            }}
             muiTablePaperProps={{
               sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
             }}
@@ -801,9 +856,49 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
               sx: { fontSize: '0.875rem', padding: '16px' }
             }}
             muiPaginationProps={{
-              rowsPerPageOptions: [10, 20, 50],
+              rowsPerPageOptions: [50, 100, 200],
               showFirstButton: false,
               showLastButton: false,
+              sx: {
+                '& .MuiTablePagination-toolbar': {
+                  flexWrap: 'nowrap',
+                  justifyContent: 'flex-end',
+                  gap: '4px',
+                  padding: '0 8px',
+                  minHeight: '52px',
+                },
+                '& .MuiTablePagination-selectLabel': {
+                  margin: 0,
+                  fontSize: '0.75rem',
+                },
+                '& .MuiTablePagination-displayedRows': {
+                  margin: 0,
+                  fontSize: '0.75rem',
+                },
+                '& .MuiTablePagination-select': {
+                  fontSize: '0.75rem',
+                  paddingRight: '20px',
+                },
+                '& .MuiTablePagination-actions': {
+                  marginLeft: '8px',
+                  '& button': {
+                    padding: '4px',
+                  },
+                },
+                '@media (max-width: 600px)': {
+                  '& .MuiTablePagination-toolbar': {
+                    flexWrap: 'nowrap',
+                    justifyContent: 'space-between',
+                    padding: '0 4px',
+                  },
+                  '& .MuiTablePagination-selectLabel': {
+                    display: 'none',
+                  },
+                  '& .MuiTablePagination-select': {
+                    marginRight: '4px',
+                  },
+                },
+              },
             }}
             renderEmptyRowsFallback={() => (
               <div className="flex flex-col items-center justify-center py-12">
@@ -817,6 +912,81 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
           />
         </ThemeProvider>
       )}
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {pendingAction?.status === 'Approved' ? 'Confirm Approval' : 'Confirm Rejection'}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingAction?.status === 'Approved'
+                ? `Are you sure you want to APPROVE this quotation?`
+                : `Are you sure you want to REJECT this quotation?`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {remark && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <Label className="text-xs font-semibold text-blue-900">Your Remark:</Label>
+                <p className="mt-1 text-sm text-blue-800">{remark}</p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setConfirmDialogOpen(false)
+                  setPendingAction(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className={pendingAction?.status === 'Approved'
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-rose-600 hover:bg-rose-700"
+                }
+                onClick={handleApprovalAction}
+                disabled={isUpdatingStatus}
+              >
+                {isUpdatingStatus ? 'Processing...' : (pendingAction?.status === 'Approved' ? 'Approve' : 'Reject')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Result Dialog */}
+      <Dialog open={resultDialogOpen} onOpenChange={setResultDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {resultMessage.type === 'success' ? (
+                <>
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  <span>Success</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-5 w-5 text-rose-600" />
+                  <span>Error</span>
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm whitespace-pre-line">{resultMessage.message}</p>
+            <div className="flex justify-end">
+              <Button onClick={() => setResultDialogOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Approval Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
@@ -948,10 +1118,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                       className="bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 hover:text-rose-700"
                       onClick={() => {
                         if (selectedApproval.type === 'Quotation') {
-                          handleApprovalAction(selectedApproval.bookingId || selectedApproval.id, 'Disapproved')
-                        } else {
-                          alert(`Disapproving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
-                          setRemark("")
+                          showConfirmDialog(selectedApproval.bookingId || selectedApproval.id, 'Disapproved')
                         }
                       }}
                       disabled={isUpdatingStatus}
@@ -963,10 +1130,7 @@ export function ApprovalsContent({ showHistory = false }: ApprovalsContentProps)
                       className="bg-emerald-600 text-white hover:bg-emerald-700"
                       onClick={() => {
                         if (selectedApproval.type === 'Quotation') {
-                          handleApprovalAction(selectedApproval.bookingId || selectedApproval.id, 'Approved')
-                        } else {
-                          alert(`Approving ${selectedApproval.id}${remark ? `\nRemark: ${remark}` : ''}`)
-                          setRemark("")
+                          showConfirmDialog(selectedApproval.bookingId || selectedApproval.id, 'Approved')
                         }
                       }}
                       disabled={isUpdatingStatus}

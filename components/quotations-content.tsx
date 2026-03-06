@@ -272,6 +272,14 @@ export function QuotationsContent() {
   const [isDialogOpen, setIsDialogOpen] = useState(false) // Control dialog open state
   const itemsPerPage = 20
 
+  // External status change dialog
+  const [externalStatusDialog, setExternalStatusDialog] = useState<{
+    isOpen: boolean
+    bookingId: string | null
+    newStatus: string
+    remark: string
+  }>({ isOpen: false, bookingId: null, newStatus: '', remark: '' })
+
   // Voice input hook
   const { isListening, transcript, startListening, resetTranscript } = useVoiceInput()
 
@@ -296,7 +304,9 @@ export function QuotationsContent() {
     bookingId: string | number | null
     targetPrice: string
     isSubmitting: boolean
-  }>({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false })
+    currentRate: string
+    jobName: string
+  }>({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false, currentRate: '', jobName: '' })
 
   // Helper function to show message dialog
   const showMessage = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -319,7 +329,7 @@ export function QuotationsContent() {
       }, null)
 
       if (response.success) {
-        setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false })
+        setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false, currentRate: '', jobName: '' })
         setIsDialogOpen(false)
         setSelectedQuotation(null)
         showMessage('Success', `Quote revision created successfully. New Booking ID: ${response.data}`, 'success')
@@ -350,12 +360,13 @@ export function QuotationsContent() {
   const tableColumns = [
     { id: 'hodName', label: 'HOD' },
     { id: 'kamName', label: 'KAM Name' },
-    { id: 'id', label: 'ID / Inquiry' },
+    { id: 'id', label: 'ID / Enquiry' },
     { id: 'customer', label: 'Customer' },
     { id: 'job', label: 'Job & Validity' },
     { id: 'status', label: 'Status' },
     { id: 'actions', label: 'Actions' },
     { id: 'internalStatus', label: 'Internal Status' },
+    { id: 'externalStatus', label: 'Customer Status' },
     { id: 'Source', label: 'Source' },
   ]
 
@@ -447,24 +458,39 @@ export function QuotationsContent() {
           // Use ProfitPercentage from API as margin (already a percentage)
           const marginPercent = item.ProfitPercentage || item.Margin || 0
 
-          // Calculate validTill: createdDate + 10 days
-          let validTill = '-'
-          if (item.CreatedDate) {
-            try {
-              const createdDate = new Date(item.CreatedDate)
-              const validTillDate = new Date(createdDate)
-              validTillDate.setDate(validTillDate.getDate() + 10)
-
-              // Format as DD-MMM-YYYY
-              const day = String(validTillDate.getDate()).padStart(2, '0')
-              const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-              const month = months[validTillDate.getMonth()]
-              const year = validTillDate.getFullYear()
-              validTill = `${day}-${month}-${year}`
-            } catch (e) {
-              validTill = '-'
+          // Helper: parse date string that could be DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, ISO, etc.
+          const parseFlexibleDate = (dateStr: string): Date | null => {
+            if (!dateStr) return null
+            // Try native parse first (works for ISO, YYYY-MM-DD, etc.)
+            let d = new Date(dateStr)
+            if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d
+            // Try DD/MM/YYYY or DD-MM-YYYY
+            const ddmmyyyy = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+            if (ddmmyyyy) {
+              d = new Date(parseInt(ddmmyyyy[3]), parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]))
+              if (!isNaN(d.getTime())) return d
             }
+            return null
           }
+
+          const formatDateDDMMMYYYY = (d: Date): string => {
+            const day = String(d.getDate()).padStart(2, '0')
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            return `${day}-${months[d.getMonth()]}-${d.getFullYear()}`
+          }
+
+          // Calculate validTill: quotation date + 3 days
+          let validTill = '-'
+          const quotationDateStr = item.BookingDate || item.QuotationDate || item.CreatedDate
+          const parsedDate = parseFlexibleDate(quotationDateStr)
+          if (parsedDate) {
+            const validTillDate = new Date(parsedDate)
+            validTillDate.setDate(validTillDate.getDate() + 3)
+            validTill = formatDateDDMMMYYYY(validTillDate)
+          }
+
+          // Extract quantity (MOQ) from API data
+          const quantity = parseFloat(item.Quantity || item.PlanContQty || '0') || 0
 
           return {
             id: item.BookingNo,
@@ -477,14 +503,17 @@ export function QuotationsContent() {
             quotedCostDisplay: item.QuotedCost || '0 INR',
             finalCost: finalCost,
             margin: marginPercent,
+            quantity: quantity, // MOQ quantity for approval routing
             validTill: validTill,
             status: item.Status || 'Quoted', // Use Status from API
             internalStatus: item.IsInternalApproved ? 'Approved' : item.IsSendForInternalApproval ? 'Pending Approval' : 'Not Updated',
             internalStatusNote: item.RemarkInternalApproved || '',
             approvalLevel: '-',
-            createdDate: item.CreatedDate,
+            createdDate: parsedDate ? formatDateDDMMMYYYY(parsedDate) : (item.CreatedDate || '-'),
             notes: item.QuoteRemark || '',
-            kamName: item.SalesEmployeeName || '-',
+            kamName: '-', // Don't use SalesEmployeeName (can be generic like "admin")
+            externalStatus: item.ExternalStatus || item.CustomerStatus || 'Not Sent',
+            Source: item.Source || 'KAM APP',
             hodName: '-',
             history: [],
             // Raw data for reference
@@ -580,6 +609,75 @@ export function QuotationsContent() {
       return
     }
     showPackingSpecDialog(bookingId, 'vertical')
+  }
+
+  // Handle Send to Customer - Download PDF and open Outlook
+  const handleSendToCustomer = async (quotation: any) => {
+    if (!quotation || !quotation.bookingId) {
+      showMessage('Error', 'Invalid quotation data', 'error')
+      return
+    }
+
+    try {
+      // Download the PDF (vertical format, without packing spec for customer)
+      await downloadPDFVertical(quotation.bookingId, false)
+
+      // Get customer email if available
+      const customerName = quotation.customer || 'Customer'
+      const jobName = quotation.job || 'Quotation'
+      const quotationNo = quotation.id || quotation.bookingId
+
+      // Prepare email content
+      const subject = encodeURIComponent(`Quotation ${quotationNo} - ${jobName}`)
+      const body = encodeURIComponent(
+        `Dear ${customerName},\n\n` +
+        `Please find attached the quotation for ${jobName}.\n\n` +
+        `Quotation Number: ${quotationNo}\n\n` +
+        `Best regards,\n` +
+        `Parksons Packaging`
+      )
+
+      // Open Outlook with mailto link
+      // Note: The PDF will be downloaded separately and user needs to attach it manually
+      window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+
+      showMessage('Success', 'PDF downloaded! Please attach it to the email that just opened in Outlook.', 'success')
+
+      // Update external status to "Sent to Customer"
+      setQuotations(prev => prev.map(q =>
+        q.bookingId === quotation.bookingId
+          ? { ...q, externalStatus: 'Sent to Customer' }
+          : q
+      ))
+    } catch (error: any) {
+      console.error('Error sending to customer:', error)
+      showMessage('Error', 'Failed to prepare email. Please try again.', 'error')
+    }
+  }
+
+  // Open external status change dialog with remark
+  const handleExternalStatusChange = (bookingId: string, newStatus: string) => {
+    setExternalStatusDialog({
+      isOpen: true,
+      bookingId,
+      newStatus,
+      remark: '',
+    })
+  }
+
+  // Confirm external status change with remark
+  const confirmExternalStatusChange = () => {
+    const { bookingId, newStatus, remark } = externalStatusDialog
+    if (!bookingId || !remark.trim()) return
+
+    setQuotations(prev => prev.map(q =>
+      q.bookingId === bookingId
+        ? { ...q, externalStatus: newStatus, externalStatusRemark: remark.trim() }
+        : q
+    ))
+
+    setExternalStatusDialog({ isOpen: false, bookingId: null, newStatus: '', remark: '' })
+    showMessage('Success', `Customer status updated to "${newStatus}"`, 'success')
   }
 
   // Actual PDF generation for Vertical format
@@ -733,7 +831,10 @@ export function QuotationsContent() {
           jobNameRow.push(mainData.JobName || detail.Content_Name || priceData.JobName || '')
           sizeRow.push(detail.Job_Size || detail.Job_Size_In_Inches || detail.JobSizeDetails || detail.SizeHeight || '')
           // Board Specs = Paper quality and GSM
-          boardSpecsRow.push(detail.Paper || detail.CategoryName || '')
+          const paper = detail.Paper || detail.Quality || detail.CategoryName || ''
+          const gsm = detail.GSM || detail.Gsm || ''
+          const boardSpec = [paper, gsm].filter(Boolean).join(' ')
+          boardSpecsRow.push(boardSpec)
 
           // Printing & Value Addition = Colors + Processes
           const colorParts: string[] = []
@@ -928,8 +1029,32 @@ export function QuotationsContent() {
       const paymentDaysV = mainData.PaymentDays || mainData.PaymentTerms || '30'
       const taxInfoV = priceData.TaxPercentage ? `GST ${priceData.TaxPercentage}% ${priceData.TaxInorExClusive || 'Including'}` : (mainData.TaxRate ? `GST ${mainData.TaxRate}%` : '')
       const currencyInfoV = priceData.CurrencySymbol || mainData.Currency || 'INR'
-      const leadTimeV = mainData.LeadTime || ''
-      const quoteValidityV = mainData.QuoteValidity || mainData.ValidityDays || ''
+
+      // Lead Time = Quotation created date
+      const leadTimeV = quotationDate
+
+      // Quote Validity = Quotation created date + 3 days
+      const getValidityDate = (dateStr: string): string => {
+        try {
+          // Try to parse the date string (format: DD/MM/YYYY or DD-MM-YYYY)
+          const parts = dateStr.split(/[\/\-]/)
+          if (parts.length === 3) {
+            const day = parseInt(parts[0])
+            const month = parseInt(parts[1]) - 1
+            const year = parseInt(parts[2])
+            const date = new Date(year, month, day)
+            date.setDate(date.getDate() + 3)
+            const newDay = String(date.getDate()).padStart(2, '0')
+            const newMonth = String(date.getMonth() + 1).padStart(2, '0')
+            const newYear = date.getFullYear()
+            return `${newDay}/${newMonth}/${newYear}`
+          }
+        } catch (e) {
+          console.error('Error parsing date for validity:', e)
+        }
+        return dateStr
+      }
+      const quoteValidityV = getValidityDate(quotationDate)
 
       // Terms & Conditions Table (like reference format)
       autoTable(pdf, {
@@ -1177,11 +1302,16 @@ export function QuotationsContent() {
           const processStrH = detailsData.Operatios || detailsData.Printing || ''
           const printingValueH = [colorStrH, processStrH].filter(Boolean).join(', ') || detailsData.CategoryName || ''
 
+          // Board Specs = Paper quality and GSM
+          const paperH = detailsData.Paper || detailsData.Quality || detailsData.CategoryName || ''
+          const gsmH = detailsData.GSM || detailsData.Gsm || ''
+          const boardSpecH = [paperH, gsmH].filter(Boolean).join(' ')
+
           return [
             String(index + 1),
             mainData.JobName || detailsData.Content_Name || priceData.JobName || '',
             detailsData.Job_Size || detailsData.Job_Size_In_Inches || detailsData.JobSizeDetails || detailsData.SizeHeight || '',
-            detailsData.Paper || detailsData.CategoryName || '',
+            boardSpecH,
             printingValueH,
             index === 0 ? (priceData.PlanContQty || detailsData.Quantity || mainData.Quantity || '') : '',
             index === 0 ? (priceData.PlanContQty || mainData.AnnualQuantity || '') : '',
@@ -1292,8 +1422,32 @@ export function QuotationsContent() {
       const paymentDaysH = mainData.PaymentDays || mainData.PaymentTerms || '30'
       const taxInfoH = priceData.TaxPercentage ? `GST ${priceData.TaxPercentage}% ${priceData.TaxInorExClusive || 'Including'}` : (mainData.TaxRate ? `GST ${mainData.TaxRate}%` : '')
       const currencyInfoH = priceData.CurrencySymbol || mainData.Currency || 'INR'
-      const leadTimeH = mainData.LeadTime || ''
-      const quoteValidityH = mainData.QuoteValidity || mainData.ValidityDays || ''
+
+      // Lead Time = Quotation created date
+      const leadTimeH = quotationDateH
+
+      // Quote Validity = Quotation created date + 3 days
+      const getValidityDateH = (dateStr: string): string => {
+        try {
+          // Try to parse the date string (format: DD/MM/YYYY or DD-MM-YYYY)
+          const parts = dateStr.split(/[\/\-]/)
+          if (parts.length === 3) {
+            const day = parseInt(parts[0])
+            const month = parseInt(parts[1]) - 1
+            const year = parseInt(parts[2])
+            const date = new Date(year, month, day)
+            date.setDate(date.getDate() + 3)
+            const newDay = String(date.getDate()).padStart(2, '0')
+            const newMonth = String(date.getMonth() + 1).padStart(2, '0')
+            const newYear = date.getFullYear()
+            return `${newDay}/${newMonth}/${newYear}`
+          }
+        } catch (e) {
+          console.error('Error parsing date for validity:', e)
+        }
+        return dateStr
+      }
+      const quoteValidityH = getValidityDateH(quotationDateH)
 
       // Terms & Conditions Table (like reference format)
       autoTable(pdf, {
@@ -1398,7 +1552,9 @@ export function QuotationsContent() {
       const jobName = mainData.JobName || detailsData.Content_Name || priceData.JobName || ''
       const boxDimensions = detailsData.Job_Size || detailsData.Job_Size_In_Inches || detailsData.JobSizeDetails || detailsData.SizeHeight || ''
       // Board Specs = Paper quality and GSM
-      const paperQualityGSM = detailsData.Paper || detailsData.CategoryName || ''
+      const paperExcel = detailsData.Paper || detailsData.Quality || detailsData.CategoryName || ''
+      const gsmExcel = detailsData.GSM || detailsData.Gsm || ''
+      const paperQualityGSM = [paperExcel, gsmExcel].filter(Boolean).join(' ')
 
       // Printing & Value Addition = Colors + Processes
       const colorPartsExcel: string[] = []
@@ -1414,6 +1570,34 @@ export function QuotationsContent() {
       const moqValue = priceData.PlanContQty || detailsData.Quantity || mainData.Quantity || ''
       // Annual Qnt = Annual quantity from priceData
       const annualQuantity = priceData.PlanContQty || mainData.AnnualQuantity || ''
+
+      // Quotation date for Lead Time and Quote Validity
+      const quotationDateExcel = mainData.BookingDate || mainData.QuotationDate || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+      // Lead Time = Quotation created date
+      const leadTimeExcel = quotationDateExcel
+
+      // Quote Validity = Quotation created date + 3 days
+      const getValidityDateExcel = (dateStr: string): string => {
+        try {
+          const parts = dateStr.split(/[\/\-]/)
+          if (parts.length === 3) {
+            const day = parseInt(parts[0])
+            const month = parseInt(parts[1]) - 1
+            const year = parseInt(parts[2])
+            const date = new Date(year, month, day)
+            date.setDate(date.getDate() + 3)
+            const newDay = String(date.getDate()).padStart(2, '0')
+            const newMonth = String(date.getMonth() + 1).padStart(2, '0')
+            const newYear = date.getFullYear()
+            return `${newDay}/${newMonth}/${newYear}`
+          }
+        } catch (e) {
+          console.error('Error parsing date for validity:', e)
+        }
+        return dateStr
+      }
+      const quoteValidityExcel = getValidityDateExcel(quotationDateExcel)
 
       // Prepare Excel data with HORIZONTAL format (matching screenshot)
       const excelData = [
@@ -1455,9 +1639,9 @@ export function QuotationsContent() {
         ['', '', 'Delivery Terms', `${mainData.DeliveryDays || mainData.DeliveryTerms || '45'}Days`, '', '', '', '', '', '', '', ''],
         ['', '', 'Payment Terms', `${mainData.PaymentDays || mainData.PaymentTerms || '30'}Days`, '', '', '', '', '', '', '', ''],
         ['Terms &Conditions', '', 'Taxes', priceData.TaxPercentage ? `GST ${priceData.TaxPercentage}% ${priceData.TaxInorExClusive || 'Including'}` : '', '', '', '', '', '', '', '', ''],
-        ['', '', 'Currency', priceData.CurrencySymbol || mainData.Currency || 'INR', '', '', '', '', '', '', '', ''],
-        ['', '', 'Lead Time', mainData.LeadTime || '', '', '', '', '', '', '', '', ''],
-        ['', '', 'Quote Validity', mainData.QuoteValidity || mainData.ValidityDays || '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Currency', priceData.CurrencySymbol || mainData.Currency || 'INR', '', '', '', '', '', '', '', '', ''],
+        ['', '', 'Lead Time', leadTimeExcel, '', '', '', '', '', '', '', ''],
+        ['', '', 'Quote Validity', quoteValidityExcel, '', '', '', '', '', '', '', ''],
       ]
 
       // Create workbook and worksheet
@@ -1697,9 +1881,34 @@ export function QuotationsContent() {
     }
   }, [transcript, resetTranscript])
 
-  const handleOpenQuotation = (quotation: (typeof quotations)[0]) => {
-    setSelectedQuotation(quotation)
-    setIsDialogOpen(true)
+  const handleOpenQuotation = async (quotation: (typeof quotations)[0]) => {
+    try {
+      // Fetch detailed quotation data to get accurate QuotedCost using bookingId (numeric ID)
+      console.log('Fetching detail for BookingID:', quotation.bookingId, 'BookingNo:', quotation.id)
+      const detailData = await getQuotationDetail(quotation.bookingId)
+      console.log('Detail API response:', detailData)
+
+      // Extract QuotedCost from the detail API response
+      let quotedCostFromDetail = quotation.quotedCost // fallback to list data
+      if (detailData && detailData.Price && detailData.Price.length > 0) {
+        quotedCostFromDetail = detailData.Price[0].QuotedCost || quotation.quotedCost
+        console.log('QuotedCost from detail API:', quotedCostFromDetail)
+      }
+
+      // Update quotation with accurate QuotedCost
+      const updatedQuotation = {
+        ...quotation,
+        quotedCost: quotedCostFromDetail
+      }
+
+      setSelectedQuotation(updatedQuotation)
+      setIsDialogOpen(true)
+    } catch (error) {
+      console.error('Error fetching quotation details:', error)
+      // Fallback to original quotation data if detail fetch fails
+      setSelectedQuotation(quotation)
+      setIsDialogOpen(true)
+    }
   }
 
   // MRT Column definitions - defined here after all functions
@@ -1718,12 +1927,12 @@ export function QuotationsContent() {
     },
     {
       accessorKey: 'id',
-      header: 'ID / Inquiry',
+      header: 'ID / Enquiry',
       size: 150,
       Cell: ({ row }) => (
         <div className="space-y-0.5">
           <p className="text-sm font-semibold text-[#005180]">{row.original.id}</p>
-          <p className="text-xs text-gray-500">Inquiry {row.original.inquiryId}</p>
+          <p className="text-xs text-gray-500">Enquiry {row.original.inquiryId}</p>
         </div>
       ),
     },
@@ -1778,36 +1987,36 @@ export function QuotationsContent() {
         return (
           <div onClick={(e) => e.stopPropagation()}>
             {quotation.status === 'Approved' ? (
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 h-7 px-2"
-                  onClick={(e) => { e.stopPropagation(); showMessage('Coming Soon', 'Send to customer feature coming soon', 'info') }}>
-                  <ArrowUpCircle className="h-3 w-3 mr-1" />Send
-                </Button>
-                <Button size="sm" variant="outline" className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 h-7 px-2"
-                  onClick={(e) => { e.stopPropagation(); showMessage('Coming Soon', 'Share feature coming soon', 'info') }}>
-                  <Share2 className="h-3 w-3 mr-1" />Share
-                </Button>
-              </div>
+              <Button size="sm" variant="outline" className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 h-7 px-2"
+                onClick={(e) => { e.stopPropagation(); handleSendToCustomer(quotation) }}>
+                <ArrowUpCircle className="h-3 w-3 mr-1" />Send to Customer
+              </Button>
             ) : quotation.status === 'Sent to HOD' || quotation.status === 'Sent to Vertical Head' ? (
               <span className="text-xs text-gray-500 italic">Pending</span>
             ) : quotation.status === 'Disapproved' ? (
               <span className="text-xs text-rose-600 font-medium">Disapproved</span>
+            ) : quotation.internalStatus !== 'Approved' ? (
+              <span className="text-xs text-amber-600">Internal Approval Required</span>
             ) : (
               <div className="flex gap-1">
-                {quotation.margin < 5 && (
-                  <Button size="sm" variant="outline" className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 h-7 px-2"
-                    disabled={isSendingForApproval}
-                    onClick={(e) => { e.stopPropagation(); handleSendForApproval(quotation.bookingId, 'VerticalHead') }}>
-                    <ArrowUpCircle className="h-3 w-3 mr-1" />VH
+                {quotation.margin >= 10 ? (
+                  <Button size="sm" variant="outline" className="text-xs bg-[#78BE20]/10 text-[#78BE20] border-[#78BE20]/30 h-7 px-2"
+                    onClick={(e) => { e.stopPropagation(); handleSendToCustomer(quotation) }}>
+                    <ArrowUpCircle className="h-3 w-3 mr-1" />Send to Customer
                   </Button>
-                )}
-                {quotation.margin >= 5 && quotation.margin < 10 && (
+                ) : quotation.margin >= 5 && quotation.margin < 10 ? (
                   <Button size="sm" variant="outline" className="text-xs bg-[#B92221]/10 text-[#B92221] border-[#B92221]/30 h-7 px-2"
                     disabled={isSendingForApproval}
                     onClick={(e) => { e.stopPropagation(); handleSendForApproval(quotation.bookingId, 'HOD') }}>
                     <ArrowUpCircle className="h-3 w-3 mr-1" />HOD
                   </Button>
-                )}
+                ) : quotation.margin < 5 ? (
+                  <Button size="sm" variant="outline" className="text-xs bg-[#005180]/10 text-[#005180] border-[#005180]/30 h-7 px-2"
+                    disabled={isSendingForApproval}
+                    onClick={(e) => { e.stopPropagation(); handleSendForApproval(quotation.bookingId, 'VerticalHead') }}>
+                    <ArrowUpCircle className="h-3 w-3 mr-1" />VH
+                  </Button>
+                ) : null}
               </div>
             )}
           </div>
@@ -1824,25 +2033,60 @@ export function QuotationsContent() {
         const quotation = row.original
         return (
           <div onClick={(e) => e.stopPropagation()}>
-            {isKAMUser ? (
-              <Select
-                value={internalStatusMap[quotation.id] || quotation.internalStatus}
-                onValueChange={(value) => setInternalStatusMap({ ...internalStatusMap, [quotation.id]: value })}
+            <Badge className={`${getInternalStatusBadge(quotation.internalStatus)} border text-xs`}>
+              {quotation.internalStatus}
+            </Badge>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'externalStatus',
+      header: 'Customer Status',
+      size: 200,
+      filterVariant: 'select',
+      filterSelectOptions: ['Not Sent', 'Sent to Customer', 'Approved', 'Rejected', 'Pending'],
+      Cell: ({ row }) => {
+        const quotation = row.original
+        const status = quotation.externalStatus || 'Not Sent'
+        const isSentToCustomer = status === 'Sent to Customer' || status === 'Approved' || status === 'Rejected' || status === 'Pending'
+        const canChangeStatus = isKAMUser && isSentToCustomer
+
+        const getStatusColor = (s: string) =>
+          s === 'Approved' ? 'text-green-700 bg-green-50 border-green-300'
+          : s === 'Sent to Customer' ? 'text-blue-700 bg-blue-50 border-blue-300'
+          : s === 'Rejected' ? 'text-red-700 bg-red-50 border-red-300'
+          : s === 'Pending' ? 'text-amber-700 bg-amber-50 border-amber-300'
+          : 'text-gray-600 bg-gray-50 border-gray-300'
+
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            {canChangeStatus ? (
+              <select
+                value={status}
+                onChange={(e) => {
+                  const newStatus = e.target.value
+                  if (newStatus !== status && newStatus !== 'Sent to Customer') {
+                    handleExternalStatusChange(quotation.bookingId, newStatus)
+                  }
+                }}
+                className={`${getStatusColor(status)} border rounded-md px-2 py-1 text-xs font-semibold cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#005180]/40 appearance-none pr-6 bg-no-repeat bg-[length:12px] bg-[right_4px_center]`}
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")` }}
               >
-                <SelectTrigger className="h-8 w-full border-gray-300">
-                  <Badge className={`${getInternalStatusBadge(internalStatusMap[quotation.id] || quotation.internalStatus)} border text-xs`}>
-                    {internalStatusMap[quotation.id] || quotation.internalStatus}
-                  </Badge>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Not Updated"><Badge className={`${getInternalStatusBadge("Not Updated")} border text-xs`}>Not Updated</Badge></SelectItem>
-                  <SelectItem value="In Progress"><Badge className={`${getInternalStatusBadge("In Progress")} border text-xs`}>In Progress</Badge></SelectItem>
-                  <SelectItem value="Approved"><Badge className={`${getInternalStatusBadge("Approved")} border text-xs`}>Approved</Badge></SelectItem>
-                  <SelectItem value="Disapproved"><Badge className={`${getInternalStatusBadge("Disapproved")} border text-xs`}>Disapproved</Badge></SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="Sent to Customer">Sent to Customer</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Rejected">Rejected</option>
+              </select>
             ) : (
-              <Badge className={`${getInternalStatusBadge(quotation.internalStatus)} border`}>{quotation.internalStatus}</Badge>
+              <span className={`${getStatusColor(status)} border rounded-md px-2 py-1 text-xs font-semibold`}>
+                {status}
+              </span>
+            )}
+            {quotation.externalStatusRemark && (
+              <p className="mt-1 text-[0.65rem] text-gray-500 truncate max-w-[160px]" title={quotation.externalStatusRemark}>
+                {quotation.externalStatusRemark}
+              </p>
             )}
           </div>
         )
@@ -1856,12 +2100,20 @@ export function QuotationsContent() {
     },
   ], [isKAMUser, isSendingForApproval, internalStatusMap, showMessage, handleSendForApproval])
 
-  // Sort columns based on columnOrder
+  // Sort columns based on columnOrder, and append any new columns not in saved order
   const mrtColumns = useMemo(() => {
     const columnsMap = new Map(mrtColumnsBase.map(col => [col.accessorKey, col]))
-    return columnOrder
+    const orderedColumns = columnOrder
       .filter(colId => columnsMap.has(colId))
       .map(colId => columnsMap.get(colId)!)
+    // Append any columns that exist in mrtColumnsBase but are missing from saved columnOrder
+    const orderedIds = new Set(columnOrder)
+    for (const col of mrtColumnsBase) {
+      if (!orderedIds.has(col.accessorKey)) {
+        orderedColumns.push(col)
+      }
+    }
+    return orderedColumns
   }, [mrtColumnsBase, columnOrder])
 
   return (
@@ -1924,31 +2176,43 @@ export function QuotationsContent() {
       </Dialog>
 
       {/* Revise Quote Dialog */}
-      <Dialog open={reviseQuoteDialog.isOpen} onOpenChange={(open) => !open && setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false })}>
+      <Dialog open={reviseQuoteDialog.isOpen} onOpenChange={(open) => !open && setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false, currentRate: '', jobName: '' })}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle className="text-center text-lg font-semibold">Revise Quote</DialogTitle>
+            {reviseQuoteDialog.jobName && (
+              <p className="text-center text-xs text-gray-500 mt-0.5">{reviseQuoteDialog.jobName}</p>
+            )}
             <DialogDescription className="text-center text-sm text-muted-foreground pt-2">
               Enter your target price to generate a revised quotation
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="targetPrice" className="text-sm font-medium">Target Price (INR)</Label>
-            <Input
-              id="targetPrice"
-              type="number"
-              placeholder="Enter target price..."
-              value={reviseQuoteDialog.targetPrice}
-              onChange={(e) => setReviseQuoteDialog(prev => ({ ...prev, targetPrice: e.target.value }))}
-              className="mt-2"
-              disabled={reviseQuoteDialog.isSubmitting}
-            />
+          <div className="py-4 space-y-4">
+            {/* Current Rate Display */}
+            {reviseQuoteDialog.currentRate && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500 mb-1">Current Quoted Cost</p>
+                <p className="text-lg font-bold text-[#005180]">{reviseQuoteDialog.currentRate}</p>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="targetPrice" className="text-sm font-medium">Target Price (INR)</Label>
+              <Input
+                id="targetPrice"
+                type="number"
+                placeholder="Enter target price..."
+                value={reviseQuoteDialog.targetPrice}
+                onChange={(e) => setReviseQuoteDialog(prev => ({ ...prev, targetPrice: e.target.value }))}
+                className="mt-2"
+                disabled={reviseQuoteDialog.isSubmitting}
+              />
+            </div>
           </div>
           <div className="flex justify-center gap-3 pt-2">
             <Button
               variant="outline"
               className="w-24"
-              onClick={() => setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false })}
+              onClick={() => setReviseQuoteDialog({ isOpen: false, bookingId: null, targetPrice: '', isSubmitting: false, currentRate: '', jobName: '' })}
               disabled={reviseQuoteDialog.isSubmitting}
             >
               Cancel
@@ -1959,6 +2223,63 @@ export function QuotationsContent() {
               disabled={reviseQuoteDialog.isSubmitting || !reviseQuoteDialog.targetPrice}
             >
               {reviseQuoteDialog.isSubmitting ? 'Submitting...' : 'Submit'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Status Remark Dialog */}
+      <Dialog open={externalStatusDialog.isOpen} onOpenChange={(open) => !open && setExternalStatusDialog({ isOpen: false, bookingId: null, newStatus: '', remark: '' })}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className={`text-center text-lg font-semibold ${
+              externalStatusDialog.newStatus === 'Approved' ? 'text-green-600' :
+              externalStatusDialog.newStatus === 'Rejected' ? 'text-red-600' :
+              'text-amber-600'
+            }`}>
+              {externalStatusDialog.newStatus === 'Approved' ? 'Approve Quotation' :
+               externalStatusDialog.newStatus === 'Rejected' ? 'Reject Quotation' :
+               'Mark as Pending'}
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground pt-2">
+              {externalStatusDialog.newStatus === 'Approved'
+                ? 'At what cost is this approved?'
+                : externalStatusDialog.newStatus === 'Rejected'
+                ? 'Why is this quotation rejected?'
+                : 'Why is this quotation pending?'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#005180]/40 focus:border-[#005180] resize-none"
+              rows={3}
+              placeholder={
+                externalStatusDialog.newStatus === 'Approved'
+                  ? 'Enter approved cost/price details...'
+                  : 'Enter your reason...'
+              }
+              value={externalStatusDialog.remark}
+              onChange={(e) => setExternalStatusDialog(prev => ({ ...prev, remark: e.target.value }))}
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setExternalStatusDialog({ isOpen: false, bookingId: null, newStatus: '', remark: '' })}
+            >
+              Cancel
+            </Button>
+            <Button
+              className={`text-white ${
+                externalStatusDialog.newStatus === 'Approved' ? 'bg-green-600 hover:bg-green-700' :
+                externalStatusDialog.newStatus === 'Rejected' ? 'bg-red-600 hover:bg-red-700' :
+                'bg-amber-600 hover:bg-amber-700'
+              }`}
+              onClick={confirmExternalStatusChange}
+              disabled={!externalStatusDialog.remark.trim()}
+            >
+              Confirm
             </Button>
           </div>
         </DialogContent>
@@ -2027,6 +2348,16 @@ export function QuotationsContent() {
           manualSorting={false}
           onColumnVisibilityChange={setColumnVisibility}
           onColumnOrderChange={setColumnOrder}
+          onSortingChange={(updater) => {
+            const newSorting = typeof updater === 'function' ? updater(tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : []) : updater
+            if (newSorting.length > 0) {
+              setTableSortColumn(newSorting[0].id)
+              setTableSortDirection(newSorting[0].desc ? 'desc' : 'asc')
+            } else {
+              setTableSortColumn('')
+              setTableSortDirection('asc')
+            }
+          }}
           muiTablePaperProps={{
             sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
           }}
@@ -2070,6 +2401,49 @@ export function QuotationsContent() {
           muiTableBodyCellProps={{
             sx: { fontSize: '0.875rem' }
           }}
+          muiPaginationProps={{
+            rowsPerPageOptions: [50, 100, 200],
+            sx: {
+              '& .MuiTablePagination-toolbar': {
+                flexWrap: 'nowrap',
+                justifyContent: 'flex-end',
+                gap: '4px',
+                padding: '0 8px',
+                minHeight: '52px',
+              },
+              '& .MuiTablePagination-selectLabel': {
+                margin: 0,
+                fontSize: '0.75rem',
+              },
+              '& .MuiTablePagination-displayedRows': {
+                margin: 0,
+                fontSize: '0.75rem',
+              },
+              '& .MuiTablePagination-select': {
+                fontSize: '0.75rem',
+                paddingRight: '20px',
+              },
+              '& .MuiTablePagination-actions': {
+                marginLeft: '8px',
+                '& button': {
+                  padding: '4px',
+                },
+              },
+              '@media (max-width: 600px)': {
+                '& .MuiTablePagination-toolbar': {
+                  flexWrap: 'nowrap',
+                  justifyContent: 'space-between',
+                  padding: '0 4px',
+                },
+                '& .MuiTablePagination-selectLabel': {
+                  display: 'none',
+                },
+                '& .MuiTablePagination-select': {
+                  marginRight: '4px',
+                },
+              },
+            },
+          }}
         />
       </ThemeProvider>
 
@@ -2104,22 +2478,24 @@ export function QuotationsContent() {
                             <p className="text-sm font-semibold text-gray-900 break-words">{selectedQuotation.customer}</p>
                           </div>
 
-                          {/* KAM Name Section */}
+                          {/* KAM Name / Source Section */}
                           <div className="bg-white px-6 py-3 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1 block">KAM Name</Label>
-                            <p className="text-sm font-semibold text-gray-900">{selectedQuotation.kamName || "N/A"}</p>
+                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1 block">
+                              {selectedQuotation.kamName && selectedQuotation.kamName !== '-' && selectedQuotation.kamName !== selectedQuotation.Source ? 'KAM Name' : 'Source'}
+                            </Label>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {selectedQuotation.kamName && selectedQuotation.kamName !== '-'
+                                ? selectedQuotation.kamName
+                                : selectedQuotation.Source || 'KAM APP'}
+                            </p>
                           </div>
 
                           {/* Quoted Cost Section */}
                           <div className="bg-blue-50/50 px-6 py-3 border-b border-gray-200">
                             <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1 block">Quoted Cost</Label>
-                            <p className="text-sm font-semibold text-gray-900">{selectedQuotation.quotedCostDisplay}</p>
-                          </div>
-
-                          {/* Final Cost Section */}
-                          <div className="bg-white px-6 py-3 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1 block">Final Cost</Label>
-                            <p className="text-sm font-semibold text-gray-900">{selectedQuotation.finalCost.toFixed(2)} INR</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {selectedQuotation.quotedCost.toFixed(2)} INR
+                            </p>
                           </div>
 
                           {/* Margin Percentage Section */}
@@ -2131,9 +2507,23 @@ export function QuotationsContent() {
                           </div>
 
                           {/* Approval Level Section */}
+                          {/* Approval Level Section */}
                           <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
                             <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Approval Level</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.approvalLevel}</p>
+                            <p className="text-base font-semibold text-gray-900">
+                              {(() => {
+                                const status = selectedQuotation.status?.toLowerCase() || ''
+                                const internalStatus = selectedQuotation.internalStatus?.toLowerCase() || ''
+                                if (status.includes('sent to customer') || status.includes('customer')) return 'Customer'
+                                if (status.includes('sent to hod') || status.includes('hod')) return 'HOD'
+                                if (status.includes('sent to v') || status.includes('vertical')) return 'Vertical Head'
+                                if (status.includes('approved')) return 'Approved'
+                                if (status.includes('disapproved') || status.includes('rejected')) return 'Rejected'
+                                if (internalStatus.includes('approved')) return 'Internal Approved'
+                                if (internalStatus.includes('pending')) return 'Internal Pending'
+                                return 'Internal'
+                              })()}
+                            </p>
                           </div>
 
                           {/* Valid Till Section */}
@@ -2142,11 +2532,13 @@ export function QuotationsContent() {
                             <p className="text-base font-semibold text-gray-900">{selectedQuotation.validTill}</p>
                           </div>
 
-                          {/* Inquiry Section */}
-                          <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
-                            <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Inquiry</Label>
-                            <p className="text-base font-semibold text-gray-900">{selectedQuotation.inquiryId}</p>
-                          </div>
+                          {/* Enquiry Section - only show if enquiry number exists */}
+                          {selectedQuotation.inquiryId && selectedQuotation.inquiryId !== '-' && (
+                            <div className="bg-blue-50/50 px-6 py-4 border-b border-gray-200">
+                              <Label className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-2 block">Enquiry</Label>
+                              <p className="text-base font-semibold text-gray-900">{selectedQuotation.inquiryId}</p>
+                            </div>
+                          )}
 
                           {/* Journey Section */}
                           {selectedQuotation.history?.length ? (
@@ -2182,38 +2574,44 @@ export function QuotationsContent() {
                             {userIsKAM && (
                               <div className="px-6 py-3 border-b border-border/20">
                                 <div className="flex flex-wrap gap-2 justify-center">
-                                  {selectedQuotation.status === 'Approved' ? (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        className="rounded-md bg-[#78BE20] text-white hover:bg-[#78BE20]/90 text-xs"
-                                        onClick={() => {
-                                          showMessage('Coming Soon', `Send to customer feature coming soon for ${selectedQuotation.id}`, 'info')
-                                        }}
-                                      >
-                                        <ArrowUpCircle className="mr-1 h-3 w-3" />
-                                        Send to Customer
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="rounded-md border-[#005180] text-[#005180] hover:bg-[#005180]/10 text-xs"
-                                        onClick={() => {
-                                          showMessage('Coming Soon', `Share feature coming soon for ${selectedQuotation.id}`, 'info')
-                                        }}
-                                      >
-                                        <Share2 className="mr-1 h-3 w-3" />
-                                        Share
-                                      </Button>
-                                    </>
+                                  {/* Only show approval options if internal status is Approved */}
+                                  {selectedQuotation.internalStatus !== 'Approved' ? (
+                                    <span className="text-xs text-amber-600 font-medium">
+                                      Internal approval required before sending to VH/HOD/Customer
+                                    </span>
+                                  ) : selectedQuotation.status === 'Approved' ? (
+                                    <Button
+                                      size="sm"
+                                      className="rounded-md bg-[#78BE20] text-white hover:bg-[#78BE20]/90 text-xs"
+                                      onClick={() => {
+                                        handleSendToCustomer(selectedQuotation)
+                                      }}
+                                    >
+                                      <ArrowUpCircle className="mr-1 h-3 w-3" />
+                                      Send to Customer
+                                    </Button>
                                   ) : selectedQuotation.status === 'Sent to HOD' || selectedQuotation.status === 'Sent to Vertical Head' ? (
                                     <span className="text-xs text-muted-foreground italic">Awaiting approval...</span>
                                   ) : selectedQuotation.status === 'Disapproved' ? (
                                     <span className="text-xs text-rose-600 font-medium">This quotation was disapproved</span>
                                   ) : (
                                     <>
-                                      {/* Margin < 8%: Send to HOD */}
-                                      {selectedQuotation.margin < 8 && selectedQuotation.margin >= 5 && (
+                                      {/* Margin >= 10%: Send to Customer */}
+                                      {selectedQuotation.margin >= 10 && (
+                                        <Button
+                                          size="sm"
+                                          className="rounded-md bg-[#78BE20] text-white hover:bg-[#78BE20]/90 text-xs"
+                                          onClick={() => {
+                                            handleSendToCustomer(selectedQuotation)
+                                          }}
+                                        >
+                                          <ArrowUpCircle className="mr-1 h-3 w-3" />
+                                          Send to Customer
+                                        </Button>
+                                      )}
+
+                                      {/* Margin >= 5% and < 10%: Send to HOD */}
+                                      {selectedQuotation.margin >= 5 && selectedQuotation.margin < 10 && (
                                         <Button
                                           size="sm"
                                           className="rounded-md bg-[#B92221] text-white hover:bg-[#B92221]/90 text-xs"
@@ -2225,7 +2623,7 @@ export function QuotationsContent() {
                                         </Button>
                                       )}
 
-                                      {/* Margin < 5%: Send to Vertical Head */}
+                                      {/* Margin < 5%: Send to VH */}
                                       {selectedQuotation.margin < 5 && (
                                         <Button
                                           size="sm"
@@ -2237,28 +2635,14 @@ export function QuotationsContent() {
                                           {isSendingForApproval ? 'Sending...' : 'Send to VH'}
                                         </Button>
                                       )}
-
-                                      {/* Margin between 8% and 10%: Show Send to HOD option */}
-                                      {selectedQuotation.margin >= 8 && selectedQuotation.margin < 10 && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="rounded-md border-[#B92221] text-[#B92221] hover:bg-[#B92221]/10 text-xs"
-                                          onClick={() => handleSendForApproval(selectedQuotation.bookingId, 'HOD')}
-                                          disabled={isSendingForApproval}
-                                        >
-                                          <ArrowUpCircle className="mr-1 h-3 w-3" />
-                                          {isSendingForApproval ? 'Sending...' : 'Send to HOD'}
-                                        </Button>
-                                      )}
                                     </>
                                   )}
                                 </div>
                               </div>
                             )}
 
-                            {/* Download buttons - For KAM users, only show when status is Approved */}
-                            {(!isKAMUser || selectedQuotation.status === "Approved") && (
+                            {/* Download buttons - Only show when ready to send to customer */}
+                            {(selectedQuotation.status === 'Approved' || (selectedQuotation.internalStatus === 'Approved' && selectedQuotation.margin >= 10)) && (
                               <div className="px-6 py-3 bg-gray-50">
                                 <div className="flex justify-center gap-2">
                                   <Button
@@ -2307,7 +2691,9 @@ export function QuotationsContent() {
                                   isOpen: true,
                                   bookingId: selectedQuotation.bookingId,
                                   targetPrice: '',
-                                  isSubmitting: false
+                                  isSubmitting: false,
+                                  currentRate: selectedQuotation.quotedCostDisplay || `${selectedQuotation.finalCost?.toFixed(2)} INR` || '-',
+                                  jobName: selectedQuotation.job || '-'
                                 })}
                               >
                                 Revise Quote

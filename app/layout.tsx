@@ -5,6 +5,7 @@ import "./globals.css"
 import { FontSizeProvider } from "@/lib/font-size-context"
 import { SplashScreen } from "@/components/splash-screen"
 import { Toaster } from "@/components/ui/sonner"
+import { Toaster as ShadcnToaster } from "@/components/ui/toaster"
 // import { ScreenshotPrevention } from "@/components/screenshot-prevention"
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default function RootLayout({
           <Suspense fallback={null}>{children}</Suspense>
         </FontSizeProvider>
         <Toaster />
+        <ShadcnToaster />
       </body>
     </html>
   )

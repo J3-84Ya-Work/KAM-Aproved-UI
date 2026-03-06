@@ -841,6 +841,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
               }}
               onColumnVisibilityChange={setColumnVisibility}
+              onSortingChange={(updater) => {
+                const newSorting = typeof updater === 'function' ? updater(tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : []) : updater
+                if (newSorting.length > 0) {
+                  setTableSortColumn(newSorting[0].id)
+                  setTableSortDirection(newSorting[0].desc ? 'desc' : 'asc')
+                } else {
+                  setTableSortColumn('')
+                  setTableSortDirection('asc')
+                }
+              }}
               muiTablePaperProps={{
                 sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
               }}
@@ -875,7 +885,51 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 }
               })}
               muiTableBodyCellProps={{ sx: { fontSize: '0.875rem', padding: '16px' } }}
-              muiPaginationProps={{ rowsPerPageOptions: [10, 20, 50], showFirstButton: false, showLastButton: false }}
+              muiPaginationProps={{
+                rowsPerPageOptions: [50, 100, 200],
+                showFirstButton: false,
+                showLastButton: false,
+                sx: {
+                  '& .MuiTablePagination-toolbar': {
+                    flexWrap: 'nowrap',
+                    justifyContent: 'flex-end',
+                    gap: '4px',
+                    padding: '0 8px',
+                    minHeight: '52px',
+                  },
+                  '& .MuiTablePagination-selectLabel': {
+                    margin: 0,
+                    fontSize: '0.75rem',
+                  },
+                  '& .MuiTablePagination-displayedRows': {
+                    margin: 0,
+                    fontSize: '0.75rem',
+                  },
+                  '& .MuiTablePagination-select': {
+                    fontSize: '0.75rem',
+                    paddingRight: '20px',
+                  },
+                  '& .MuiTablePagination-actions': {
+                    marginLeft: '8px',
+                    '& button': {
+                      padding: '4px',
+                    },
+                  },
+                  '@media (max-width: 600px)': {
+                    '& .MuiTablePagination-toolbar': {
+                      flexWrap: 'nowrap',
+                      justifyContent: 'space-between',
+                      padding: '0 4px',
+                    },
+                    '& .MuiTablePagination-selectLabel': {
+                      display: 'none',
+                    },
+                    '& .MuiTablePagination-select': {
+                      marginRight: '4px',
+                    },
+                  },
+                },
+              }}
               renderEmptyRowsFallback={() => (
                 <div className="flex flex-col items-center justify-center py-12">
                   <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
@@ -935,6 +989,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
               }}
               onColumnVisibilityChange={setColumnVisibility}
+              onSortingChange={(updater) => {
+                const newSorting = typeof updater === 'function' ? updater(tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : []) : updater
+                if (newSorting.length > 0) {
+                  setTableSortColumn(newSorting[0].id)
+                  setTableSortDirection(newSorting[0].desc ? 'desc' : 'asc')
+                } else {
+                  setTableSortColumn('')
+                  setTableSortDirection('asc')
+                }
+              }}
               muiTablePaperProps={{
                 sx: { boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }
               }}
@@ -969,7 +1033,51 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 }
               })}
               muiTableBodyCellProps={{ sx: { fontSize: '0.875rem', padding: '16px' } }}
-              muiPaginationProps={{ rowsPerPageOptions: [10, 20, 50], showFirstButton: false, showLastButton: false }}
+              muiPaginationProps={{
+                rowsPerPageOptions: [50, 100, 200],
+                showFirstButton: false,
+                showLastButton: false,
+                sx: {
+                  '& .MuiTablePagination-toolbar': {
+                    flexWrap: 'nowrap',
+                    justifyContent: 'flex-end',
+                    gap: '4px',
+                    padding: '0 8px',
+                    minHeight: '52px',
+                  },
+                  '& .MuiTablePagination-selectLabel': {
+                    margin: 0,
+                    fontSize: '0.75rem',
+                  },
+                  '& .MuiTablePagination-displayedRows': {
+                    margin: 0,
+                    fontSize: '0.75rem',
+                  },
+                  '& .MuiTablePagination-select': {
+                    fontSize: '0.75rem',
+                    paddingRight: '20px',
+                  },
+                  '& .MuiTablePagination-actions': {
+                    marginLeft: '8px',
+                    '& button': {
+                      padding: '4px',
+                    },
+                  },
+                  '@media (max-width: 600px)': {
+                    '& .MuiTablePagination-toolbar': {
+                      flexWrap: 'nowrap',
+                      justifyContent: 'space-between',
+                      padding: '0 4px',
+                    },
+                    '& .MuiTablePagination-selectLabel': {
+                      display: 'none',
+                    },
+                    '& .MuiTablePagination-select': {
+                      marginRight: '4px',
+                    },
+                  },
+                },
+              }}
               renderEmptyRowsFallback={() => (
                 <div className="flex flex-col items-center justify-center py-12">
                   <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
@@ -1029,6 +1137,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
               }}
               onColumnVisibilityChange={setColumnVisibility}
+              onSortingChange={(updater) => {
+                const newSorting = typeof updater === 'function' ? updater(tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : []) : updater
+                if (newSorting.length > 0) {
+                  setTableSortColumn(newSorting[0].id)
+                  setTableSortDirection(newSorting[0].desc ? 'desc' : 'asc')
+                } else {
+                  setTableSortColumn('')
+                  setTableSortDirection('asc')
+                }
+              }}
               muiTablePaperProps={{
                 elevation: 0,
                 sx: { borderRadius: '8px', border: '1px solid #e5e7eb' },
@@ -1117,6 +1235,16 @@ export function ProjectsContent({ activeTab = "sdo", onTabChange }: ProjectsCont
                 sorting: tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : [],
               }}
               onColumnVisibilityChange={setColumnVisibility}
+              onSortingChange={(updater) => {
+                const newSorting = typeof updater === 'function' ? updater(tableSortColumn ? [{ id: tableSortColumn, desc: tableSortDirection === 'desc' }] : []) : updater
+                if (newSorting.length > 0) {
+                  setTableSortColumn(newSorting[0].id)
+                  setTableSortDirection(newSorting[0].desc ? 'desc' : 'asc')
+                } else {
+                  setTableSortColumn('')
+                  setTableSortDirection('asc')
+                }
+              }}
               muiTablePaperProps={{
                 elevation: 0,
                 sx: { borderRadius: '8px', border: '1px solid #e5e7eb' },

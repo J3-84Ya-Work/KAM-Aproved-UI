@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Clock, CheckCircle, AlertCircle, Package, Loader2 } from "lucide-react"
+import { Send, MessageSquare, Clock, CheckCircle, AlertCircle, Package, Loader2, Plus, X, Eye } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { getUserRateRequests, createRateRequest } from "@/lib/rate-queries-api"
 import { getCurrentUser } from "@/lib/permissions"
@@ -21,6 +21,7 @@ import { clientLogger } from "@/lib/logger"
 import { getItemMasterListAPI, getUsersAPI } from "@/lib/api-config"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { MasterDataAPI } from "@/lib/api/enquiry"
+import { useToast } from "@/hooks/use-toast"
 
 interface RateQuery {
   requestId: number
@@ -49,7 +50,20 @@ interface TeamMember {
   designation?: string
 }
 
+// Item combination for list-builder pattern
+interface ItemCombo {
+  productionUnitId: string
+  productionUnitName: string
+  groupId: string
+  groupName: string
+  quality: string
+  gsmFrom: string
+  gsmTo: string
+  mill: string
+}
+
 export default function AskRatePage() {
+  const { toast } = useToast()
   const [selectedPerson, setSelectedPerson] = useState<string>("")
   const [department, setDepartment] = useState<"Purchase" | "Operations" | "Sales">("Purchase")
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
@@ -68,7 +82,7 @@ export default function AskRatePage() {
   const [loadingGroups, setLoadingGroups] = useState(false)
   const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
 
-  // New cascading dropdown states
+  // Single-select cascading dropdown states
   const [productionUnits, setProductionUnits] = useState<any[]>([])
   const [selectedProductionUnit, setSelectedProductionUnit] = useState<string>("")
   const [loadingProductionUnits, setLoadingProductionUnits] = useState(false)
@@ -86,10 +100,15 @@ export default function AskRatePage() {
   const [selectedMill, setSelectedMill] = useState<string>("")
   const [loadingMills, setLoadingMills] = useState(false)
 
+  // List-builder: added combos
+  const [addedCombos, setAddedCombos] = useState<ItemCombo[]>([])
+
   // Items popup state
   const [showItemsPopup, setShowItemsPopup] = useState(false)
   const [filteredItems, setFilteredItems] = useState<any[]>([])
   const [loadingItems, setLoadingItems] = useState(false)
+  const [showItemsLabel, setShowItemsLabel] = useState<string>("") // label for what's shown in popup
+  const [loadingComboIndex, setLoadingComboIndex] = useState<number | null>(null) // which row is loading
 
   const handleMenuToggle = useCallback((toggle: () => void) => {
     setToggleMenu(() => toggle)
@@ -128,41 +147,97 @@ export default function AskRatePage() {
     }
   }
 
-  // Clear cascading selections when group changes
+  // Clear cascading selections when group changes (single-select)
   const handleGroupChange = (groupId: string) => {
     setSelectedGroup(groupId)
-    setSelectedQuality("") // Clear quality when group changes
-    setSelectedGsmFrom("") // Clear GSM from when group changes
-    setSelectedGsmTo("") // Clear GSM to when group changes
-    setSelectedMill("") // Clear mill when group changes
+
+    // If group is NA, set all downstream fields to NA as well
+    if (groupId === "NA") {
+      setSelectedQuality("NA")
+      setSelectedGsmFrom("NA")
+      setSelectedGsmTo("NA")
+      setSelectedMill("NA")
+    } else {
+      setSelectedQuality("") // Clear downstream
+      setSelectedGsmFrom("")
+      setSelectedGsmTo("")
+      setSelectedMill("")
+    }
   }
 
-  // Clear GSM and Mill when quality changes
+  // Clear GSM and Mill when quality changes (single-select)
   const handleQualityChange = (quality: string) => {
     setSelectedQuality(quality)
+
+    // If quality is NA, set GSMs to NA as well
+    if (quality === "NA") {
+      setSelectedGsmFrom("NA")
+      setSelectedGsmTo("NA")
+      setSelectedMill("NA")
+    } else {
+      setSelectedGsmFrom("")
+      setSelectedGsmTo("")
+      setSelectedMill("")
+    }
+  }
+
+  // Get group name by ID
+  const getGroupName = (groupId: string) => {
+    const group = groups.find(g => String(g.ItemGroupID || g.GroupID || g.id) === groupId)
+    if (!group) return groupId
+    return (group.ItemGroupName || group.GroupName || group.Name || group.name || "").replace(/^[-,\s]+/, '').trim()
+  }
+
+  // Get production unit name by ID
+  const getUnitName = (unitId: string) => {
+    const u = productionUnits.find(pu => String(pu.ProductionUnitID || pu.id) === unitId)
+    return u ? (u.ProductionUnitName || u.Name || u.name || unitId) : unitId
+  }
+
+  // Add current selection as a combo to the list
+  const handleAddCombo = () => {
+    if (!selectedProductionUnit || !selectedGroup || !selectedQuality || !selectedGsmFrom || !selectedGsmTo) return
+
+    const combo: ItemCombo = {
+      productionUnitId: selectedProductionUnit,
+      productionUnitName: getUnitName(selectedProductionUnit),
+      groupId: selectedGroup,
+      groupName: getGroupName(selectedGroup),
+      quality: selectedQuality,
+      gsmFrom: selectedGsmFrom,
+      gsmTo: selectedGsmTo,
+      mill: selectedMill || ""
+    }
+
+    // Check for duplicate
+    const isDuplicate = addedCombos.some(c =>
+      c.productionUnitId === combo.productionUnitId &&
+      c.groupId === combo.groupId &&
+      c.quality === combo.quality &&
+      c.gsmFrom === combo.gsmFrom &&
+      c.gsmTo === combo.gsmTo
+    )
+    if (isDuplicate) {
+      toast({
+        variant: "destructive",
+        title: "Duplicate",
+        description: "This combination is already added"
+      })
+      return
+    }
+
+    setAddedCombos(prev => [...prev, combo])
+
+    // Clear downstream selections for next item (keep Production Unit & Group for convenience)
+    setSelectedQuality("")
     setSelectedGsmFrom("")
     setSelectedGsmTo("")
     setSelectedMill("")
   }
 
-  // Get selected quality name for display
-  const getSelectedQualityName = () => {
-    if (!selectedQuality) return ""
-    const quality = qualities.find(q => {
-      const qualityValue = q.Quality || q.quality || q.Name || q
-      return qualityValue === selectedQuality
-    })
-    if (!quality) return selectedQuality
-    return quality.Quality || quality.quality || quality.Name || selectedQuality
-  }
-
-  // Get selected group name for display
-  const getSelectedGroupName = () => {
-    if (!selectedGroup) return ""
-    const group = groups.find(g => String(g.ItemGroupID || g.GroupID || g.id) === selectedGroup)
-    if (!group) return ""
-    const groupName = group.ItemGroupName || group.GroupName || group.Name || group.name || ""
-    return groupName.replace(/^[-,\s]+/, '').trim()
+  // Remove a combo from the list
+  const handleRemoveCombo = (index: number) => {
+    setAddedCombos(prev => prev.filter((_, i) => i !== index))
   }
 
   // Get current user
@@ -209,17 +284,11 @@ export default function AskRatePage() {
     fetchProductionUnits()
   }, [])
 
-  // Fetch qualities when Item Group is selected
+  // Fetch qualities when Item Group changes (single-select)
   useEffect(() => {
     if (!selectedGroup) {
       setQualities([])
       setSelectedQuality("")
-      return
-    }
-
-    // If NA is selected, don't fetch but allow quality selection
-    if (selectedGroup === "NA") {
-      setQualities([])
       return
     }
 
@@ -229,7 +298,7 @@ export default function AskRatePage() {
         const result = await MasterDataAPI.getQualitiesByItemGroup(parseInt(selectedGroup), null)
         if (result.success) {
           setQualities(result.data)
-          clientLogger.log('Qualities fetched for group:', selectedGroup, result.data)
+          clientLogger.log('Qualities fetched for group:', selectedGroup, result.data.length, 'total')
         }
       } catch (error) {
         clientLogger.error('Error fetching qualities:', error)
@@ -241,7 +310,7 @@ export default function AskRatePage() {
     fetchQualities()
   }, [selectedGroup])
 
-  // Fetch GSM and Mills when Quality is selected
+  // Fetch GSM and Mills when Group or Quality changes (single-select)
   useEffect(() => {
     if (!selectedGroup || !selectedQuality) {
       setGsmList([])
@@ -252,53 +321,36 @@ export default function AskRatePage() {
       return
     }
 
-    // If NA is selected for group or quality, don't fetch but allow selections
-    if (selectedGroup === "NA" || selectedQuality === "NA") {
-      setGsmList([])
-      setMills([])
-      return
-    }
-
     const fetchGsmAndMills = async () => {
       setLoadingGsm(true)
       setLoadingMills(true)
 
       try {
-        // Fetch GSM values
-        const gsmResult = await MasterDataAPI.getGSMByItemGroupAndQuality(
-          parseInt(selectedGroup),
-          selectedQuality,
-          null
-        )
+        const groupId = parseInt(selectedGroup)
+
+        const [gsmResult, millResult] = await Promise.all([
+          MasterDataAPI.getGSMByItemGroupAndQuality(groupId, selectedQuality, null),
+          MasterDataAPI.getMillByItemGroupAndQuality(groupId, selectedQuality, null)
+        ])
+
         if (gsmResult.success) {
-          setGsmList(gsmResult.data)
-          clientLogger.log('GSM values fetched:', gsmResult.data)
+          const sorted = [...gsmResult.data].sort((a: any, b: any) => {
+            const aVal = parseInt(String(a.GSM || a.gsm || a))
+            const bVal = parseInt(String(b.GSM || b.gsm || b))
+            return aVal - bVal
+          })
+          setGsmList(sorted)
+          clientLogger.log('GSM values fetched:', sorted.length)
         }
 
-        // Fetch Mill values
-        const millResult = await MasterDataAPI.getMillByItemGroupAndQuality(
-          parseInt(selectedGroup),
-          selectedQuality,
-          null
-        )
-        console.log('Mill API result:', millResult)
         if (millResult.success && millResult.data) {
-          // Handle different response formats for mills
           let millData = millResult.data
-          // If response is an object with a nested array, extract it
           if (!Array.isArray(millData) && typeof millData === 'object') {
             millData = millData.data || millData.Data || millData.mills || millData.Mills || [millData]
           }
-          // If it's still not an array, wrap it
-          if (!Array.isArray(millData)) {
-            millData = [millData]
-          }
-          console.log('Processed mills data:', millData)
+          if (!Array.isArray(millData)) millData = [millData]
           setMills(millData)
-          clientLogger.log('Mills fetched:', millData)
-        } else {
-          console.log('Mill API failed or no data:', millResult.error)
-          setMills([])
+          clientLogger.log('Mills fetched:', millData.length)
         }
       } catch (error) {
         clientLogger.error('Error fetching GSM/Mills:', error)
@@ -310,6 +362,16 @@ export default function AskRatePage() {
 
     fetchGsmAndMills()
   }, [selectedGroup, selectedQuality])
+
+  // Auto-select GSM when only one option is available
+  useEffect(() => {
+    if (gsmList.length === 1 && !selectedGsmFrom && !selectedGsmTo) {
+      const gsmValue = String(gsmList[0].GSM || gsmList[0].gsm || gsmList[0])
+      setSelectedGsmFrom(gsmValue)
+      setSelectedGsmTo(gsmValue)
+      clientLogger.log('Auto-selected GSM:', gsmValue)
+    }
+  }, [gsmList, selectedGsmFrom, selectedGsmTo])
 
   // Fetch user's rate requests
   const fetchMyRequests = useCallback(async () => {
@@ -338,43 +400,129 @@ export default function AskRatePage() {
     }
   }, [currentUser, fetchMyRequests])
 
-  // Handle Show Items button click
-  const handleShowItems = async () => {
-    // Check if any required selection is missing (NA is a valid selection)
-    if (!selectedGroup || !selectedProductionUnit || !selectedQuality || !selectedGsmFrom || !selectedGsmTo) {
-      alert('Please select Item Group, Production Unit, Quality, and GSM Range first (or select NA)')
-      return
-    }
+  // Show items for a single combo row
+  const handleShowItemsForCombo = async (combo: ItemCombo, index: number) => {
+    setLoadingComboIndex(index)
+    setShowItemsLabel(`${combo.groupName} / ${combo.quality} / ${combo.gsmFrom === combo.gsmTo ? combo.gsmFrom : combo.gsmFrom + '-' + combo.gsmTo} GSM`)
+    setShowItemsPopup(true)
+    setFilteredItems([])
 
-    // If all selections are NA, show a message
-    if (selectedGroup === "NA" && selectedProductionUnit === "NA" && selectedQuality === "NA" && selectedGsmFrom === "NA" && selectedGsmTo === "NA") {
-      alert('Please select at least one filter criteria (not all NA)')
+    try {
+      const requestBody = {
+        ItemGroupID: parseInt(combo.groupId) || 0,
+        PlantID: parseInt(combo.productionUnitId) || 0,
+        Quality: combo.quality,
+        GSMFrom: combo.gsmFrom,
+        GSMTo: combo.gsmTo,
+        Mill: combo.mill
+      }
+      console.log('Show Items for combo - request:', JSON.stringify(requestBody, null, 2))
+
+      const result = await MasterDataAPI.getFilteredItemList(requestBody, null)
+      console.log('Show Items for combo - result:', result.success, 'items:', result.data?.length || 0)
+
+      if (result.success && result.data) {
+        // Deduplicate items by display characteristics
+        const itemMap = new Map()
+        for (const item of result.data) {
+          const rawName = item.ItemName || item.itemName || item.Name || '-'
+          const displayName = rawName.split(',')[0].trim()
+
+          let gsm = item.GSM || item.gsm || ''
+          if (!gsm && rawName.includes(',')) {
+            const parts = rawName.split(',')
+            if (parts.length >= 2) {
+              const potentialGsm = parts[1].trim()
+              if (/^\d+$/.test(potentialGsm)) {
+                gsm = potentialGsm
+              }
+            }
+          }
+
+          const rate = item.Rate || item.rate || item.EstimationRate || item.estimationRate || 0
+          const uniqueKey = `${displayName}_${gsm}_${rate}`.toLowerCase()
+
+          if (!itemMap.has(uniqueKey)) {
+            itemMap.set(uniqueKey, item)
+          }
+        }
+        setFilteredItems(Array.from(itemMap.values()))
+      } else {
+        setFilteredItems([])
+      }
+    } catch (error) {
+      console.error('Error fetching items for combo:', error)
+      setFilteredItems([])
+    } finally {
+      setLoadingComboIndex(null)
+    }
+  }
+
+  // Show all items from all combos
+  const handleShowAllItems = async () => {
+    if (addedCombos.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Items",
+        description: "Please add at least one item combination first"
+      })
       return
     }
 
     setLoadingItems(true)
+    setShowItemsLabel("All Items")
     setShowItemsPopup(true)
+    setFilteredItems([])
 
     try {
-      const requestBody = {
-        ItemGroupID: selectedGroup === "NA" ? 0 : parseInt(selectedGroup),
-        PlantID: selectedProductionUnit === "NA" ? 0 : parseInt(selectedProductionUnit),
-        Quality: selectedQuality === "NA" ? "" : selectedQuality,
-        GSMFrom: selectedGsmFrom === "NA" ? "" : selectedGsmFrom,
-        GSMTo: selectedGsmTo === "NA" ? "" : selectedGsmTo,
-        Mill: selectedMill === "NA" ? "" : (selectedMill || "")
+      const combos = addedCombos.map(c => ({
+        ItemGroupID: parseInt(c.groupId) || 0,
+        PlantID: parseInt(c.productionUnitId) || 0,
+        Quality: c.quality,
+        GSMFrom: c.gsmFrom,
+        GSMTo: c.gsmTo,
+        Mill: c.mill
+      }))
+
+      console.log('Show All Items - calling', combos.length, 'API combos:', combos)
+
+      const results = await Promise.all(
+        combos.map(c => MasterDataAPI.getFilteredItemList(c, null))
+      )
+
+      // Deduplicate items by display characteristics (name + GSM + rate)
+      const itemMap = new Map()
+      for (const r of results) {
+        if (r.success) {
+          for (const item of r.data) {
+            const rawName = item.ItemName || item.itemName || item.Name || '-'
+            const displayName = rawName.split(',')[0].trim()
+
+            // Extract GSM
+            let gsm = item.GSM || item.gsm || ''
+            if (!gsm && rawName.includes(',')) {
+              const parts = rawName.split(',')
+              if (parts.length >= 2) {
+                const potentialGsm = parts[1].trim()
+                if (/^\d+$/.test(potentialGsm)) {
+                  gsm = potentialGsm
+                }
+              }
+            }
+
+            const rate = item.Rate || item.rate || item.EstimationRate || item.estimationRate || 0
+
+            // Create unique key based on display characteristics
+            const uniqueKey = `${displayName}_${gsm}_${rate}`.toLowerCase()
+
+            if (!itemMap.has(uniqueKey)) {
+              itemMap.set(uniqueKey, item)
+            }
+          }
+        }
       }
 
-      console.log('Show Items Request:', requestBody)
-
-      const result = await MasterDataAPI.getFilteredItemList(requestBody, null)
-
-      if (result.success) {
-        setFilteredItems(result.data)
-      } else {
-        console.error('Failed to fetch items:', result.error)
-        setFilteredItems([])
-      }
+      setFilteredItems(Array.from(itemMap.values()))
     } catch (error) {
       console.error('Error fetching items:', error)
       setFilteredItems([])
@@ -387,42 +535,42 @@ export default function AskRatePage() {
     e.preventDefault()
 
     if (!message.trim() || !currentUser) {
-      alert('Please enter your question')
+      toast({
+        variant: "destructive",
+        title: "Missing Question",
+        description: "Please enter your question"
+      })
       return
     }
 
     if (!selectedPerson) {
-      alert('Please select a person')
+      toast({
+        variant: "destructive",
+        title: "Missing Person",
+        description: "Please select a person"
+      })
       return
     }
 
-    if (!selectedProductionUnit) {
-      alert('Please select a production unit or NA')
-      return
-    }
-
-    if (!selectedGroup) {
-      alert('Please select an item group or NA')
-      return
-    }
-
-    if (!selectedQuality) {
-      alert('Please select a quality or NA')
-      return
-    }
-
-    if (!selectedGsmFrom || !selectedGsmTo) {
-      alert('Please select GSM range (from and to) or NA')
+    if (addedCombos.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Items",
+        description: "Please add at least one item combination"
+      })
       return
     }
 
     setIsSubmitting(true)
     try {
-      // Get selected group details
-      const selectedGroupData = selectedGroup !== "NA" ? groups.find(g => String(g.ItemGroupID || g.GroupID || g.id) === selectedGroup) : null
-      const groupName = selectedGroup === "NA" ? "NA" : (selectedGroupData?.ItemGroupName || selectedGroupData?.GroupName || selectedGroupData?.Name || "")
+      // Extract unique values from all combos
+      const uniqueGroups = [...new Set(addedCombos.map(c => c.groupName))]
+      const uniqueUnits = [...new Set(addedCombos.map(c => c.productionUnitName))]
+      const uniqueQualities = [...new Set(addedCombos.map(c => c.quality))]
+      const gsmRanges = addedCombos.map(c => `${c.gsmFrom}-${c.gsmTo}`)
+      const uniqueMills = [...new Set(addedCombos.map(c => c.mill).filter(Boolean))]
 
-      // Build items array from filtered items (if available) or fetch them
+      // Build items array - fetch from all combos
       let itemsArray: Array<{
         ItemGroupID: number
         PlantID: number
@@ -430,83 +578,100 @@ export default function AskRatePage() {
         EstimationRate: number
       }> = []
 
-      // Only fetch items if not all values are NA
-      const hasNonNAValues = selectedGroup !== "NA" || selectedProductionUnit !== "NA" || selectedQuality !== "NA" || selectedGsmFrom !== "NA" || selectedGsmTo !== "NA"
-
-      // If we have filtered items from "Show Items", use them
-      if (filteredItems.length > 0 && hasNonNAValues) {
+      if (filteredItems.length > 0) {
         itemsArray = filteredItems.map(item => ({
-          ItemGroupID: selectedGroup === "NA" ? 0 : parseInt(selectedGroup),
-          PlantID: selectedProductionUnit === "NA" ? 0 : parseInt(selectedProductionUnit),
+          ItemGroupID: item.ItemGroupID || item.itemGroupID || parseInt(addedCombos[0].groupId) || 0,
+          PlantID: item.PlantID || item.plantID || parseInt(addedCombos[0].productionUnitId) || 0,
           ItemID: item.ItemID || item.itemId || item.ID || item.id || 0,
-          EstimationRate: 0 // Rate will be provided by purchase team
+          EstimationRate: 0
         }))
-      } else if (hasNonNAValues) {
-        // Fetch items if not already fetched
-        const requestBody = {
-          ItemGroupID: selectedGroup === "NA" ? 0 : parseInt(selectedGroup),
-          PlantID: selectedProductionUnit === "NA" ? 0 : parseInt(selectedProductionUnit),
-          Quality: selectedQuality === "NA" ? "" : selectedQuality,
-          GSMFrom: selectedGsmFrom === "NA" ? "" : selectedGsmFrom,
-          GSMTo: selectedGsmTo === "NA" ? "" : selectedGsmTo,
-          Mill: selectedMill === "NA" ? "" : (selectedMill || "")
+      } else {
+        // Fetch items for all combos
+        const combos = addedCombos.map(c => ({
+          ItemGroupID: parseInt(c.groupId) || 0,
+          PlantID: parseInt(c.productionUnitId) || 0,
+          Quality: c.quality,
+          GSMFrom: c.gsmFrom,
+          GSMTo: c.gsmTo,
+          Mill: c.mill
+        }))
+
+        const results = await Promise.all(combos.map(c => MasterDataAPI.getFilteredItemList(c, null)))
+        const itemMap = new Map()
+        for (const r of results) {
+          if (r.success) {
+            for (const item of r.data) {
+              const rawName = item.ItemName || item.itemName || item.Name || '-'
+              const displayName = rawName.split(',')[0].trim()
+
+              let gsm = item.GSM || item.gsm || ''
+              if (!gsm && rawName.includes(',')) {
+                const parts = rawName.split(',')
+                if (parts.length >= 2) {
+                  const potentialGsm = parts[1].trim()
+                  if (/^\d+$/.test(potentialGsm)) {
+                    gsm = potentialGsm
+                  }
+                }
+              }
+
+              const rate = item.Rate || item.rate || item.EstimationRate || item.estimationRate || 0
+              const uniqueKey = `${displayName}_${gsm}_${rate}`.toLowerCase()
+
+              if (!itemMap.has(uniqueKey)) {
+                const id = item.ItemID || item.itemId || item.ID || item.id
+                itemMap.set(uniqueKey, {
+                  ItemGroupID: item.ItemGroupID || item.itemGroupID || 0,
+                  PlantID: item.PlantID || item.plantID || 0,
+                  ItemID: id,
+                  EstimationRate: 0
+                })
+              }
+            }
+          }
         }
-        const itemsResult = await MasterDataAPI.getFilteredItemList(requestBody, null)
-        if (itemsResult.success && itemsResult.data.length > 0) {
-          itemsArray = itemsResult.data.map((item: any) => ({
-            ItemGroupID: selectedGroup === "NA" ? 0 : parseInt(selectedGroup),
-            PlantID: selectedProductionUnit === "NA" ? 0 : parseInt(selectedProductionUnit),
-            ItemID: item.ItemID || item.itemId || item.ID || item.id || 0,
-            EstimationRate: 0
-          }))
-        }
+        itemsArray = Array.from(itemMap.values())
       }
 
-      // Log the request body to console
       console.log('═══════════════════════════════════════════════════════════════')
       console.log('📤 RATE REQUEST BODY:')
-      console.log('═══════════════════════════════════════════════════════════════')
-      console.log('📋 Selection Details:')
-      console.log('  - Item Group:', groupName, '(ID:', selectedGroup, ')')
-      console.log('  - Production Unit ID:', selectedProductionUnit)
-      console.log('  - Quality:', selectedQuality)
-      console.log('  - GSM Range:', selectedGsmFrom, '-', selectedGsmTo)
-      console.log('  - Mill:', selectedMill || 'Not selected')
+      console.log('  - Item Groups:', uniqueGroups.join(', '))
+      console.log('  - Production Units:', uniqueUnits.join(', '))
+      console.log('  - Qualities:', uniqueQualities.join(', '))
+      console.log('  - GSM Ranges:', gsmRanges.join(', '))
+      console.log('  - Mills:', uniqueMills.join(', ') || 'None')
       console.log('  - Question:', message.trim())
+      console.log('  - Combos:', addedCombos.length)
       console.log('  - Total Items:', itemsArray.length)
       console.log('═══════════════════════════════════════════════════════════════')
-      console.log('📦 Items Array:')
-      console.log(JSON.stringify(itemsArray, null, 2))
-      console.log('═══════════════════════════════════════════════════════════════')
 
-      // Build the request message with all the selected details
-      const qualityDisplay = selectedQuality === "NA" ? "NA" : selectedQuality
-      const gsmFromDisplay = selectedGsmFrom === "NA" ? "NA" : selectedGsmFrom
-      const gsmToDisplay = selectedGsmTo === "NA" ? "NA" : selectedGsmTo
-      const millDisplay = selectedMill === "NA" ? "NA" : selectedMill
+      // Build request message (backward-compatible with Rate Queries parser)
+      const messageParts = [
+        `Item Groups: ${uniqueGroups.join(', ')}`,
+        `Production Units: ${uniqueUnits.join(', ')}`,
+        `Qualities: ${uniqueQualities.join(', ')}`,
+        `GSM Ranges: ${gsmRanges.join(', ')}`,
+      ]
+      if (uniqueMills.length > 0) {
+        messageParts.push(`Mill: ${uniqueMills.join(', ')}`)
+      }
+      messageParts.push('')
+      messageParts.push(`Question: ${message.trim()}`)
 
-      const fullMessage = `
-Item Group: ${groupName}
-Quality: ${qualityDisplay}
-GSM Range: ${gsmFromDisplay} - ${gsmToDisplay}
-${millDisplay && millDisplay !== "NA" ? `Mill: ${millDisplay}` : (millDisplay === "NA" ? 'Mill: NA' : '')}
+      const fullMessage = messageParts.join('\n')
 
-Question: ${message.trim()}
-      `.trim()
-
-      // Get selected person's email for assignedToEmail
       const selectedPersonData = teamMembers.find(p => p.id === selectedPerson)
       const assignedToEmail = selectedPersonData?.email || ""
 
       const requestPayload = {
-        requestorId: 2, // You can map this to actual user ID
+        requestorId: 2,
         department: department,
         requestMessage: fullMessage,
         assignedToEmail: assignedToEmail,
         ItemCode: "",
         ItemID: itemsArray.length > 0 ? String(itemsArray[0].ItemID) : "",
-        ItemName: groupName,
-        PlantID: selectedProductionUnit === "NA" ? "0" : selectedProductionUnit,
+        ItemName: uniqueGroups.join(', '),
+        PlantID: addedCombos[0]?.productionUnitId || "0",
         items: itemsArray
       }
 
@@ -517,7 +682,11 @@ Question: ${message.trim()}
       const result = await createRateRequest(requestPayload)
 
       if (result.success) {
-        alert('✅ Rate request sent successfully!')
+        toast({
+          title: "Success",
+          description: "Rate request sent successfully!",
+          className: "bg-green-50 border-green-200"
+        })
         setMessage("")
         setSelectedPerson("")
         setSelectedProductionUnit("")
@@ -526,13 +695,23 @@ Question: ${message.trim()}
         setSelectedGsmFrom("")
         setSelectedGsmTo("")
         setSelectedMill("")
+        setAddedCombos([])
         setDepartment("Purchase")
+        setFilteredItems([])
         await fetchMyRequests()
       } else {
-        alert(`❌ Failed to send request: ${result.error}`)
+        toast({
+          variant: "destructive",
+          title: "Failed",
+          description: `Failed to send request: ${result.error}`
+        })
       }
     } catch (error: any) {
-      alert(`❌ Error: ${error.message}`)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -559,12 +738,20 @@ Question: ${message.trim()}
     const lines = message.split('\n').map(l => l.trim()).filter(Boolean)
 
     for (const line of lines) {
-      if (line.startsWith('Item Group:')) {
+      if (line.startsWith('Item Groups:')) {
+        result.itemGroup = line.replace('Item Groups:', '').trim()
+      } else if (line.startsWith('Item Group:')) {
         result.itemGroup = line.replace('Item Group:', '').trim()
+      } else if (line.startsWith('Qualities:')) {
+        result.quality = line.replace('Qualities:', '').trim()
       } else if (line.startsWith('Quality:')) {
         result.quality = line.replace('Quality:', '').trim()
+      } else if (line.startsWith('GSM Ranges:')) {
+        result.gsmRange = line.replace('GSM Ranges:', '').trim()
       } else if (line.startsWith('GSM Range:')) {
         result.gsmRange = line.replace('GSM Range:', '').trim()
+      } else if (line.startsWith('GSMs:')) {
+        result.gsmRange = line.replace('GSMs:', '').trim()
       } else if (line.startsWith('Mill:')) {
         result.mill = line.replace('Mill:', '').trim()
       } else if (line.startsWith('Question:')) {
@@ -655,7 +842,7 @@ Question: ${message.trim()}
                 <div className="grid grid-cols-2 gap-2 md:gap-4">
                   <div className="min-w-0">
                     <Label htmlFor="person" className="text-sm">Select Person <span className="text-red-500">*</span></Label>
-                    <Select value={selectedPerson} onValueChange={handlePersonChange}>
+                    <Select value={selectedPerson} onValueChange={handlePersonChange} disabled={addedCombos.length > 0}>
                       <SelectTrigger className="w-full truncate">
                         <SelectValue placeholder="Choose team member" />
                       </SelectTrigger>
@@ -711,105 +898,44 @@ Question: ${message.trim()}
 
                   <div className="min-w-0">
                     <Label htmlFor="productionUnit" className="text-sm">Production Unit <span className="text-red-500">*</span></Label>
-                    <Select value={selectedProductionUnit} onValueChange={setSelectedProductionUnit} disabled={loadingProductionUnits}>
+                    <Select value={selectedProductionUnit} onValueChange={setSelectedProductionUnit}>
                       <SelectTrigger className="w-full truncate">
                         <SelectValue placeholder={loadingProductionUnits ? "Loading..." : "Select production unit"} />
                       </SelectTrigger>
                       <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
-                        <div className="p-2 border-b sticky top-0 bg-white z-10">
-                          <input
-                            type="text"
-                            placeholder="Search production units..."
-                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onChange={(e) => {
-                              const searchValue = e.target.value.toLowerCase()
-                              const selectContent = e.target.closest('[role="listbox"]')
-                              if (selectContent) {
-                                const items = selectContent.querySelectorAll('[role="option"]')
-                                items.forEach((item) => {
-                                  const text = item.textContent?.toLowerCase() || ''
-                                  if (text.includes(searchValue)) {
-                                    (item as HTMLElement).style.display = ''
-                                  } else {
-                                    (item as HTMLElement).style.display = 'none'
-                                  }
-                                })
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
                         <div className="max-h-[200px] overflow-y-auto">
-                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
-                            NA (Not Applicable)
-                          </SelectItem>
-                          {productionUnits.map((unit, index) => {
-                            const unitName = unit.ProductionUnitName || unit.Name || unit.name || `Unit ${index + 1}`
-                            return (
-                              <SelectItem
-                                key={unit.ProductionUnitID || unit.id || index}
-                                value={String(unit.ProductionUnitID || unit.id || index)}
-                                className="truncate"
-                              >
-                                {unitName}
-                              </SelectItem>
-                            )
-                          })}
+                          <SelectItem value="NA">NA</SelectItem>
+                          {productionUnits.map((unit, index) => (
+                            <SelectItem
+                              key={String(unit.ProductionUnitID || unit.id || index)}
+                              value={String(unit.ProductionUnitID || unit.id || index)}
+                              className="truncate"
+                            >
+                              {unit.ProductionUnitName || unit.Name || unit.name || `Unit ${index + 1}`}
+                            </SelectItem>
+                          ))}
                         </div>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                {/* Row 2: Item Group & Qualities */}
+                {/* Row 2: Item Group & Quality */}
                 <div className="grid grid-cols-2 gap-2 md:gap-4">
                   <div className="min-w-0">
                     <Label htmlFor="group" className="text-sm">Item Group <span className="text-red-500">*</span></Label>
-                    <Select value={selectedGroup} onValueChange={handleGroupChange} disabled={loadingGroups}>
+                    <Select value={selectedGroup} onValueChange={handleGroupChange}>
                       <SelectTrigger className="w-full truncate">
-                        <SelectValue placeholder={loadingGroups ? "Loading..." : "Select item group"}>
-                          {selectedGroup ? getSelectedGroupName() : null}
-                        </SelectValue>
+                        <SelectValue placeholder={loadingGroups ? "Loading..." : "Select item group"} />
                       </SelectTrigger>
                       <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
-                        <div className="p-2 border-b sticky top-0 bg-white z-10">
-                          <input
-                            type="text"
-                            placeholder="Search groups..."
-                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onChange={(e) => {
-                              const searchValue = e.target.value.toLowerCase()
-                              const selectContent = e.target.closest('[role="listbox"]')
-                              if (selectContent) {
-                                const items = selectContent.querySelectorAll('[role="option"]')
-                                items.forEach((item) => {
-                                  const text = item.textContent?.toLowerCase() || ''
-                                  if (text.includes(searchValue)) {
-                                    (item as HTMLElement).style.display = ''
-                                  } else {
-                                    (item as HTMLElement).style.display = 'none'
-                                  }
-                                })
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
                         <div className="max-h-[200px] overflow-y-auto">
-                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
-                            NA (Not Applicable)
-                          </SelectItem>
+                          <SelectItem value="NA">NA</SelectItem>
                           {groups.map((group, index) => {
-                            const groupName = group.ItemGroupName || group.GroupName || group.Name || group.name || `Group ${index + 1}`
-                            const cleanedName = groupName.replace(/^[-,\s]+/, '').trim()
+                            const gId = String(group.ItemGroupID || group.GroupID || group.id || index)
+                            const gName = (group.ItemGroupName || group.GroupName || group.Name || group.name || `Group ${index + 1}`).replace(/^[-,\s]+/, '').trim()
                             return (
-                              <SelectItem
-                                key={group.ItemGroupID || group.GroupID || group.id || index}
-                                value={String(group.ItemGroupID || group.GroupID || group.id || index)}
-                                className="truncate"
-                              >
-                                {cleanedName}
-                              </SelectItem>
+                              <SelectItem key={gId} value={gId} className="truncate">{gName}</SelectItem>
                             )
                           })}
                         </div>
@@ -818,55 +944,18 @@ Question: ${message.trim()}
                   </div>
 
                   <div className="min-w-0">
-                    <Label htmlFor="quality" className="text-sm">Qualities <span className="text-red-500">*</span></Label>
-                    <Select
-                      value={selectedQuality}
-                      onValueChange={handleQualityChange}
-                      disabled={!selectedGroup || (loadingQualities && selectedGroup !== "NA")}
-                    >
+                    <Label htmlFor="quality" className="text-sm">Quality <span className="text-red-500">*</span></Label>
+                    <Select value={selectedQuality} onValueChange={handleQualityChange} disabled={!selectedGroup}>
                       <SelectTrigger className="w-full truncate">
-                        <SelectValue placeholder={!selectedGroup ? "Select group first" : loadingQualities ? "Loading..." : "Select quality"}>
-                          {selectedQuality ? getSelectedQualityName() : null}
-                        </SelectValue>
+                        <SelectValue placeholder={!selectedGroup ? "Select group first" : loadingQualities ? "Loading..." : "Select quality"} />
                       </SelectTrigger>
                       <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
-                        <div className="p-2 border-b sticky top-0 bg-white z-10">
-                          <input
-                            type="text"
-                            placeholder="Search qualities..."
-                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onChange={(e) => {
-                              const searchValue = e.target.value.toLowerCase()
-                              const selectContent = e.target.closest('[role="listbox"]')
-                              if (selectContent) {
-                                const items = selectContent.querySelectorAll('[role="option"]')
-                                items.forEach((item) => {
-                                  const text = item.textContent?.toLowerCase() || ''
-                                  if (text.includes(searchValue)) {
-                                    (item as HTMLElement).style.display = ''
-                                  } else {
-                                    (item as HTMLElement).style.display = 'none'
-                                  }
-                                })
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
                         <div className="max-h-[200px] overflow-y-auto">
-                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
-                            NA (Not Applicable)
-                          </SelectItem>
+                          <SelectItem value="NA">NA</SelectItem>
                           {qualities.map((quality, index) => {
-                            const qualityValue = quality.Quality || quality.quality || quality.Name || quality
+                            const qVal = String(quality.Quality || quality.quality || quality.Name || quality)
                             return (
-                              <SelectItem
-                                key={qualityValue + '-' + index}
-                                value={String(qualityValue)}
-                                className="truncate"
-                              >
-                                {qualityValue}
-                              </SelectItem>
+                              <SelectItem key={qVal + '-' + index} value={qVal} className="truncate">{qVal}</SelectItem>
                             )
                           })}
                         </div>
@@ -875,55 +964,21 @@ Question: ${message.trim()}
                   </div>
                 </div>
 
-                {/* Row 3: GSM From & GSM To */}
-                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                {/* Row 3: GSM From, GSM To & Mill */}
+                <div className="grid grid-cols-3 gap-2 md:gap-4">
                   <div className="min-w-0">
                     <Label htmlFor="gsmFrom" className="text-sm">GSM From <span className="text-red-500">*</span></Label>
-                    <Select
-                      value={selectedGsmFrom}
-                      onValueChange={setSelectedGsmFrom}
-                      disabled={!selectedQuality || (loadingGsm && selectedQuality !== "NA")}
-                    >
+                    <Select value={selectedGsmFrom} onValueChange={setSelectedGsmFrom} disabled={!selectedQuality}>
                       <SelectTrigger className="w-full truncate">
-                        <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingGsm ? "Loading..." : "Select GSM from"} />
+                        <SelectValue placeholder={!selectedQuality ? "Select quality" : loadingGsm ? "Loading..." : "From"} />
                       </SelectTrigger>
                       <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
-                        <div className="p-2 border-b sticky top-0 bg-white z-10">
-                          <input
-                            type="text"
-                            placeholder="Search GSM..."
-                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onChange={(e) => {
-                              const searchValue = e.target.value.toLowerCase()
-                              const selectContent = e.target.closest('[role="listbox"]')
-                              if (selectContent) {
-                                const items = selectContent.querySelectorAll('[role="option"]')
-                                items.forEach((item) => {
-                                  const text = item.textContent?.toLowerCase() || ''
-                                  if (text.includes(searchValue)) {
-                                    (item as HTMLElement).style.display = ''
-                                  } else {
-                                    (item as HTMLElement).style.display = 'none'
-                                  }
-                                })
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
                         <div className="max-h-[200px] overflow-y-auto">
-                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
-                            NA (Not Applicable)
-                          </SelectItem>
+                          <SelectItem value="NA">NA</SelectItem>
                           {gsmList.map((gsm, index) => {
-                            const gsmValue = gsm.GSM || gsm.gsm || gsm
+                            const gVal = String(gsm.GSM || gsm.gsm || gsm)
                             return (
-                              <SelectItem
-                                key={'from-' + gsmValue + '-' + index}
-                                value={String(gsmValue)}
-                              >
-                                {gsmValue}
-                              </SelectItem>
+                              <SelectItem key={gVal + '-' + index} value={gVal} className="truncate">{gVal}</SelectItem>
                             )
                           })}
                         </div>
@@ -933,103 +988,38 @@ Question: ${message.trim()}
 
                   <div className="min-w-0">
                     <Label htmlFor="gsmTo" className="text-sm">GSM To <span className="text-red-500">*</span></Label>
-                    <Select
-                      value={selectedGsmTo}
-                      onValueChange={setSelectedGsmTo}
-                      disabled={!selectedQuality || (loadingGsm && selectedQuality !== "NA")}
-                    >
+                    <Select value={selectedGsmTo} onValueChange={setSelectedGsmTo} disabled={!selectedQuality}>
                       <SelectTrigger className="w-full truncate">
-                        <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingGsm ? "Loading..." : "Select GSM to"} />
+                        <SelectValue placeholder={!selectedQuality ? "Select quality" : loadingGsm ? "Loading..." : "To"} />
                       </SelectTrigger>
                       <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
-                        <div className="p-2 border-b sticky top-0 bg-white z-10">
-                          <input
-                            type="text"
-                            placeholder="Search GSM..."
-                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onChange={(e) => {
-                              const searchValue = e.target.value.toLowerCase()
-                              const selectContent = e.target.closest('[role="listbox"]')
-                              if (selectContent) {
-                                const items = selectContent.querySelectorAll('[role="option"]')
-                                items.forEach((item) => {
-                                  const text = item.textContent?.toLowerCase() || ''
-                                  if (text.includes(searchValue)) {
-                                    (item as HTMLElement).style.display = ''
-                                  } else {
-                                    (item as HTMLElement).style.display = 'none'
-                                  }
-                                })
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
                         <div className="max-h-[200px] overflow-y-auto">
-                          <SelectItem value="NA" className="truncate font-medium text-gray-500">
-                            NA (Not Applicable)
-                          </SelectItem>
+                          <SelectItem value="NA">NA</SelectItem>
                           {gsmList.map((gsm, index) => {
-                            const gsmValue = gsm.GSM || gsm.gsm || gsm
+                            const gVal = String(gsm.GSM || gsm.gsm || gsm)
                             return (
-                              <SelectItem
-                                key={'to-' + gsmValue + '-' + index}
-                                value={String(gsmValue)}
-                              >
-                                {gsmValue}
-                              </SelectItem>
+                              <SelectItem key={gVal + '-' + index} value={gVal} className="truncate">{gVal}</SelectItem>
                             )
                           })}
                         </div>
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
 
-                {/* Row 4: Mill (Optional) */}
-                <div className="min-w-0">
-                  <Label htmlFor="mill" className="text-sm">Mill</Label>
-                  <Select
-                    value={selectedMill}
-                    onValueChange={setSelectedMill}
-                    disabled={!selectedQuality || (loadingMills && selectedQuality !== "NA")}
-                  >
-                    <SelectTrigger className="w-full truncate">
-                      <SelectValue placeholder={!selectedQuality ? "Select quality first" : loadingMills ? "Loading..." : "Select mill (optional)"} />
-                    </SelectTrigger>
-                    <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
-                      <div className="p-2 border-b sticky top-0 bg-white z-10">
-                        <input
-                          type="text"
-                          placeholder="Search mills..."
-                          className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          onChange={(e) => {
-                            const searchValue = e.target.value.toLowerCase()
-                            const selectContent = e.target.closest('[role="listbox"]')
-                            if (selectContent) {
-                              const items = selectContent.querySelectorAll('[role="option"]')
-                              items.forEach((item) => {
-                                const text = item.textContent?.toLowerCase() || ''
-                                if (text.includes(searchValue)) {
-                                  (item as HTMLElement).style.display = ''
-                                } else {
-                                  (item as HTMLElement).style.display = 'none'
-                                }
-                              })
-                            }
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                      <div className="max-h-[200px] overflow-y-auto">
-                        <SelectItem value="NA" className="truncate font-medium text-gray-500">
-                          NA (Not Applicable)
-                        </SelectItem>
-                        {mills.length === 0 ? (
-                          <div className="p-2 text-sm text-gray-500 text-center">No mills available</div>
-                        ) : (
-                          mills.map((mill, index) => {
-                            // Handle different possible property names for mill value
+                  <div className="min-w-0">
+                    <Label htmlFor="mill" className="text-sm">Mill</Label>
+                    <Select
+                      value={selectedMill}
+                      onValueChange={setSelectedMill}
+                      disabled={!selectedQuality || loadingMills}
+                    >
+                      <SelectTrigger className="w-full truncate">
+                        <SelectValue placeholder={!selectedQuality ? "Select quality" : loadingMills ? "Loading..." : "Optional"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[calc(100vw-2rem)] md:max-w-md">
+                        <div className="max-h-[200px] overflow-y-auto">
+                          <SelectItem value="NA">NA</SelectItem>
+                          {mills.map((mill, index) => {
                             const millValue = mill?.Mill || mill?.mill || mill?.MillName || mill?.millName ||
                                              mill?.Name || mill?.name || mill?.Value || mill?.value ||
                                              (typeof mill === 'string' ? mill : JSON.stringify(mill))
@@ -1042,20 +1032,92 @@ Question: ${message.trim()}
                                 {millValue}
                               </SelectItem>
                             )
-                          })
-                        )}
-                      </div>
-                    </SelectContent>
-                  </Select>
+                          })}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                {/* Show Items Button */}
+                {/* + Add Item Button */}
                 <div className="min-w-0">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={handleShowItems}
-                    disabled={!selectedGroup || !selectedProductionUnit || !selectedQuality || !selectedGsmFrom || !selectedGsmTo || loadingItems}
+                    onClick={handleAddCombo}
+                    disabled={!selectedProductionUnit || !selectedGroup || !selectedQuality || !selectedGsmFrom || !selectedGsmTo}
+                    className="w-full border-[#005180] text-[#005180] hover:bg-[#005180] hover:text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Item
+                  </Button>
+                </div>
+
+                {/* Added Combos List */}
+                {addedCombos.length > 0 && (
+                  <div className="border rounded-lg p-3 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-gray-700">Added Items ({addedCombos.length})</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAddedCombos([])}
+                        className="text-xs text-red-500 hover:text-red-700 h-6 px-2"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                    <div className="space-y-1.5">
+                      {addedCombos.map((combo, index) => (
+                        <div key={index} className="flex items-center justify-between bg-white border rounded-md px-3 py-2">
+                          <span className="text-sm text-gray-800 truncate flex-1">
+                            <span className="font-medium">{combo.groupName}</span>
+                            {' / '}
+                            <span>{combo.quality}</span>
+                            {' / '}
+                            <span className="text-[#005180] font-medium">
+                              {combo.gsmFrom === combo.gsmTo ? `${combo.gsmFrom} GSM` : `${combo.gsmFrom}-${combo.gsmTo} GSM`}
+                            </span>
+                            {' / '}
+                            <span className="text-gray-500">{combo.productionUnitName}</span>
+                            {combo.mill && <span className="text-gray-400"> / {combo.mill}</span>}
+                          </span>
+                          <div className="flex items-center gap-1 ml-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleShowItemsForCombo(combo, index)}
+                              disabled={loadingComboIndex === index}
+                              className="h-6 w-6 p-0 text-[#005180] hover:text-[#005180] hover:bg-[#005180]/10"
+                              title="Show items for this combo"
+                            >
+                              {loadingComboIndex === index ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveCombo(index)}
+                              className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Show All Items Button */}
+                <div className="min-w-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleShowAllItems}
+                    disabled={addedCombos.length === 0 || loadingItems}
                     className="w-full border-[#005180] text-[#005180] hover:bg-[#005180] hover:text-white"
                   >
                     {loadingItems ? (
@@ -1066,7 +1128,7 @@ Question: ${message.trim()}
                     ) : (
                       <>
                         <Package className="h-4 w-4 mr-2" />
-                        Show Items
+                        Show All Items {addedCombos.length > 0 && `(${addedCombos.length} combos)`}
                       </>
                     )}
                   </Button>
@@ -1086,16 +1148,16 @@ Question: ${message.trim()}
 
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !message.trim() || !selectedPerson || !selectedProductionUnit || !selectedGroup || !selectedQuality || !selectedGsmFrom || !selectedGsmTo}
+                  disabled={isSubmitting || !message.trim() || !selectedPerson || addedCombos.length === 0}
                   className="w-full bg-[#005180] hover:bg-[#004060]"
-                  title={!selectedPerson ? "Please select a team member" : ""}
+                  title={!selectedPerson ? "Please select a team member" : addedCombos.length === 0 ? "Please add at least one item" : ""}
                 >
                   {isSubmitting ? (
                     'Sending...'
                   ) : (
                     <>
                       <Send className="h-4 w-4 mr-2" />
-                      Send Request
+                      Send Request {addedCombos.length > 0 && `(${addedCombos.length} items)`}
                     </>
                   )}
                 </Button>
@@ -1296,7 +1358,7 @@ Question: ${message.trim()}
               </div>
               <div className="flex-1">
                 <DialogTitle className="text-lg">Filtered Items</DialogTitle>
-                <p className="text-sm text-gray-500">Items matching your selection criteria</p>
+                <p className="text-sm text-gray-500">{showItemsLabel || 'Items matching your selection criteria'}</p>
               </div>
             </div>
           </DialogHeader>
@@ -1304,25 +1366,14 @@ Question: ${message.trim()}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Selection Info - Fixed */}
             <div className="bg-[#005180]/5 border-b border-[#005180]/20 p-3" style={{ flexShrink: 0 }}>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-[#005180] text-xs font-medium">Item Group</span>
-                  <p className="font-semibold text-gray-900 truncate">{getSelectedGroupName() || '-'}</p>
-                </div>
-                <div>
-                  <span className="text-[#005180] text-xs font-medium">Quality</span>
-                  <p className="font-semibold text-gray-900 truncate">{getSelectedQualityName() || '-'}</p>
-                </div>
-                <div>
-                  <span className="text-[#005180] text-xs font-medium">GSM Range</span>
-                  <p className="font-semibold text-gray-900">{selectedGsmFrom && selectedGsmTo ? `${selectedGsmFrom} - ${selectedGsmTo}` : '-'}</p>
-                </div>
-                {selectedMill && (
-                  <div>
-                    <span className="text-[#005180] text-xs font-medium">Mill</span>
-                    <p className="font-semibold text-gray-900 truncate">{selectedMill}</p>
-                  </div>
-                )}
+              <div className="text-sm space-y-1">
+                <span className="text-[#005180] text-xs font-medium">Added Combinations ({addedCombos.length})</span>
+                {addedCombos.map((combo, idx) => (
+                  <p key={idx} className="font-semibold text-gray-900 truncate text-xs">
+                    {combo.groupName} / {combo.quality} / {combo.gsmFrom === combo.gsmTo ? `${combo.gsmFrom} GSM` : `${combo.gsmFrom}-${combo.gsmTo} GSM`} / {combo.productionUnitName}
+                    {combo.mill && ` / ${combo.mill}`}
+                  </p>
+                ))}
               </div>
             </div>
 
@@ -1334,7 +1385,7 @@ Question: ${message.trim()}
 
             {/* Items List - Scrollable */}
             <div className="px-4 py-2" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              {loadingItems ? (
+              {(loadingItems || loadingComboIndex !== null) ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-[#005180]" />
                   <span className="ml-3 text-gray-600">Loading items...</span>
@@ -1375,7 +1426,7 @@ Question: ${message.trim()}
 
                     // If name is empty or just dashes, use quality from selection
                     if (!displayName || displayName === '-') {
-                      displayName = getSelectedQualityName() || '-'
+                      displayName = [...new Set(addedCombos.map(c => c.quality))].join(', ') || '-'
                     }
 
                     return (

@@ -428,6 +428,51 @@ export function DraftsContent() {
         padding: '16px',
       },
     },
+    muiPaginationProps: {
+      rowsPerPageOptions: [50, 100, 200],
+      showFirstButton: false,
+      showLastButton: false,
+      sx: {
+        '& .MuiTablePagination-toolbar': {
+          flexWrap: 'nowrap',
+          justifyContent: 'flex-end',
+          gap: '4px',
+          padding: '0 8px',
+          minHeight: '52px',
+        },
+        '& .MuiTablePagination-selectLabel': {
+          margin: 0,
+          fontSize: '0.75rem',
+        },
+        '& .MuiTablePagination-displayedRows': {
+          margin: 0,
+          fontSize: '0.75rem',
+        },
+        '& .MuiTablePagination-select': {
+          fontSize: '0.75rem',
+          paddingRight: '20px',
+        },
+        '& .MuiTablePagination-actions': {
+          marginLeft: '8px',
+          '& button': {
+            padding: '4px',
+          },
+        },
+        '@media (max-width: 600px)': {
+          '& .MuiTablePagination-toolbar': {
+            flexWrap: 'nowrap',
+            justifyContent: 'space-between',
+            padding: '0 4px',
+          },
+          '& .MuiTablePagination-selectLabel': {
+            display: 'none',
+          },
+          '& .MuiTablePagination-select': {
+            marginRight: '4px',
+          },
+        },
+      },
+    },
   })
 
   return (

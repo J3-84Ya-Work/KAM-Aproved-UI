@@ -1,23 +1,21 @@
 "use client"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { useParams, useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/app-header"
-import { Card, CardContent } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { MessageSquare, User, ArrowLeft, Send, Loader2, Mic, Check } from "lucide-react"
+import { MessageSquare, Send, Loader2, Mic, Check, Copy, Pencil, X, Calculator, Target } from "lucide-react"
 import { ScrollableOptionsList, ActionButtonsRow } from "@/components/ui/scrollable-options-list"
 import { getMessages, Message } from "@/lib/chat-api"
-import { formatDistanceToNow } from "date-fns"
 import { clientLogger } from "@/lib/logger"
 import { getCurrentUser } from "@/lib/permissions"
 import { useToast } from "@/hooks/use-toast"
+import { MobileBottomNav } from "@/components/mobile-bottom-nav"
+import { cn } from "@/lib/utils"
 
-// Function to clean option text by removing IDs like (CategoryID: 15) or (ClientID: 68)
+// ─── Helper: clean option text ────────────────────────────────────────────────
 function cleanOptionText(text: string): string {
   return text
     .replace(/\s*\([^)]*ID\s*:\s*\d+\)/gi, '')
@@ -25,7 +23,7 @@ function cleanOptionText(text: string): string {
     .trim()
 }
 
-// Function to render text with markdown-style bold (**text**) and clickable links
+// ─── Helper: render bold and links ────────────────────────────────────────────
 function renderTextWithBoldAndLinks(text: string): React.ReactNode[] {
   const urlRegex = /(https?:\/\/[^\s]+)/g
   const parts = text.split(urlRegex)
@@ -34,19 +32,13 @@ function renderTextWithBoldAndLinks(text: string): React.ReactNode[] {
     if (urlRegex.test(part)) {
       urlRegex.lastIndex = 0
       return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
+        <a key={index} href={part} target="_blank" rel="noopener noreferrer"
           className="text-blue-500 underline hover:text-blue-700 break-all"
-          onClick={(e) => e.stopPropagation()}
-        >
+          onClick={(e) => e.stopPropagation()}>
           {part}
         </a>
       )
     }
-
     const boldParts = part.split(/(\*\*[^*]+\*\*)/g)
     return boldParts.map((boldPart, boldIndex) => {
       if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
@@ -57,195 +49,471 @@ function renderTextWithBoldAndLinks(text: string): React.ReactNode[] {
   })
 }
 
-// Function to check if text is a costing summary
+// ─── Helper: normalize content name for image lookup ──────────────────────────
+function normalizeContentName(name: string): string {
+  if (name.includes(' ')) return name
+  return name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+}
+
+// ─── Helper: content image ────────────────────────────────────────────────────
+function ContentImage({ name, className = "w-12 h-12" }: { name: string; className?: string }) {
+  const normalizedName = normalizeContentName(name)
+  const encodedName = encodeURIComponent(normalizedName)
+  return (
+    <div className={cn("rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex-shrink-0", className)}>
+      <img
+        src={`/contentsImagesChatBot/${encodedName}.jpg`}
+        alt={normalizedName}
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          const cur = e.currentTarget.src
+          if (cur.includes('.jpg') && !cur.includes('_tried_png')) {
+            e.currentTarget.src = `/contentsImagesChatBot/${encodedName}.png?_tried_png=1`
+          } else if (!cur.includes('default')) {
+            e.currentTarget.src = '/contentsImagesChatBot/default.jpg'
+          }
+        }}
+      />
+    </div>
+  )
+}
+
+// ─── Helper: extract content name from text ───────────────────────────────────
+function extractContentName(text: string): string | null {
+  const patterns = [
+    /(?:content\s*type|content|job\s*type|product|carton\s*type|box\s*type)\s*[:\-]\s*(.+?)(?:\n|$)/i,
+  ]
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (match && match[1]?.trim()) return match[1].trim()
+  }
+  return null
+}
+
+// ─── JSON Parsing Helpers (matching Synthia / ParkBuddy chatbot) ──────────────
+function cleanApiText(text: string): string {
+  return text
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\r/g, '')
+    .replace(/\\n/g, '\n')
+    .replace(/\r/g, '')
+    .replace(/\\"/g, '"')
+}
+
+function extractJsonByType(text: string, typeValue: string): { data: any; afterJson: string } | null {
+  const cleanText = cleanApiText(text)
+  const typeIndex = cleanText.indexOf(`"${typeValue}"`)
+  if (typeIndex === -1) return null
+  const braceStart = cleanText.lastIndexOf('{', typeIndex)
+  if (braceStart === -1) return null
+  let depth = 0
+  let braceEnd = -1
+  for (let i = braceStart; i < cleanText.length; i++) {
+    if (cleanText[i] === '{') depth++
+    else if (cleanText[i] === '}') { depth--; if (depth === 0) { braceEnd = i; break } }
+  }
+  if (braceEnd === -1) return null
+  const jsonStr = cleanText.substring(braceStart, braceEnd + 1)
+  const afterJson = cleanText.substring(braceEnd + 1).trim()
+  try {
+    const data = JSON.parse(jsonStr)
+    if (data.Type !== typeValue) return null
+    return { data, afterJson }
+  } catch { return null }
+}
+
+function cleanAfterJson(text: string): string {
+  if (!text) return ''
+  if (/COSTING SUMMARY|Cost Structure|Customer Details|Percentage Breakup|TARGET PRICE ANALYSIS/i.test(text)) return ''
+  return text.trim()
+}
+
+// ─── Costing Summary Detection & Rendering ────────────────────────────────────
 function isCostingSummary(text: string): boolean {
   return text.includes('COSTING SUMMARY') || text.includes('Customer & JOB DETAILS') || text.includes('COST STRUCTURE') || text.includes('"CostingBot"')
 }
 
-// Function to check if text is a costing summary and render as table
+function formatCurrency(value?: number): string {
+  if (typeof value !== 'number') return '-'
+  return `₹ ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 function renderCostingSummary(text: string): React.ReactNode | null {
-  // Check if this is a costing summary - look for the specific markers
-  if (!isCostingSummary(text)) {
-    return null
-  }
+  if (!isCostingSummary(text)) return null
 
-  let customerName = '-'
-  let jobName = '-'
-  let sheetSize = '-'
-  let orderQuantity = '-'
-  let noOfUps = '-'
-  let requiredSheets = '-'
-  let boardCost = '-'
-  let otherMaterialCost = '-'
-  let conversionCost = '-'
-  let profit = '-'
-  let totalCost = '-'
-  let status = 'Estimated'
-  let generatedDate = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+  let customerName = '-', jobName = '-', sheetSize = '-', orderQuantity = '-'
+  let noOfUps = '-', requiredSheets = '-'
+  let boardCost = 0, otherMaterialCost = 0, conversionCost = 0, profit = 0, totalCost = 0, freightCost = 0
+  let profitMarginPct: number | null = null
+  let contentName: string | null = null
+  let annualQuantity: number | null = null
+  let kgsPer1000: number | null = null
+  let pct: Record<string, number> = {}
+  let kpis: { RMCPercent?: number | null; PSR?: number | null; PKR?: number | null } | null = null
+  let detailedParticulars: Record<string, any> | null = null
+  let targetPriceComparison: { OriginalCostPer1000?: number; TargetPricePer1000?: number; OriginalProfitPercent?: number; NewProfitPercent?: number; DifferencePer1000?: number } | null = null
+  let nextStep: string | null = null
+  let afterJson: string | null = null
 
-  // Try to parse as JSON first (new format)
   try {
-    // Extract JSON from the text - it might have text before the JSON
-    const jsonMatch = text.match(/\{[\s\S]*"Type"\s*:\s*"CostingBot"[\s\S]*\}/)
-    if (jsonMatch) {
-      const jsonData = JSON.parse(jsonMatch[0])
-
+    const result = extractJsonByType(text, 'CostingBot')
+    if (result) {
+      const jsonData = result.data
       if (jsonData.CustomerDetails) {
         customerName = jsonData.CustomerDetails.CustomerName || '-'
         jobName = jsonData.CustomerDetails.JobName || '-'
         sheetSize = jsonData.CustomerDetails.SheetSize || '-'
-        orderQuantity = jsonData.CustomerDetails.OrderQuantity?.toLocaleString() || '-'
+        orderQuantity = jsonData.CustomerDetails.OrderQuantity?.toLocaleString('en-IN') || '-'
         noOfUps = jsonData.CustomerDetails.Ups?.toString() || '-'
-        requiredSheets = jsonData.CustomerDetails.RequiredSheets?.toLocaleString() || '-'
+        requiredSheets = jsonData.CustomerDetails.RequiredSheets?.toLocaleString('en-IN') || '-'
       }
-
       if (jsonData.CostStructurePer1000) {
-        boardCost = jsonData.CostStructurePer1000.BoardCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
-        otherMaterialCost = jsonData.CostStructurePer1000.OtherMaterialCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
-        conversionCost = jsonData.CostStructurePer1000.ConversionCost?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
-        profit = jsonData.CostStructurePer1000.Profit?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
-        totalCost = jsonData.CostStructurePer1000.TotalCostPer1000?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'
+        boardCost = jsonData.CostStructurePer1000.BoardCost || 0
+        otherMaterialCost = jsonData.CostStructurePer1000.OtherMaterialCost || 0
+        conversionCost = jsonData.CostStructurePer1000.ConversionCost || 0
+        profit = jsonData.CostStructurePer1000.Profit || 0
+        freightCost = jsonData.CostStructurePer1000.FreightCost || 0
+        totalCost = jsonData.CostStructurePer1000.TotalCostPer1000 || 0
       }
-
-      if (jsonData.Status) {
-        status = jsonData.Status
-      }
+      if (jsonData.PercentageBreakup) pct = jsonData.PercentageBreakup
+      if (jsonData.ProfitMarginPercent != null) profitMarginPct = jsonData.ProfitMarginPercent
+      contentName = jsonData.ContentName || jsonData.CustomerDetails?.JobName || null
+      if (jsonData.AnnualQuantity != null) annualQuantity = jsonData.AnnualQuantity
+      if (jsonData.DetailedCostSummary?.KgsPer1000Cartons != null) kgsPer1000 = jsonData.DetailedCostSummary.KgsPer1000Cartons
+      if (jsonData.DetailedCostSummary?.Particulars) detailedParticulars = jsonData.DetailedCostSummary.Particulars
+      if (jsonData.KPIs) kpis = jsonData.KPIs
+      if (jsonData.TargetPriceComparison) targetPriceComparison = jsonData.TargetPriceComparison
+      if (jsonData.NextStep) nextStep = jsonData.NextStep
+      const cleaned = cleanAfterJson(result.afterJson)
+      if (cleaned) afterJson = cleaned
     }
   } catch (e) {
-    // JSON parsing failed, fall back to text extraction
-    console.log('JSON parsing failed, using text extraction')
-  }
-
-  // If JSON parsing didn't work, try text extraction (old format)
-  if (customerName === '-' && jobName === '-') {
     const extractValue = (labelPattern: string): string => {
       const lines = text.split('\n')
       for (const line of lines) {
         const regex = new RegExp(labelPattern + '.+:\\s*(.+)', 'i')
         const match = line.match(regex)
-        if (match && match[1]) {
-          return match[1].trim()
-        }
+        if (match && match[1]) return match[1].trim()
       }
       return '-'
     }
-
     customerName = extractValue('Customer Name')
     jobName = extractValue('Job Name')
     sheetSize = extractValue('Sheet Size')
     orderQuantity = extractValue('Order Quantity')
     noOfUps = extractValue('No\\.? of Ups')
     requiredSheets = extractValue('Required Sheets')
-    boardCost = extractValue('Board Cost')
-    otherMaterialCost = extractValue('Other Material Cost')
-    conversionCost = extractValue('Conversion')
-    profit = extractValue('Profit')
-    totalCost = extractValue('TOTAL COST')
   }
 
+  const profitLabel = profitMarginPct != null ? `Profit (Margin: ${profitMarginPct}%)` : 'Profit Margin'
+  const hasDetailedBreakdown = detailedParticulars != null
+  const hasTargetPrice = targetPriceComparison != null
+
+  // Build detailed breakdown rows
+  const detailedRows: { label: string; amount?: number; percent: string; highlight?: 'green' | 'red' | 'primary' }[] = []
+  if (hasDetailedBreakdown) {
+    const p = detailedParticulars!
+    const fobPrice = p.SellingPrice_FOB?.Rs_Per_1000_Cartons || 0
+    const calcPct = (amount?: number) => {
+      if (!amount || fobPrice <= 0) return '0.00'
+      return ((amount / fobPrice) * 100).toFixed(2)
+    }
+    if (p.BoardCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Board Cost', amount: p.BoardCost.Rs_Per_1000_Cartons, percent: calcPct(p.BoardCost.Rs_Per_1000_Cartons) })
+    if (p.MaterialCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Material Cost', amount: p.MaterialCost.Rs_Per_1000_Cartons, percent: calcPct(p.MaterialCost.Rs_Per_1000_Cartons) })
+    if (p.ToolCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Tool Cost', amount: p.ToolCost.Rs_Per_1000_Cartons, percent: calcPct(p.ToolCost.Rs_Per_1000_Cartons) })
+    if (p.CorrugationCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Corrugation Cost', amount: p.CorrugationCost.Rs_Per_1000_Cartons, percent: calcPct(p.CorrugationCost.Rs_Per_1000_Cartons) })
+    if (p.WastageCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Wastage Cost', amount: p.WastageCost.Rs_Per_1000_Cartons, percent: calcPct(p.WastageCost.Rs_Per_1000_Cartons) })
+    if (p.ConversionCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Conversion Cost', amount: p.ConversionCost.Rs_Per_1000_Cartons, percent: calcPct(p.ConversionCost.Rs_Per_1000_Cartons) })
+    if (p.ExWorksCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Ex-works Cost', amount: p.ExWorksCost.Rs_Per_1000_Cartons, percent: calcPct(p.ExWorksCost.Rs_Per_1000_Cartons), highlight: 'primary' })
+    if (p.Profit?.Rs_Per_1000_Cartons != null) {
+      const profitPct = p.Profit.Percent || 0
+      detailedRows.push({ label: `Add: Profit (${profitPct}%)`, amount: p.Profit.Rs_Per_1000_Cartons, percent: calcPct(p.Profit.Rs_Per_1000_Cartons), highlight: profitPct >= 0 ? 'green' : 'red' })
+    }
+    if (p.Freight?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Add: Freight', amount: p.Freight.Rs_Per_1000_Cartons, percent: calcPct(p.Freight.Rs_Per_1000_Cartons) })
+    if (p.SellingPrice_FOB?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'FOB / Selling Price', amount: p.SellingPrice_FOB.Rs_Per_1000_Cartons, percent: '100.00', highlight: 'primary' })
+  }
+
+  const highlightBg: Record<string, string> = { green: 'bg-green-500/10', red: 'bg-red-500/10', primary: 'bg-[#005180]/10' }
+  const highlightText: Record<string, string> = { green: 'text-green-600', red: 'text-red-600', primary: 'text-[#005180]' }
+
   return (
-    <div className="w-full rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm">
+    <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-gray-200 shadow-lg max-w-full">
       {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200 bg-[#2F4669]/5">
+      <div className="bg-gradient-to-r from-[#005180]/20 to-[#78BE20]/10 px-4 md:px-5 py-3 md:py-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-[#2F4669]/10 flex items-center justify-center">
-            <svg className="w-4 h-4 text-[#2F4669]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+          {contentName && <ContentImage name={contentName} className="w-12 h-12 md:w-16 md:h-16" />}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1 gap-2">
+              <h3 className="text-sm md:text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-[#005180] flex-shrink-0" />
+                <span className="truncate">Costing Summary</span>
+              </h3>
+              <div className="px-2 md:px-2.5 py-0.5 md:py-1 bg-green-500/20 border border-green-500/30 rounded text-[0.65rem] md:text-xs font-semibold text-green-700 uppercase tracking-wide flex-shrink-0">
+                Best Plan
+              </div>
+            </div>
+            <div className="text-xs text-gray-600 truncate">Job Name: {jobName !== '-' ? jobName : 'Print Job Estimation'}</div>
           </div>
-          <div>
-            <h3 className="font-semibold text-[#2F4669] text-sm">Costing Summary</h3>
-            <p className="text-gray-500 text-xs">{jobName !== '-' ? jobName : 'Costing'}</p>
-          </div>
-        </div>
-        <span className="px-3 py-1 rounded-full text-xs font-medium border border-[#005180] text-[#005180] bg-[#005180]/5">
-          BEST PLAN
-        </span>
-      </div>
-
-      {/* Customer & Sheet Info Cards */}
-      <div className="p-3 grid grid-cols-2 gap-3">
-        <div className="rounded-md border border-[#005180]/20 p-3 bg-[#005180]/5">
-          <p className="text-[#005180]/70 text-xs uppercase tracking-wide mb-1">Customer</p>
-          <p className="text-[#2F4669] text-sm font-medium truncate">{customerName}</p>
-        </div>
-        <div className="rounded-md border border-[#005180]/20 p-3 bg-[#005180]/5">
-          <p className="text-[#005180]/70 text-xs uppercase tracking-wide mb-1">Sheet Size</p>
-          <p className="text-[#2F4669] text-sm font-medium">{sheetSize}</p>
-        </div>
-        <div className="rounded-md border border-[#005180]/20 p-3 bg-[#005180]/5">
-          <p className="text-[#005180]/70 text-xs uppercase tracking-wide mb-1">Order Qty</p>
-          <p className="text-[#2F4669] text-sm font-medium">{orderQuantity}</p>
-        </div>
-        <div className="rounded-md border border-[#005180]/20 p-3 bg-[#005180]/5">
-          <p className="text-[#005180]/70 text-xs uppercase tracking-wide mb-1">Ups / Sheets</p>
-          <p className="text-[#2F4669] text-sm font-medium">{noOfUps} / {requiredSheets}</p>
         </div>
       </div>
 
-      {/* Cost Breakdown */}
-      <div className="px-4 pb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-1 h-4 bg-[#005180] rounded-full"></div>
-          <p className="text-gray-600 text-xs uppercase tracking-wide font-medium">Cost Breakdown (Per 1,000 Units)</p>
+      {/* Customer Details Grid */}
+      <div className="px-4 md:px-5 py-3 md:py-4">
+        <div className="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-4">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 md:px-3 py-2 md:py-2.5">
+            <div className="text-[0.6rem] md:text-[0.65rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">Customer</div>
+            <div className="text-xs md:text-sm font-semibold text-gray-900 truncate">{customerName}</div>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 md:px-3 py-2 md:py-2.5">
+            <div className="text-[0.6rem] md:text-[0.65rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">
+              Order Qty{annualQuantity != null && annualQuantity > 0 ? ' / Annual Qty' : ''}
+            </div>
+            <div className="text-xs md:text-sm font-semibold text-gray-900">
+              {orderQuantity}
+              {annualQuantity != null && annualQuantity > 0 && (
+                <span className="text-gray-500"> / {annualQuantity.toLocaleString('en-IN')}</span>
+              )}
+            </div>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 md:px-3 py-2 md:py-2.5">
+            <div className="text-[0.6rem] md:text-[0.65rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">
+              Sheet Size{kgsPer1000 != null ? ' / Wt. per 1000' : ''}
+            </div>
+            <div className="text-xs md:text-sm font-semibold text-[#005180] truncate">
+              {sheetSize}
+              {kgsPer1000 != null && (
+                <span className="text-gray-500"> / {kgsPer1000.toLocaleString('en-IN')} kg</span>
+              )}
+            </div>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 md:px-3 py-2 md:py-2.5">
+            <div className="text-[0.6rem] md:text-[0.65rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">Ups / Sheets</div>
+            <div className="text-xs md:text-sm font-semibold text-gray-900 truncate">{noOfUps} / {requiredSheets}</div>
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-gray-600 text-sm">Board Cost</span>
-            <span className="text-[#2F4669] text-sm font-medium">₹ {boardCost}</span>
-          </div>
-          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-gray-600 text-sm">Other Material Cost</span>
-            <span className="text-[#2F4669] text-sm font-medium">₹ {otherMaterialCost}</span>
-          </div>
-          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-gray-600 text-sm">Conversion Cost</span>
-            <span className="text-[#2F4669] text-sm font-medium">₹ {conversionCost}</span>
-          </div>
-          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-[#005180] text-sm font-medium">Profit Margin</span>
-            <span className="text-green-600 text-sm font-medium">₹ {profit}</span>
-          </div>
-        </div>
+        {/* KPI Cards - RMC%, PSR, PKR */}
+        {kpis && (kpis.RMCPercent != null || kpis.PSR != null || kpis.PKR != null) && (
+          <>
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent my-3 md:my-4" />
+            <div className="text-[0.65rem] md:text-[0.7rem] font-semibold text-gray-600 uppercase tracking-widest mb-2 md:mb-3 pl-2 md:pl-2.5 border-l-2 border-[#005180]">
+              Key Performance Indicators
+            </div>
+            <div className="grid grid-cols-3 gap-2 md:gap-2.5 mb-3 md:mb-4">
+              {kpis.RMCPercent != null && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-center">
+                  <div className="text-[0.55rem] md:text-[0.6rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">RMC%</div>
+                  <div className="text-base md:text-lg font-semibold text-gray-900 tabular-nums">{kpis.RMCPercent.toFixed(1)}%</div>
+                  <div className="text-[0.55rem] md:text-[0.6rem] text-gray-500 mt-0.5">
+                    {kpis.RMCPercent >= 60 ? 'High' : kpis.RMCPercent >= 40 ? 'Moderate' : 'Healthy'}
+                  </div>
+                </div>
+              )}
+              {kpis.PSR != null && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-center">
+                  <div className="text-[0.55rem] md:text-[0.6rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">PSR</div>
+                  <div className="text-base md:text-lg font-semibold text-gray-900 tabular-nums">{formatCurrency(kpis.PSR)}</div>
+                  <div className="text-[0.55rem] md:text-[0.6rem] text-gray-500 mt-0.5">Per Sheet</div>
+                </div>
+              )}
+              {kpis.PKR != null && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-center">
+                  <div className="text-[0.55rem] md:text-[0.6rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">PKR</div>
+                  <div className="text-base md:text-lg font-semibold text-gray-900 tabular-nums">{formatCurrency(kpis.PKR)}</div>
+                  <div className="text-[0.55rem] md:text-[0.6rem] text-gray-500 mt-0.5">Per Kg</div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
-        {/* Total Cost */}
-        <div className="mt-4 rounded-md p-3 flex justify-between items-center bg-[#2F4669]/5 border border-[#2F4669]/20">
-          <span className="text-[#005180] text-sm font-semibold">TOTAL COST / 1,000</span>
-          <span className="text-[#005180] text-lg font-bold">₹ {totalCost}</span>
-        </div>
+        {/* Detailed Cost Breakdown Table */}
+        {hasDetailedBreakdown && detailedRows.length > 0 && (
+          <>
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent my-3 md:my-4" />
+            <div className="text-[0.65rem] md:text-[0.7rem] font-semibold text-gray-600 uppercase tracking-widest mb-2 md:mb-3 pl-2 md:pl-2.5 border-l-2 border-[#005180]">
+              Cost Breakdown
+            </div>
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto] px-2 md:px-3 py-1.5 md:py-2.5 bg-gray-50 border-b border-gray-200 text-[0.6rem] md:text-xs font-bold text-gray-700 uppercase tracking-wide">
+                <span className="truncate">Particulars</span>
+                <span className="text-right whitespace-nowrap pl-2">Amount</span>
+                <span className="text-right whitespace-nowrap pl-2">%</span>
+              </div>
+              {detailedRows.map((row, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    'grid grid-cols-[1fr_auto_auto] items-baseline px-2 md:px-3 py-1.5 md:py-2 border-b border-gray-200/30 last:border-b-0',
+                    row.highlight ? highlightBg[row.highlight] : ''
+                  )}
+                >
+                  <span className={cn('truncate text-[0.7rem] md:text-[0.8rem]', row.highlight ? cn('font-semibold', highlightText[row.highlight]) : 'text-gray-600')}>
+                    {row.label}
+                  </span>
+                  <span className={cn('text-right whitespace-nowrap pl-2 text-[0.7rem] md:text-[0.8rem] font-semibold tabular-nums', row.highlight ? highlightText[row.highlight] : 'text-gray-900')}>
+                    {formatCurrency(row.amount)}
+                  </span>
+                  <span className={cn('text-right whitespace-nowrap pl-2 text-[0.6rem] md:text-[0.7rem] tabular-nums', row.highlight ? cn('font-medium', highlightText[row.highlight]) : 'text-gray-500')}>
+                    {row.percent}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Simple Cost Breakdown (fallback when no detailed breakdown) */}
+        {!hasDetailedBreakdown && (
+          <>
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent my-3 md:my-4" />
+            <div className="text-[0.65rem] md:text-[0.7rem] font-semibold text-gray-600 uppercase tracking-widest mb-2 md:mb-3 pl-2 md:pl-2.5 border-l-2 border-[#005180]">
+              Cost Breakdown (Per 1,000 Units)
+            </div>
+            <div>
+              {[
+                { label: 'Board Cost', value: boardCost, percentage: pct.BoardCost },
+                { label: 'Other Material Cost', value: otherMaterialCost, percentage: pct.OtherMaterialCost },
+                { label: 'Conversion Cost', value: conversionCost, percentage: pct.ConversionCost },
+                { label: profitLabel, value: profit, percentage: pct.Profit, isProfit: true },
+                { label: 'Freight Cost', value: freightCost, percentage: pct.FreightCost },
+              ].map((row) => {
+                const isLoss = row.isProfit && profit < 0
+                const profitColorClass = row.isProfit ? (isLoss ? 'text-red-600' : 'text-green-600') : ''
+                return (
+                  <div key={row.label} className="grid grid-cols-[1fr_auto] items-baseline py-2.5 border-b border-gray-200 last:border-b-0">
+                    <span className={cn('truncate text-sm', row.isProfit ? profitColorClass : 'text-gray-600')}>{row.label}</span>
+                    <span className={cn('text-right whitespace-nowrap pl-2 text-sm font-semibold tabular-nums', row.isProfit ? profitColorClass : 'text-gray-900')}>
+                      {formatCurrency(row.value)}
+                      {row.percentage != null && (
+                        <span className={cn('text-xs ml-2 opacity-60', row.isProfit ? profitColorClass : 'text-gray-500')}>{row.percentage}%</span>
+                      )}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
 
+      {/* Total Bar - only show for simple breakdown */}
+      {!hasDetailedBreakdown && (
+        <div className="bg-gradient-to-r from-green-900/50 to-green-950/50 px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-t border-green-500/30 gap-2">
+          <div className="text-[0.7rem] md:text-[0.8rem] font-semibold text-green-300 uppercase tracking-wide">Total Cost / 1,000</div>
+          <div className="text-xl md:text-2xl font-bold text-green-400 tabular-nums">{formatCurrency(totalCost)}</div>
+        </div>
+      )}
+
+      {/* Target Price Comparison */}
+      {hasTargetPrice && (() => {
+        const tp = targetPriceComparison!
+        const diff = tp.DifferencePer1000 || 0
+        const originalCost = tp.OriginalCostPer1000 || 0
+        const diffPct = originalCost > 0 ? ((diff / originalCost) * 100).toFixed(2) : '0'
+        const isPos = diff >= 0
+        const newProfit = tp.NewProfitPercent || 0
+        const isProfitPos = newProfit >= 0
+        return (
+          <div className="border-t border-gray-200">
+            <div className="px-4 md:px-5 py-2.5 md:py-3 bg-gray-50 border-b border-gray-200">
+              <h4 className="text-xs md:text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Target className="w-3 h-3 md:w-3.5 md:h-3.5 text-amber-500 flex-shrink-0" />
+                <span>Target Price Analysis</span>
+              </h4>
+            </div>
+            <div className="px-4 md:px-5 py-3 md:py-4">
+              <div className="grid grid-cols-3 gap-2 md:gap-2.5 mb-2.5 md:mb-3">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-center">
+                  <div className="text-[0.55rem] md:text-[0.6rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">Original</div>
+                  <div className="text-xs md:text-sm font-semibold text-gray-900 tabular-nums">{formatCurrency(tp.OriginalCostPer1000)}</div>
+                </div>
+                <div className="bg-gray-50 border border-amber-500/30 rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-center">
+                  <div className="text-[0.55rem] md:text-[0.6rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">Target</div>
+                  <div className="text-xs md:text-sm font-semibold text-amber-600 tabular-nums">{formatCurrency(tp.TargetPricePer1000)}</div>
+                </div>
+                <div className={cn(
+                  'border rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-center',
+                  isPos ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'
+                )}>
+                  <div className="text-[0.55rem] md:text-[0.6rem] font-medium text-gray-500 uppercase tracking-wide mb-0.5 md:mb-1">Difference</div>
+                  <div className={cn('text-xs md:text-sm font-semibold tabular-nums', isPos ? 'text-green-600' : 'text-red-600')}>
+                    {isPos ? '+' : ''}{formatCurrency(diff)}
+                    <span className="text-[0.6rem] ml-0.5 opacity-70">({isPos ? '+' : ''}{diffPct}%)</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-3 md:px-3.5 py-2 md:py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                <span className="text-[0.7rem] md:text-[0.78rem] text-gray-600">Profit Margin</span>
+                <div className="flex items-center gap-2 md:gap-3">
+                  <span className="text-[0.7rem] md:text-[0.78rem] text-gray-400 opacity-50 line-through tabular-nums">{tp.OriginalProfitPercent}%</span>
+                  <span className={cn('text-sm font-bold tabular-nums', isProfitPos ? 'text-green-600' : 'text-red-600')}>
+                    {newProfit}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Footer */}
+      <div className="px-4 md:px-5 py-2 md:py-2.5 bg-gray-50/50 border-t border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-1 md:gap-2 text-[0.65rem] md:text-[0.7rem] text-gray-500">
+        <div className="truncate">Status: <span className="text-gray-700 font-medium">{hasTargetPrice ? 'Target Price Applied' : 'Estimated'}</span></div>
+      </div>
+
+      {nextStep && (
+        <div className="px-4 md:px-5 py-3 md:py-3.5 border-t border-gray-200/50 text-sm text-gray-600 text-center leading-relaxed">
+          {nextStep}
+        </div>
+      )}
+
+      {afterJson && !(nextStep && afterJson.includes(nextStep)) && (
+        <div className="px-4 md:px-5 py-3 md:py-3.5 bg-gray-50/80 border-t border-gray-200/50 text-xs md:text-sm text-gray-600 text-center leading-relaxed"
+          dangerouslySetInnerHTML={{
+            __html: afterJson
+              .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-gray-900 font-semibold">$1</strong>')
+              .replace(/\n/g, '<br />')
+          }}
+        />
+      )}
     </div>
   )
 }
 
-// Function to parse numbered options from message text
+// ─── Parse numbered options ───────────────────────────────────────────────────
 function parseOptions(text: string): { cleanText: string; options: string[] } {
   const optionRegex = /^\s*(\d+)[\.\)]\s*(.+)$/gm
   const matches = [...text.matchAll(optionRegex)]
 
   if (matches.length >= 2) {
     const options = matches.map(match => cleanOptionText(match[2].trim()))
-    const uniqueOptions = [...new Set(options)]
+
+    // Exclude lists of input field prompts (form fields the user needs to type values for)
+    const inputFieldPatterns = /\(mm\)|\(cm\)|\(inch\)|\(gsm\)|\(kg\)|\(grams?\)|\(Yes\/No\)|\(Rs\)|\(INR\)|quantity|length|width|height|depth|weight|thickness|diameter/i
+    const fieldMatchCount = options.filter(o => inputFieldPatterns.test(o)).length
+    if (fieldMatchCount >= 2) return { cleanText: text, options: [] }
+
+    // Exclude if text before options asks for details to fill
     const firstMatchIndex = text.indexOf(matches[0][0])
     const textBeforeOptions = text.substring(0, firstMatchIndex).trim()
-
-    return {
-      cleanText: textBeforeOptions,
-      options: uniqueOptions
+    if (/need these details|provide .* details|enter .* details|following details|fill .* following|required details|input .* values/i.test(textBeforeOptions)) {
+      return { cleanText: text, options: [] }
     }
-  }
 
+    const uniqueOptions = [...new Set(options)]
+    return { cleanText: textBeforeOptions, options: uniqueOptions }
+  }
   return { cleanText: text, options: [] }
 }
 
-// Extended message type with options
+// ─── Extended message type ────────────────────────────────────────────────────
 interface ExtendedMessage extends Message {
   options?: string[]
   allowMultiSelect?: boolean
 }
 
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function ConversationPage() {
   const params = useParams()
   const router = useRouter()
@@ -258,17 +526,35 @@ export default function ConversationPage() {
   const [inputMessage, setInputMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<Record<number, string[]>>({})
-  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null)
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
   const [isListening, setIsListening] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editText, setEditText] = useState("")
+  const [toggleMenu, setToggleMenu] = useState<(() => void) | null>(null)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const recognitionRef = useRef<any>(null)
+
+  const handleMenuToggle = useCallback((toggle: () => void) => {
+    setToggleMenu(() => toggle)
+  }, [])
+
+  const handleMenuClick = () => {
+    if (toggleMenu) toggleMenu()
+  }
+
+  // Auto-resize textarea
+  const autoResizeTextarea = () => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 150) + 'px'
+  }
 
   // Get current user
   useEffect(() => {
-    const user = getCurrentUser()
-    setCurrentUser(user)
+    setCurrentUser(getCurrentUser())
   }, [])
 
   // Initialize speech recognition
@@ -280,81 +566,40 @@ export default function ConversationPage() {
         recognition.continuous = false
         recognition.interimResults = false
         recognition.lang = 'en-US'
-
         recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript
-          setInputMessage((prev) => prev + (prev ? ' ' : '') + transcript)
+          setInputMessage((prev) => prev + (prev ? ' ' : '') + event.results[0][0].transcript)
           setIsListening(false)
         }
-
-        recognition.onerror = (event: any) => {
-          clientLogger.error('Speech recognition error:', event.error)
-          setIsListening(false)
-        }
-
-        recognition.onend = () => {
-          setIsListening(false)
-        }
-
+        recognition.onerror = () => setIsListening(false)
+        recognition.onend = () => setIsListening(false)
         recognitionRef.current = recognition
       }
     }
   }, [])
 
-  // Fetch messages on load
-  // Function to process a message and extract options
+  // Process message for options
   const processMessageForOptions = (message: Message): ExtendedMessage => {
-    // Only process assistant messages
-    if (message.role !== 'assistant') {
-      return message
-    }
+    if (message.role !== 'assistant') return message
 
-    let content = message.content || ''
-
-    // Convert escaped newlines to actual newlines
-    content = content.replace(/\\n/g, '\n')
-
-    // Check if the message should show buttons
-    const shouldShowButtons = /select/i.test(content) ||
-                              /which\s+plant/i.test(content) ||
-                              /which\s+customer/i.test(content) ||
-                              /which\s+category/i.test(content) ||
-                              /\*\*Customers:\*\*/i.test(content) ||
-                              /Categories:/i.test(content) ||
-                              /available\s+GSM/i.test(content) ||
-                              /available\s+\w+.*:/i.test(content) ||
-                              /choose\s+(one|from)/i.test(content) ||
-                              /^\s*\d+\.\s+\d+\s*$/m.test(content)
-
-    // Check if this is a YES/NO confirmation message
-    const isYesNoConfirmation = /Reply with:\s*\n?\s*YES\s+[–-]\s+Save/i.test(content) ||
-                                /YES\s+[–-]\s+Save.*NO\s+[–-]\s+Discard/i.test(content)
-
-    // Check if multi-select should be enabled for processes
+    let content = (message.content || '').replace(/\\n/g, '\n')
+    const shouldShowButtons = /select|which\s+(plant|customer|category)|Categories:|available\s+\w+.*:|choose\s+(one|from)/i.test(content) || /^\s*\d+\.\s+\d+\s*$/m.test(content)
+    const isYesNoConfirmation = /Reply with:\s*\n?\s*YES\s+[–-]\s+Save/i.test(content) || /YES\s+[–-]\s+Save.*NO\s+[–-]\s+Discard/i.test(content)
     const isMultiSelect = /select\s+processes/i.test(content)
 
     let { cleanText, options } = parseOptions(content)
     const hasNumberedOptions = options.length >= 2
 
-    // If it's a YES/NO confirmation, override options
     if (isYesNoConfirmation) {
       cleanText = content.replace(/Reply with:[\s\S]*$/i, '').trim()
       options = ['YES', 'NO']
     }
 
-    // Check if this is a Job Specification Summary message with Confirm/Modify options
-    const isJobSpecSummary = /Job Specification Summary/i.test(content) &&
-                             (/Confirm.*Generate.*Costing/i.test(content) ||
-                              /Modify.*Details/i.test(content))
-
+    const isJobSpecSummary = /Job Specification Summary/i.test(content) && (/Confirm.*Generate.*Costing/i.test(content) || /Modify.*Details/i.test(content))
     if (isJobSpecSummary) {
-      // Remove everything from the dashes line onwards (including "Please review..." and numbered options)
       cleanText = content.replace(/-{5,}[\s\S]*$/g, '').trim()
-      // Also try to remove numbered options if dashes weren't present
       cleanText = cleanText.replace(/\d+\.\s*[✅❌✏️✓✎]?\s*[✅❌✏️✓✎]?\s*(Confirm.*|Modify.*)$/gim, '').trim()
       cleanText = cleanText.replace(/Please review.*details\.?\s*/gi, '').trim()
       cleanText = cleanText.replace(/What would you like to do\?/i, '').trim()
-      // Remove leading emoji from title (📋)
       cleanText = cleanText.replace(/^[📋📝📄]\s*/g, '').trim()
       options = ['CONFIRM', 'MODIFY']
     }
@@ -369,27 +614,18 @@ export default function ConversationPage() {
     }
   }
 
+  // Fetch messages
   useEffect(() => {
     const fetchMessages = async () => {
       if (!currentUser) return
-
       setLoading(true)
       try {
         const userId = currentUser?.userId || '2'
         const companyId = currentUser?.companyId || '2'
-
-        console.log('🔍 Fetching messages for conversationId:', conversationId, 'userId:', userId, 'companyId:', companyId)
         const result = await getMessages(Number(conversationId), String(userId), String(companyId))
-
-        console.log('🔍 Messages API result:', result)
-
         if (result.success && result.data) {
-          clientLogger.log('Messages fetched:', result.data)
-          // Process each message to extract options for clickable buttons
-          const processedMessages = result.data.map(processMessageForOptions)
-          setMessages(processedMessages)
+          setMessages(result.data.map(processMessageForOptions))
         } else {
-          clientLogger.error('Failed to fetch messages:', result.error)
           setMessages([])
         }
       } catch (error) {
@@ -399,338 +635,54 @@ export default function ConversationPage() {
         setLoading(false)
       }
     }
-
     fetchMessages()
   }, [conversationId, currentUser])
 
-  // Auto-scroll to bottom
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Auto-focus on input - always keep cursor in input box
-  useEffect(() => {
-    // Focus on mount - more aggressive timing
-    const focusInput = () => {
-      if (inputRef.current) {
-        inputRef.current.focus()
-      }
-    }
-
-    // Initial focus after component mounts with multiple attempts
-    focusInput()
-    const timers = [
-      setTimeout(focusInput, 50),
-      setTimeout(focusInput, 100),
-      setTimeout(focusInput, 300),
-      setTimeout(focusInput, 500),
-      setTimeout(focusInput, 1000),
-    ]
-
-    return () => timers.forEach(timer => clearTimeout(timer))
-  }, [])
-
-  // Focus on input after loading completes
-  useEffect(() => {
-    if (!loading && inputRef.current) {
-      const timers = [
-        setTimeout(() => inputRef.current?.focus(), 50),
-        setTimeout(() => inputRef.current?.focus(), 200),
-      ]
-      return () => timers.forEach(timer => clearTimeout(timer))
-    }
-  }, [loading])
-
-  // Focus on input after sending completes
-  useEffect(() => {
-    if (!isSending && inputRef.current) {
-      const timers = [
-        setTimeout(() => inputRef.current?.focus(), 50),
-        setTimeout(() => inputRef.current?.focus(), 200),
-      ]
-      return () => timers.forEach(timer => clearTimeout(timer))
-    }
-  }, [isSending])
-
-  // Focus on input after messages change (new message received)
-  useEffect(() => {
-    if (inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100)
-    }
-  }, [messages])
-
-  // Refocus on input when window/document gets focus or after button click
-  useEffect(() => {
-    const handleWindowFocus = () => {
-      setTimeout(() => inputRef.current?.focus(), 50)
-    }
-
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      // After clicking a button, focus on input after a delay
-      if (target.closest('button')) {
-        setTimeout(() => inputRef.current?.focus(), 150)
-      }
-      // If clicking anywhere else (not textarea, button, or link), also focus
-      else if (!target.closest('textarea') && !target.closest('a')) {
-        setTimeout(() => inputRef.current?.focus(), 50)
-      }
-    }
-
-    window.addEventListener('focus', handleWindowFocus)
-    document.addEventListener('click', handleClick)
-
-    return () => {
-      window.removeEventListener('focus', handleWindowFocus)
-      document.removeEventListener('click', handleClick)
-    }
-  }, [])
-
-  // Send message function
-  const handleSendMessage = async () => {
-    const text = inputMessage.trim()
-    if (!text || isSending) return
-
-    setIsSending(true)
-
-    // Add user message to UI
-    const userMessage: Message = {
-      messageId: Date.now(),
-      conversationId: Number(conversationId),
-      role: 'user',
-      content: text,
-      timestamp: new Date().toISOString()
-    }
-    setMessages(prev => [...prev, userMessage])
-    setInputMessage('')
-
-    // Reset textarea height to default
-    if (inputRef.current) {
-      inputRef.current.style.height = 'auto'
-      inputRef.current.style.height = '40px'
-    }
-
-    // Add thinking indicator
-    const thinkingMessage: Message = {
-      messageId: Date.now() + 1,
-      conversationId: Number(conversationId),
-      role: 'assistant',
-      content: 'Thinking...',
-      timestamp: new Date().toISOString()
-    }
-    setMessages(prev => [...prev, thinkingMessage])
-
-    try {
-      const userId = currentUser?.userId || '2'
-      const companyId = currentUser?.companyId || '2'
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          newChat: false,
-          conversationId: Number(conversationId),
-          phone: '9999999999',
-          userId,
-          companyId
-        })
-      })
-
-      let replyText = await response.text()
-
-      // Convert escaped newlines to actual newlines
-      replyText = replyText.replace(/\\n/g, '\n')
-
-      // Check if the message contains "select" or is asking about plant/customer/category
-      // Also check for numbered lists that should be clickable
-      const shouldShowButtons = /select/i.test(replyText) ||
-                                /which\s+plant/i.test(replyText) ||
-                                /which\s+customer/i.test(replyText) ||
-                                /which\s+category/i.test(replyText) ||
-                                /\*\*Customers:\*\*/i.test(replyText) ||
-                                /Categories:/i.test(replyText) ||
-                                /available\s+GSM/i.test(replyText) ||
-                                /available\s+\w+.*:/i.test(replyText) ||
-                                /choose\s+(one|from)/i.test(replyText) ||
-                                /^\s*\d+\.\s+\d+\s*$/m.test(replyText)  // Numbered list of values like "1. 200"
-
-      // Check if this is a YES/NO confirmation message
-      const isYesNoConfirmation = /Reply with:\s*\n?\s*YES\s+[–-]\s+Save/i.test(replyText) ||
-                                  /YES\s+[–-]\s+Save.*NO\s+[–-]\s+Discard/i.test(replyText)
-
-      // Check if multi-select should be enabled for processes
-      const isMultiSelect = /select\s+processes/i.test(replyText)
-      let { cleanText, options } = parseOptions(replyText)
-
-      // If we have options from parsing, show them as buttons
-      const hasNumberedOptions = options.length >= 2
-
-      // If it's a YES/NO confirmation, override options
-      if (isYesNoConfirmation) {
-        cleanText = replyText.replace(/Reply with:[\s\S]*$/i, '').trim()
-        options = ['YES', 'NO']
-      }
-
-      // Check if this is a Job Specification Summary message with Confirm/Modify options
-      const isJobSpecSummary = /Job Specification Summary/i.test(replyText) &&
-                               (/Confirm.*Generate.*Costing/i.test(replyText) ||
-                                /Modify.*Details/i.test(replyText))
-
-      if (isJobSpecSummary) {
-        // Remove everything from the dashes line onwards (including "Please review..." and numbered options)
-        cleanText = replyText.replace(/-{5,}[\s\S]*$/g, '').trim()
-        // Also try to remove numbered options if dashes weren't present
-        cleanText = cleanText.replace(/\d+\.\s*[✅❌✏️✓✎]?\s*[✅❌✏️✓✎]?\s*(Confirm.*|Modify.*)$/gim, '').trim()
-        cleanText = cleanText.replace(/Please review.*details\.?\s*/gi, '').trim()
-        cleanText = cleanText.replace(/What would you like to do\?/i, '').trim()
-        // Remove leading emoji from title (📋)
-        cleanText = cleanText.replace(/^[📋📝📄]\s*/g, '').trim()
-        options = ['CONFIRM', 'MODIFY']
-      }
-
-      // Show buttons if we have numbered options OR explicit triggers
-      const showOptionsButtons = (shouldShowButtons && options.length > 0) || hasNumberedOptions || isYesNoConfirmation || isJobSpecSummary
-
-      // Remove thinking indicator and add actual response
-      setMessages(prev => {
-        const withoutThinking = prev.filter(m => m.content !== 'Thinking...')
-        return [...withoutThinking, {
-          messageId: Date.now() + 2,
-          conversationId: Number(conversationId),
-          role: 'assistant',
-          content: showOptionsButtons ? cleanText : replyText,
-          timestamp: new Date().toISOString(),
-          options: showOptionsButtons ? options : undefined,
-          allowMultiSelect: isMultiSelect
-        }]
-      })
-
-    } catch (error) {
-      clientLogger.error('Error sending message:', error)
-      // Remove thinking indicator on error
-      setMessages(prev => prev.filter(m => m.content !== 'Thinking...'))
-    } finally {
-      setIsSending(false)
-      // Focus back on input after sending
-      setTimeout(() => inputRef.current?.focus(), 100)
-    }
-  }
-
-  // Copy message handler
-  const handleCopyMessage = async (content: string, messageId: number) => {
-    try {
-      await navigator.clipboard.writeText(content)
-      setCopiedMessageId(messageId)
-      toast({
-        title: "Copied!",
-        description: "Message copied to clipboard",
-      })
-      setTimeout(() => setCopiedMessageId(null), 2000)
-    } catch (error) {
-      toast({
-        title: "Failed to copy",
-        description: "Could not copy message to clipboard",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Long press handlers
-  const handleLongPressStart = (content: string, messageId: number) => {
-    const timer = setTimeout(() => {
-      handleCopyMessage(content, messageId)
-    }, 500)
-    setLongPressTimer(timer)
-  }
-
-  const handleLongPressEnd = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer)
-      setLongPressTimer(null)
-    }
-  }
-
-  // Helper function to force focus on input with multiple attempts
-  const forceFocusInput = () => {
-    const attempts = [50, 100, 200, 300, 500]
-    attempts.forEach(delay => {
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus()
-        }
-      }, delay)
+  // Copy handler
+  const handleCopy = (text: string, messageId: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(messageId)
+      setTimeout(() => setCopiedId(null), 2000)
     })
   }
 
-  // Handle mic click for voice input
-  const handleMicClick = () => {
-    if (!recognitionRef.current) {
-      alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.')
-      return
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop()
-      setIsListening(false)
-    } else {
-      try {
-        recognitionRef.current.start()
-        setIsListening(true)
-      } catch (error) {
-        clientLogger.error('Error starting speech recognition:', error)
-      }
-    }
+  // Edit handlers
+  const handleStartEdit = (msg: ExtendedMessage) => {
+    setEditingId(msg.messageId)
+    setEditText(msg.content)
   }
 
-  // Option select handler - supports both string and number messageId for compatibility
-  const handleOptionSelect = (option: string, messageId: string | number, isMultiSelect: boolean) => {
-    const numericId = typeof messageId === 'string' ? Number(messageId) : messageId
-    if (isMultiSelect) {
-      setSelectedOptions(prev => {
-        const currentSelections = prev[numericId] || []
-        const isSelected = currentSelections.includes(option)
-        if (isSelected) {
-          return { ...prev, [numericId]: currentSelections.filter(opt => opt !== option) }
-        } else {
-          return { ...prev, [numericId]: [...currentSelections, option] }
-        }
-      })
-      // Focus on input after multi-select toggle
-      forceFocusInput()
-    } else {
-      // Handle special CONFIRM/MODIFY buttons for Job Specification Summary
-      if (option === 'CONFIRM') {
-        // Send confirm message directly
-        handleSendMessageWithText('Confirm & Generate Costing')
-        // Focus on input after action
-        forceFocusInput()
-      } else if (option === 'MODIFY') {
-        // Put "Modify: " in input box and focus
-        setInputMessage('Modify: ')
-        setTimeout(() => {
-          if (inputRef.current) {
-            inputRef.current.focus()
-            // Move cursor to end
-            const len = inputRef.current.value?.length || 0
-            inputRef.current.setSelectionRange(len, len)
-          }
-        }, 100)
-        return // Don't send message, let user complete it
-      } else {
-        // Single select - send immediately
-        handleSendMessageWithText(option)
-        // Focus on input after action
-        forceFocusInput()
-      }
-    }
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setEditText("")
   }
 
-  // Send message with specific text
+  const handleSaveEdit = (messageId: number) => {
+    if (!editText.trim()) return
+    const idx = messages.findIndex(m => m.messageId === messageId)
+    if (idx === -1) return
+    setMessages(prev => prev.slice(0, idx))
+    setEditingId(null)
+    setEditText("")
+    handleSendMessageWithText(editText.trim())
+  }
+
+  // Send message
+  const handleSendMessage = async () => {
+    const text = inputMessage.trim()
+    if (!text || isSending) return
+    await handleSendMessageWithText(text)
+  }
+
   const handleSendMessageWithText = async (text: string) => {
     if (!text.trim() || isSending) return
-
     setIsSending(true)
+
     const userMessage: ExtendedMessage = {
       messageId: Date.now(),
       conversationId: Number(conversationId),
@@ -740,12 +692,7 @@ export default function ConversationPage() {
     }
     setMessages(prev => [...prev, userMessage])
     setInputMessage('')
-
-    // Reset textarea height to default
-    if (inputRef.current) {
-      inputRef.current.style.height = 'auto'
-      inputRef.current.style.height = '40px'
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
 
     const thinkingMessage: ExtendedMessage = {
       messageId: Date.now() + 1,
@@ -773,95 +720,209 @@ export default function ConversationPage() {
         })
       })
 
-      let replyText = await response.text()
-
-      // Convert escaped newlines to actual newlines
-      replyText = replyText.replace(/\\n/g, '\n')
-
-      // Check if the message contains "select" or is asking about plant/customer/category
-      // Also check for numbered lists that should be clickable
-      const shouldShowButtons = /select/i.test(replyText) ||
-                                /which\s+plant/i.test(replyText) ||
-                                /which\s+customer/i.test(replyText) ||
-                                /which\s+category/i.test(replyText) ||
-                                /\*\*Customers:\*\*/i.test(replyText) ||
-                                /Categories:/i.test(replyText) ||
-                                /available\s+GSM/i.test(replyText) ||
-                                /available\s+\w+.*:/i.test(replyText) ||
-                                /choose\s+(one|from)/i.test(replyText) ||
-                                /^\s*\d+\.\s+\d+\s*$/m.test(replyText)  // Numbered list of values like "1. 200"
-
-      const isYesNoConfirmation = /Reply with:\s*\n?\s*YES\s+[–-]\s+Save/i.test(replyText) ||
-                                  /YES\s+[–-]\s+Save.*NO\s+[–-]\s+Discard/i.test(replyText)
-
-      const isMultiSelect = /select\s+processes/i.test(replyText)
-      let { cleanText, options } = parseOptions(replyText)
-
-      // If we have options from parsing, show them as buttons
-      const hasNumberedOptions = options.length >= 2
-
-      if (isYesNoConfirmation) {
-        cleanText = replyText.replace(/Reply with:[\s\S]*$/i, '').trim()
-        options = ['YES', 'NO']
-      }
-
-      // Check if this is a Job Specification Summary message with Confirm/Modify options
-      const isJobSpecSummary = /Job Specification Summary/i.test(replyText) &&
-                               (/Confirm.*Generate.*Costing/i.test(replyText) ||
-                                /Modify.*Details/i.test(replyText))
-
-      if (isJobSpecSummary) {
-        // Remove everything from the dashes line onwards (including "Please review..." and numbered options)
-        cleanText = replyText.replace(/-{5,}[\s\S]*$/g, '').trim()
-        // Also try to remove numbered options if dashes weren't present
-        cleanText = cleanText.replace(/\d+\.\s*[✅❌✏️✓✎]?\s*[✅❌✏️✓✎]?\s*(Confirm.*|Modify.*)$/gim, '').trim()
-        cleanText = cleanText.replace(/Please review.*details\.?\s*/gi, '').trim()
-        cleanText = cleanText.replace(/What would you like to do\?/i, '').trim()
-        // Remove leading emoji from title (📋)
-        cleanText = cleanText.replace(/^[📋📝📄]\s*/g, '').trim()
-        options = ['CONFIRM', 'MODIFY']
-      }
-
-      // Show buttons if we have numbered options OR explicit triggers
-      const showOptionsButtons = (shouldShowButtons && options.length > 0) || hasNumberedOptions || isYesNoConfirmation || isJobSpecSummary
+      let replyText = (await response.text()).replace(/\\n/g, '\n')
+      const processed = processMessageForOptions({
+        messageId: Date.now() + 2,
+        conversationId: Number(conversationId),
+        role: 'assistant',
+        content: replyText,
+        timestamp: new Date().toISOString()
+      })
 
       setMessages(prev => {
         const withoutThinking = prev.filter(m => m.content !== 'Thinking...')
-        return [...withoutThinking, {
-          messageId: Date.now() + 2,
-          conversationId: Number(conversationId),
-          role: 'assistant',
-          content: showOptionsButtons ? cleanText : replyText,
-          timestamp: new Date().toISOString(),
-          options: showOptionsButtons ? options : undefined,
-          allowMultiSelect: isMultiSelect
-        }]
+        return [...withoutThinking, processed]
       })
     } catch (error) {
       clientLogger.error('Error sending message:', error)
       setMessages(prev => prev.filter(m => m.content !== 'Thinking...'))
     } finally {
       setIsSending(false)
-      // Focus back on input after sending
-      setTimeout(() => inputRef.current?.focus(), 100)
     }
   }
 
-  // Multi-select submit handler - supports both string and number messageId for compatibility
+  // Option handlers
+  const handleOptionSelect = (option: string, messageId: string | number, isMultiSelect: boolean) => {
+    const numericId = typeof messageId === 'string' ? Number(messageId) : messageId
+    if (isMultiSelect) {
+      setSelectedOptions(prev => {
+        const current = prev[numericId] || []
+        return { ...prev, [numericId]: current.includes(option) ? current.filter(o => o !== option) : [...current, option] }
+      })
+    } else if (option === 'CONFIRM') {
+      handleSendMessageWithText('Confirm & Generate Costing')
+    } else if (option === 'MODIFY') {
+      setInputMessage('Modify: ')
+      setTimeout(() => textareaRef.current?.focus(), 100)
+    } else {
+      handleSendMessageWithText(option)
+    }
+  }
+
   const handleMultiSelectSubmit = (messageId: string | number) => {
     const numericId = typeof messageId === 'string' ? Number(messageId) : messageId
     const selections = selectedOptions[numericId] || []
     if (selections.length > 0) {
-      const message = selections.join(', ')
-      handleSendMessageWithText(message)
-      setSelectedOptions(prev => {
-        const newState = { ...prev }
-        delete newState[numericId]
-        return newState
-      })
-      // Focus on input after submit with multiple attempts
-      forceFocusInput()
+      handleSendMessageWithText(selections.join(', '))
+      setSelectedOptions(prev => { const s = { ...prev }; delete s[numericId]; return s })
     }
+  }
+
+  // Voice input
+  const handleMicClick = () => {
+    if (!recognitionRef.current) {
+      toast({ title: "Not supported", description: "Voice input is not supported in your browser.", variant: "destructive" })
+      return
+    }
+    if (isListening) {
+      recognitionRef.current.stop()
+      setIsListening(false)
+    } else {
+      try { recognitionRef.current.start(); setIsListening(true) }
+      catch { toast({ title: "Error", description: "Could not start voice input.", variant: "destructive" }) }
+    }
+  }
+
+  // Render a single message
+  const renderMessage = (message: ExtendedMessage) => {
+    const isCosting = isCostingSummary(message.content)
+    const detectedContent = extractContentName(message.content)
+
+    if (message.role === 'user') {
+      // Editing mode
+      if (editingId === message.messageId) {
+        return (
+          <div key={message.messageId} className="flex justify-end mb-4">
+            <div className="max-w-[85%] md:max-w-[80%] w-full">
+              <div className="bg-[#005180]/10 border-2 border-[#005180] rounded-2xl rounded-tr-sm px-3 py-2 shadow-md">
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full text-base md:text-sm text-gray-900 bg-transparent border-0 outline-none resize-none min-h-[40px]"
+                  autoFocus
+                />
+                <div className="flex justify-end gap-2 mt-2">
+                  <button onClick={handleCancelEdit} className="p-1.5 rounded-full hover:bg-gray-200 transition-colors">
+                    <X className="w-4 h-4 text-gray-500" />
+                  </button>
+                  <button onClick={() => handleSaveEdit(message.messageId)} className="p-1.5 rounded-full bg-[#005180] hover:bg-[#004570] transition-colors">
+                    <Send className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      return (
+        <div key={message.messageId} className="flex justify-end mb-4 group">
+          <div className="flex items-end gap-1.5">
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => handleCopy(message.content, message.messageId)}
+                className="opacity-50 md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-all">
+                {copiedId === message.messageId ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-gray-400" />}
+              </button>
+              <button onClick={() => handleStartEdit(message)}
+                className="opacity-50 md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-all">
+                <Pencil className="w-3.5 h-3.5 text-gray-400" />
+              </button>
+            </div>
+            <div className="max-w-[85%] md:max-w-[80%] bg-[#005180] text-white rounded-2xl rounded-tr-sm px-4 py-3 md:py-2.5 shadow-md">
+              <p className="text-base md:text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // AI message
+    const copyButton = (
+      <button onClick={() => handleCopy(message.content, message.messageId)}
+        className="opacity-50 md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded-full hover:bg-gray-200 active:bg-gray-200 transition-all self-end">
+        {copiedId === message.messageId ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-gray-400" />}
+      </button>
+    )
+
+    // Thinking indicator
+    if (message.content === 'Thinking...') {
+      return (
+        <div key={message.messageId} className="flex mb-4">
+          <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm">
+            <Loader2 className="w-5 h-5 md:w-4 md:h-4 animate-spin text-gray-600" />
+          </div>
+        </div>
+      )
+    }
+
+    // Costing card
+    if (isCosting) {
+      return (
+        <div key={message.messageId}>
+          <div className="flex mb-4 group">
+            <div className="w-full md:max-w-[90%] lg:max-w-[85%]">
+              {renderCostingSummary(message.content)}
+            </div>
+            {copyButton}
+          </div>
+          {message.options && message.options.length > 0 && renderOptionsButtons(message)}
+        </div>
+      )
+    }
+
+    // Default AI message
+    return (
+      <div key={message.messageId}>
+        <div className="flex mb-4 group">
+          <div className="max-w-[85%] md:max-w-[80%]">
+            <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 md:py-2.5 shadow-md">
+              {detectedContent && (
+                <div className="mb-2">
+                  <ContentImage name={detectedContent} className="w-28 h-28 md:w-32 md:h-32" />
+                </div>
+              )}
+              <div className="text-base md:text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+                {renderTextWithBoldAndLinks(message.content)}
+              </div>
+            </div>
+          </div>
+          {copyButton}
+        </div>
+        {message.options && message.options.length > 0 && renderOptionsButtons(message)}
+      </div>
+    )
+  }
+
+  // Render option buttons for a message
+  const renderOptionsButtons = (message: ExtendedMessage) => {
+    if (!message.options || message.options.length === 0) return null
+
+    const isYesNo = message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')
+    const isConfirmModify = message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY')
+
+    if (isYesNo || isConfirmModify) {
+      return (
+        <ActionButtonsRow
+          options={message.options}
+          messageId={String(message.messageId)}
+          onOptionSelect={handleOptionSelect}
+          isTyping={isSending}
+        />
+      )
+    }
+
+    return (
+      <ScrollableOptionsList
+        options={message.options}
+        messageId={String(message.messageId)}
+        isMultiSelect={message.allowMultiSelect || false}
+        selectedOptions={selectedOptions[message.messageId] || []}
+        onOptionSelect={handleOptionSelect}
+        onMultiSelectSubmit={handleMultiSelectSubmit}
+        isTyping={isSending}
+        maxVisibleItems={5}
+      />
+    )
   }
 
   return (
@@ -869,173 +930,88 @@ export default function ConversationPage() {
       <div className="hidden lg:block">
         <AppSidebar />
       </div>
-      <SidebarInset className="flex flex-col h-screen overflow-hidden">
-        {/* Fixed Header */}
-        <div className="shrink-0">
-          <AppHeader
-            pageName={`Conversation #${conversationId}`}
-            showBackButton={true}
-            onBackClick={() => router.push('/chats')}
-          />
-        </div>
+      <SidebarInset>
+        <AppHeader
+          pageName={`Conversation`}
+          showBackButton={true}
+          onBackClick={() => router.push('/chats')}
+          onMenuClick={handleMenuClick}
+        />
 
-        {/* Main Content Area - fills remaining space */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <Card className="flex-1 m-4 mb-0 flex flex-col min-h-0 overflow-hidden">
-            <CardContent className="flex-1 p-0 flex flex-col min-h-0 overflow-hidden">
+        {/* Main chat area - same as ParkBuddy */}
+        <div className="h-[calc(100dvh-3.5rem)] md:h-[calc(100dvh-4rem)] overflow-hidden">
+          <div className="flex flex-col h-full w-full overflow-hidden">
+            {/* Messages Area */}
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 md:px-4 py-4 md:py-6 pb-[130px] md:pb-[100px]"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {loading ? (
-                <div className="flex-1 flex items-center justify-center text-gray-500">
+                <div className="flex items-center justify-center h-full text-gray-500">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005180] mx-auto mb-4"></div>
                     <p>Loading messages...</p>
                   </div>
                 </div>
+              ) : messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="text-center">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No messages yet</p>
+                  </div>
+                </div>
               ) : (
-                <>
-                  {/* Scrollable Chat Area */}
-                  <ScrollArea className="flex-1 min-h-0">
-                    <div className="space-y-4 p-4">
-                      {messages.length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
-                          <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                          <p>No messages yet</p>
-                        </div>
-                      )}
-                      {messages.map((message) => {
-                        const isCosting = isCostingSummary(message.content)
-                        return (
-                        <div key={message.messageId}>
-                          <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} w-full pr-2`}>
-                            <div className={`relative group ${message.role === 'user' ? 'max-w-[85%] md:max-w-[40%]' : 'max-w-[95%] md:max-w-[40%]'} ${isCosting ? 'w-full' : ''}`}>
-                              <div
-                                className={`rounded-2xl text-base leading-relaxed whitespace-pre-wrap break-words overflow-hidden cursor-pointer transition-all active:scale-95 ${
-                                  isCosting ? 'p-0 bg-transparent shadow-none w-full' : 'px-4 py-3 shadow-sm'
-                                } ${
-                                  message.role === 'user'
-                                    ? 'bg-[#2F4669] text-white'
-                                    : isCosting ? '' : 'bg-blue-50 text-foreground'
-                                } ${copiedMessageId === message.messageId ? 'ring-2 ring-green-500' : ''}`}
-                                style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-                                onMouseDown={() => handleLongPressStart(message.content, message.messageId)}
-                                onMouseUp={handleLongPressEnd}
-                                onMouseLeave={handleLongPressEnd}
-                                onTouchStart={() => handleLongPressStart(message.content, message.messageId)}
-                                onTouchEnd={handleLongPressEnd}
-                                onTouchCancel={handleLongPressEnd}
-                              >
-                                {message.content === 'Thinking...' ? (
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex gap-1">
-                                      <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                                      <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                                      <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                                    </div>
-                                  </div>
-                                ) : isCosting ? (
-                                  renderCostingSummary(message.content)
-                                ) : (
-                                  <div className="text-sm">{renderTextWithBoldAndLinks(message.content)}</div>
-                                )}
-                              </div>
-
-                              {/* Show "Copied" badge when copied */}
-                              {copiedMessageId === message.messageId && (
-                                <div className="absolute -top-3 -right-2 flex items-center gap-1 bg-green-500 text-white px-2 py-1 rounded-full shadow-md text-xs font-medium">
-                                  <Check className="h-3 w-3" />
-                                  <span>Copied</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Display option buttons - use ActionButtonsRow for YES/NO or CONFIRM/MODIFY, ScrollableOptionsList for others */}
-                          {message.options && message.options.length > 0 && (
-                            <>
-                              {/* Check if it's YES/NO or CONFIRM/MODIFY - use horizontal button row */}
-                              {((message.options.length === 2 && message.options.includes('YES') && message.options.includes('NO')) ||
-                                (message.options.length === 2 && message.options.includes('CONFIRM') && message.options.includes('MODIFY'))) ? (
-                                <ActionButtonsRow
-                                  options={message.options}
-                                  messageId={String(message.messageId)}
-                                  onOptionSelect={handleOptionSelect}
-                                  isTyping={isSending}
-                                />
-                              ) : (
-                                /* Use scrollable list for all other options */
-                                <ScrollableOptionsList
-                                  options={message.options}
-                                  messageId={String(message.messageId)}
-                                  isMultiSelect={message.allowMultiSelect || false}
-                                  selectedOptions={selectedOptions[message.messageId] || []}
-                                  onOptionSelect={handleOptionSelect}
-                                  onMultiSelectSubmit={handleMultiSelectSubmit}
-                                  isTyping={isSending}
-                                  maxVisibleItems={5}
-                                />
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )})}
-
-                      <div ref={messagesEndRef} />
-                    </div>
-                  </ScrollArea>
-                </>
+                <div className="max-w-4xl mx-auto">
+                  {messages.map(renderMessage)}
+                  <div ref={messagesEndRef} />
+                </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Fixed Input Area at Bottom */}
-          <div className="shrink-0 border-t border-border/50 bg-background px-4 py-3 shadow-sm z-10">
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 focus-within:border-primary">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleMicClick}
-                disabled={isSending}
-                className={`h-9 w-9 shrink-0 rounded-full ${isListening ? 'text-red-500 animate-pulse bg-red-50' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-                title={isListening ? 'Stop recording' : 'Start voice input'}
-              >
-                <Mic className="h-5 w-5" />
-              </Button>
-              <Textarea
-                ref={inputRef}
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSendMessage()
-                  }
-                }}
-                placeholder={isListening ? "Listening..." : "Message to Park Buddy..."}
-                className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[40px] max-h-[120px] py-2"
-                rows={1}
-                autoFocus
-                disabled={isSending}
-                style={{
-                  height: 'auto',
-                  overflow: inputMessage.split('\n').length > 3 ? 'auto' : 'hidden'
-                }}
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement
-                  target.style.height = 'auto'
-                  target.style.height = `${Math.min(target.scrollHeight, 120)}px`
-                }}
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isSending}
-                size="icon"
-                className="h-9 w-9 shrink-0 rounded-full disabled:opacity-50 text-white"
-                style={{ backgroundColor: "#2F4669" }}
-              >
-                {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-              </Button>
+            {/* Input Area - Fixed above bottom nav */}
+            <div className="fixed bottom-14 md:bottom-0 left-0 right-0 lg:left-64 border-t border-gray-200 bg-white px-3 md:px-4 py-2 md:py-3 z-20 shadow-[0_-2px_10px_rgba(0,0,0,0.08)]">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex gap-2 items-end">
+                  <Button
+                    onClick={handleMicClick}
+                    disabled={isSending}
+                    size="icon"
+                    className={cn(
+                      "h-11 w-11 rounded-full flex-shrink-0 active:scale-95 transition-all shadow-md self-end",
+                      isListening
+                        ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                        : "bg-gray-100 hover:bg-gray-200 text-[#005180]"
+                    )}
+                  >
+                    <Mic className={cn("h-5 w-5", isListening && "text-white")} />
+                  </Button>
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={textareaRef}
+                      value={inputMessage}
+                      onChange={(e) => { setInputMessage(e.target.value); autoResizeTextarea() }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage() } }}
+                      placeholder={isListening ? "Listening..." : "Ask ParkBuddy anything..."}
+                      className="w-full min-h-[44px] max-h-[150px] resize-none rounded-2xl border-2 border-gray-300 focus:border-[#005180] focus:ring-2 focus:ring-[#005180] focus:outline-none px-3 pr-3 text-base md:text-sm py-2.5 md:py-2 bg-white"
+                      disabled={isSending || isListening}
+                      rows={1}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!inputMessage.trim() || isSending || isListening}
+                    size="icon"
+                    className="h-11 w-11 rounded-full bg-[#005180] hover:bg-[#004570] disabled:opacity-50 flex-shrink-0 active:scale-95 transition-transform shadow-md self-end"
+                  >
+                    {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
+        <MobileBottomNav onMenuToggle={handleMenuToggle} />
       </SidebarInset>
     </SidebarProvider>
   )
