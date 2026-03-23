@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send, MessageSquare, Clock, CheckCircle, AlertCircle, Package, Loader2, Plus, X, Eye } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { getUserRateRequests, createRateRequest } from "@/lib/rate-queries-api"
+import { getAllRateRequests, createRateRequest, provideRate } from "@/lib/rate-queries-api"
+import { Input } from "@/components/ui/input"
 import { getCurrentUser } from "@/lib/permissions"
 import { formatDistanceToNow, differenceInHours } from "date-fns"
 import { RequestTimeline } from "@/components/request-timeline"
@@ -25,12 +26,14 @@ import { useToast } from "@/hooks/use-toast"
 
 interface RateQuery {
   requestId: number
+  requestNumber?: string
   requestorId: number
   requestorName?: string
   department: string
   requestMessage: string
   status?: string
   currentStatus: string
+  currentLevel?: number
   rate?: number | string
   providedRate?: number | string
   createdAt: string
@@ -39,6 +42,13 @@ interface RateQuery {
   itemID?: string | number
   itemName?: string
   plantID?: string
+  slaStatus?: string
+  hoursRemaining?: number
+  isOverdue?: boolean
+  isCritical?: boolean
+  currentResponsibleName?: string
+  currentResponsibleEmail?: string
+  requestorEmail?: string
 }
 
 // Team member interface
@@ -65,7 +75,7 @@ interface ItemCombo {
 export default function AskRatePage() {
   const { toast } = useToast()
   const [selectedPerson, setSelectedPerson] = useState<string>("")
-  const [department, setDepartment] = useState<"Purchase" | "Operations" | "Sales">("Purchase")
+  const [department, setDepartment] = useState<string>("")
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [loadingTeamMembers, setLoadingTeamMembers] = useState(false)
   const [message, setMessage] = useState("")
@@ -77,6 +87,13 @@ export default function AskRatePage() {
   const [selectedRequestForTimeline, setSelectedRequestForTimeline] = useState<RateQuery | null>(null)
   const [requestFilter, setRequestFilter] = useState<"all" | "answered" | "unanswered">("all")
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest")
+
+  // Provide Rate dialog state
+  const [showProvideRate, setShowProvideRate] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<RateQuery | null>(null)
+  const [rateValue, setRateValue] = useState("")
+  const [rateNote, setRateNote] = useState("")
+  const [isProvidingRate, setIsProvidingRate] = useState(false)
   const [groups, setGroups] = useState<any[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string>("")
   const [loadingGroups, setLoadingGroups] = useState(false)
@@ -143,7 +160,7 @@ export default function AskRatePage() {
     setSelectedPerson(personId)
     const person = teamMembers.find(p => p.id === personId)
     if (person) {
-      setDepartment(person.department as "Purchase" | "Operations" | "Sales")
+      setDepartment(person.department || '')
     }
   }
 
@@ -373,19 +390,55 @@ export default function AskRatePage() {
     }
   }, [gsmList, selectedGsmFrom, selectedGsmTo])
 
-  // Fetch user's rate requests
+  // Map PascalCase DB columns to camelCase frontend fields
+  const mapRequest = (r: any): RateQuery => ({
+    requestId: r.RequestId ?? r.requestId,
+    requestNumber: r.RequestNumber ?? r.requestNumber,
+    requestorId: r.RequestorId ?? r.requestorId,
+    requestorName: r.RequestorName ?? r.requestorName,
+    department: r.Department ?? r.department,
+    requestMessage: r.RequestMessage ?? r.requestMessage,
+    status: r.CurrentStatus ?? r.currentStatus ?? r.status,
+    currentStatus: r.CurrentStatus ?? r.currentStatus ?? r.status ?? 'Pending',
+    currentLevel: r.CurrentLevel ?? r.currentLevel,
+    rate: r.ProvidedRate ?? r.providedRate ?? r.rate,
+    providedRate: r.ProvidedRate ?? r.providedRate,
+    createdAt: r.RequestDate ?? r.CreatedDate ?? r.createdAt,
+    respondedAt: r.RateProvidedDate ?? r.respondedAt,
+    itemCode: r.ItemCode ?? r.itemCode,
+    itemID: r.ItemID ?? r.itemID,
+    itemName: r.ItemName ?? r.itemName,
+    plantID: r.PlantID ?? r.plantID,
+    slaStatus: r.SLAStatus ?? r.slaStatus,
+    hoursRemaining: r.HoursRemaining ?? r.hoursRemaining,
+    isOverdue: r.IsOverdue ?? r.isOverdue,
+    isCritical: r.IsCritical ?? r.isCritical,
+    currentResponsibleName: r.CurrentResponsibleName ?? r.currentResponsibleName,
+    currentResponsibleEmail: r.CurrentResponsibleEmail ?? r.currentResponsibleEmail,
+    requestorEmail: r.RequestorEmail ?? r.requestorEmail,
+  })
+
+  // Fetch rate requests relevant to the current user (created by them or assigned to them)
   const fetchMyRequests = useCallback(async () => {
     if (!currentUser) return
 
     setLoading(true)
     try {
-      // Use user ID 2 as default for KAM users (you can map this to actual user IDs)
-      const userId = 2
-      const result = await getUserRateRequests(userId)
+      const result = await getAllRateRequests()
       if (result.success && result.data) {
-        clientLogger.log('📋 Ask Rate - Fetched requests:', result.data)
-        clientLogger.log('📋 Ask Rate - First request:', result.data[0])
-        setMyRequests(result.data)
+        const allMapped = result.data.map(mapRequest)
+        const userId = currentUser.userId || currentUser.UserID
+        const userEmail = (currentUser.email || currentUser.EmailID || '').toLowerCase()
+
+        // Show only requests the user created or is assigned to answer
+        const relevant = allMapped.filter(r => {
+          const isRequestor = userId && String(r.requestorId) === String(userId)
+          const isAssigned = userEmail && (r.currentResponsibleEmail || '').toLowerCase() === userEmail
+          return isRequestor || isAssigned
+        })
+
+        clientLogger.log('📋 Ask Rate - Fetched:', result.data.length, 'Relevant:', relevant.length)
+        setMyRequests(relevant)
       }
     } catch (error) {
       clientLogger.error('Error fetching requests:', error)
@@ -663,11 +716,13 @@ export default function AskRatePage() {
       const selectedPersonData = teamMembers.find(p => p.id === selectedPerson)
       const assignedToEmail = selectedPersonData?.email || ""
 
+      const currentUserId = currentUser?.userId || currentUser?.UserID || 2
       const requestPayload = {
-        requestorId: 2,
+        requestorId: typeof currentUserId === 'string' ? parseInt(currentUserId) : currentUserId,
         department: department,
         requestMessage: fullMessage,
         assignedToEmail: assignedToEmail,
+        assignedToUserId: selectedPersonData?.id ? parseInt(selectedPersonData.id) : undefined,
         ItemCode: "",
         ItemID: itemsArray.length > 0 ? String(itemsArray[0].ItemID) : "",
         ItemName: uniqueGroups.join(', '),
@@ -682,6 +737,30 @@ export default function AskRatePage() {
       const result = await createRateRequest(requestPayload)
 
       if (result.success) {
+        // Send email notification to the selected person
+        try {
+          if (selectedPersonData?.email) {
+            await fetch('/api/send-rate-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: selectedPersonData.email,
+                toName: selectedPersonData.name,
+                fromName: currentUser?.name || 'A team member',
+                itemGroups: uniqueGroups.join(', '),
+                qualities: uniqueQualities.join(', '),
+                gsmRanges: gsmRanges.join(', '),
+                mills: uniqueMills.join(', '),
+                productionUnits: uniqueUnits.join(', '),
+                question: message.trim(),
+                itemCount: itemsArray.length,
+              }),
+            })
+          }
+        } catch (emailErr) {
+          console.warn('Email notification failed (non-blocking):', emailErr)
+        }
+
         toast({
           title: "Success",
           description: "Rate request sent successfully!",
@@ -696,7 +775,7 @@ export default function AskRatePage() {
         setSelectedGsmTo("")
         setSelectedMill("")
         setAddedCombos([])
-        setDepartment("Purchase")
+        setDepartment("")
         setFilteredItems([])
         await fetchMyRequests()
       } else {
@@ -714,6 +793,47 @@ export default function AskRatePage() {
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  // Handle provide rate submission
+  const handleProvideRate = async () => {
+    if (!selectedRequest || !rateValue.trim()) return
+
+    setIsProvidingRate(true)
+    try {
+      const userId = currentUser?.userId || currentUser?.UserID || 0
+      const result = await provideRate({
+        requestId: selectedRequest.requestId,
+        userId: typeof userId === 'string' ? parseInt(userId) : userId,
+        rate: rateValue.trim(),
+      })
+
+      if (result.success) {
+        toast({
+          title: "Rate Provided",
+          description: `Rate ₹${rateValue} submitted for ${selectedRequest.requestNumber || '#' + selectedRequest.requestId}`,
+        })
+        setShowProvideRate(false)
+        setSelectedRequest(null)
+        setRateValue("")
+        setRateNote("")
+        await fetchMyRequests()
+      } else {
+        toast({
+          title: "Failed",
+          description: result.error || "Failed to provide rate",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProvidingRate(false)
     }
   }
 
@@ -834,7 +954,7 @@ export default function AskRatePage() {
           {/* Ask New Rate Form */}
           <Card className="border border-border/60">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold">Ask Purchase Department</CardTitle>
+              <CardTitle className="text-xl font-semibold">Ask Rate</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -875,25 +995,26 @@ export default function AskRatePage() {
                             <SelectItem key={person.id} value={person.id} className="truncate">
                               <div className="flex items-center gap-2 truncate">
                                 <span className="font-medium truncate">{person.name}</span>
-                                <span className="text-xs text-gray-500 truncate hidden sm:inline">({person.email})</span>
+                                {person.department && <span className="text-xs text-gray-400 truncate">· {person.department}</span>}
                               </div>
                             </SelectItem>
                           ))}
                         </div>
                       </SelectContent>
                     </Select>
-                    {selectedPerson && (
-                      <Badge
-                        variant="outline"
-                        className={`mt-2 ${
-                          department === "Purchase"
-                            ? "bg-blue-50 text-blue-700 border-blue-200 font-medium"
-                            : "bg-purple-50 text-purple-700 border-purple-200 font-medium"
-                        }`}
-                      >
-                        {department}
-                      </Badge>
-                    )}
+                    {selectedPerson && (() => {
+                      const deptColors: Record<string, string> = {
+                        Purchase: "bg-blue-50 text-blue-700 border-blue-200",
+                        Operations: "bg-amber-50 text-amber-700 border-amber-200",
+                        Sales: "bg-green-50 text-green-700 border-green-200",
+                      }
+                      const colorClass = deptColors[department] || "bg-gray-50 text-gray-700 border-gray-200"
+                      return (
+                        <Badge variant="outline" className={`mt-2 font-medium ${colorClass}`}>
+                          {department}
+                        </Badge>
+                      )
+                    })()}
                   </div>
 
                   <div className="min-w-0">
@@ -1249,10 +1370,15 @@ export default function AskRatePage() {
                             {/* Header Row */}
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-gray-900">#{request.requestId}</span>
+                                <span className="font-semibold text-gray-900">{request.requestNumber || `#${request.requestId}`}</span>
                                 {getStatusBadge(request.currentStatus)}
-                                <Badge variant="outline" className="text-xs bg-gray-50">
-                                  {request.department}
+                                <Badge variant="outline" className={`text-xs ${
+                                  request.department === 'Purchase' ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : request.department === 'Operations' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : request.department === 'Sales' ? 'bg-green-50 text-green-700 border-green-200'
+                                    : 'bg-gray-50 text-gray-700 border-gray-200'
+                                }`}>
+                                  {request.department || 'General'}
                                 </Badge>
                               </div>
                               <span className="text-xs text-gray-500">
@@ -1262,10 +1388,15 @@ export default function AskRatePage() {
                               </span>
                             </div>
 
-                            {/* Requestor */}
-                            {request.requestorName && (
-                              <p className="text-xs text-gray-500 mb-3">From: <span className="font-medium text-gray-700">{request.requestorName}</span></p>
-                            )}
+                            {/* Requestor & Assigned To */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
+                              {request.requestorName && (
+                                <p className="text-xs text-gray-500">From: <span className="font-medium text-gray-700">{request.requestorName}</span></p>
+                              )}
+                              {request.currentResponsibleName && (
+                                <p className="text-xs text-gray-500">To: <span className="font-medium text-gray-700">{request.currentResponsibleName}</span></p>
+                              )}
+                            </div>
 
                             {/* Item Details Grid */}
                             <div className="bg-blue-50 rounded-lg p-3 mb-3">
@@ -1319,6 +1450,27 @@ export default function AskRatePage() {
                                   </p>
                                 )}
                               </div>
+                            )}
+
+                            {/* Provide Rate button - only for the assigned person on pending requests */}
+                            {(!request.providedRate && !request.rate && request.currentStatus?.toLowerCase() !== 'completed'
+                              && currentUser && request.currentResponsibleEmail
+                              && (currentUser.email || currentUser.EmailID || '').toLowerCase() === (request.currentResponsibleEmail || '').toLowerCase()
+                            ) && (
+                              <Button
+                                size="sm"
+                                className="w-full mt-3 bg-[#005180] hover:bg-[#004060] text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedRequest(request)
+                                  setRateValue("")
+                                  setRateNote("")
+                                  setShowProvideRate(true)
+                                }}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Provide Rate
+                              </Button>
                             )}
 
                             {/* Click hint */}
@@ -1474,6 +1626,133 @@ export default function AskRatePage() {
               Close
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Provide Rate Dialog */}
+      <Dialog open={showProvideRate} onOpenChange={(open) => {
+        setShowProvideRate(open)
+        if (!open) { setSelectedRequest(null); setRateValue(""); setRateNote("") }
+      }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="bg-[#005180] p-2 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-white" />
+              </div>
+              Provide Rate
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedRequest && (() => {
+            const parsed = parseRequestMessage(selectedRequest.requestMessage || '')
+            return (
+              <div className="space-y-4">
+                {/* Request Info */}
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-900">{selectedRequest.requestNumber || `#${selectedRequest.requestId}`}</span>
+                    <Badge variant="outline" className="text-xs">{selectedRequest.department}</Badge>
+                  </div>
+                  {selectedRequest.requestorName && (
+                    <p className="text-sm text-gray-600">From: <span className="font-medium">{selectedRequest.requestorName}</span></p>
+                  )}
+                  {selectedRequest.currentResponsibleName && (
+                    <p className="text-sm text-gray-600">To: <span className="font-medium">{selectedRequest.currentResponsibleName}</span></p>
+                  )}
+                </div>
+
+                {/* Item Details */}
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-blue-600 text-xs">Item Group</span>
+                      <p className="font-semibold text-blue-900">{parsed.itemGroup || selectedRequest.itemName || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 text-xs">Quality</span>
+                      <p className="font-semibold text-blue-900">{parsed.quality || '-'}</p>
+                    </div>
+                    {parsed.gsmRange && (
+                      <div>
+                        <span className="text-blue-600 text-xs">GSM Range</span>
+                        <p className="font-semibold text-blue-900">{parsed.gsmRange}</p>
+                      </div>
+                    )}
+                    {parsed.mill && (
+                      <div>
+                        <span className="text-blue-600 text-xs">Mill</span>
+                        <p className="font-semibold text-blue-900">{parsed.mill}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Question */}
+                {parsed.question && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <span className="text-yellow-700 text-xs font-medium">Question</span>
+                    <p className="text-sm text-gray-800 mt-1">{parsed.question}</p>
+                  </div>
+                )}
+
+                {/* Rate Input */}
+                <div>
+                  <Label htmlFor="rate-input" className="text-sm font-medium">
+                    Rate (₹) <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="rate-input"
+                    placeholder="Enter rate e.g. 45.50"
+                    value={rateValue}
+                    onChange={(e) => setRateValue(e.target.value)}
+                    className="mt-1"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Note */}
+                <div>
+                  <Label htmlFor="rate-note" className="text-sm font-medium">Note (optional)</Label>
+                  <Textarea
+                    id="rate-note"
+                    placeholder="Any additional remarks..."
+                    value={rateNote}
+                    onChange={(e) => setRateNote(e.target.value)}
+                    className="mt-1"
+                    rows={2}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowProvideRate(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 bg-[#78BE20] hover:bg-[#6aaa1a] text-white"
+                    disabled={!rateValue.trim() || isProvidingRate}
+                    onClick={handleProvideRate}
+                  >
+                    {isProvidingRate ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Submit Rate
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </SidebarProvider>

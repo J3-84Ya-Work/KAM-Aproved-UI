@@ -55,20 +55,28 @@ interface RequestTimelineProps {
 
 // Parse request message to extract structured data
 const parseRequestMessage = (message: string) => {
-  const result: { itemGroup?: string; quality?: string; gsmRange?: string; mill?: string; question?: string } = {}
+  const result: { itemGroup?: string; quality?: string; gsmRange?: string; mill?: string; question?: string; productionUnit?: string } = {}
   const lines = message.split('\n').map(l => l.trim()).filter(Boolean)
   for (const line of lines) {
-    if (line.startsWith('Item Group:')) result.itemGroup = line.replace('Item Group:', '').trim()
-    else if (line.startsWith('Quality:')) result.quality = line.replace('Quality:', '').trim()
-    else if (line.startsWith('GSM Range:')) result.gsmRange = line.replace('GSM Range:', '').trim()
-    else if (line.startsWith('Mill:')) result.mill = line.replace('Mill:', '').trim()
-    else if (line.startsWith('Question:')) result.question = line.replace('Question:', '').trim()
+    if (line.startsWith('Item Groups:') || line.startsWith('Item Group:')) {
+      result.itemGroup = line.replace(/^Item Groups?:/, '').trim()
+    } else if (line.startsWith('Qualities:') || line.startsWith('Quality:')) {
+      result.quality = line.replace(/^Qualit(ies|y):/, '').trim()
+    } else if (line.startsWith('GSM Ranges:') || line.startsWith('GSM Range:')) {
+      result.gsmRange = line.replace(/^GSM Ranges?:/, '').trim()
+    } else if (line.startsWith('Mill:') || line.startsWith('Mills:')) {
+      result.mill = line.replace(/^Mills?:/, '').trim()
+    } else if (line.startsWith('Production Units:') || line.startsWith('Production Unit:')) {
+      result.productionUnit = line.replace(/^Production Units?:/, '').trim()
+    } else if (line.startsWith('Question:')) {
+      result.question = line.replace('Question:', '').trim()
+    }
   }
   return result
 }
 
 const getActionIcon = (action: string) => {
-  switch (action.toLowerCase()) {
+  switch ((action || '').toLowerCase()) {
     case 'created':
       return <FileText className="h-5 w-5 text-blue-500" />
     case 'escalated':
@@ -84,7 +92,7 @@ const getActionIcon = (action: string) => {
 }
 
 const getActionColor = (action: string) => {
-  switch (action.toLowerCase()) {
+  switch ((action || '').toLowerCase()) {
     case 'created':
       return 'bg-blue-50 border-blue-200 text-blue-700'
     case 'escalated':
@@ -189,9 +197,18 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage,
           }
         }
 
-        // Get PlantID
+        // Get PlantID from production unit name in message
         let plantId = 1
-        if (productionUnits.length > 0) {
+        if (parsed.productionUnit && productionUnits.length > 0) {
+          const foundUnit = productionUnits.find((u: any) => {
+            const unitName = u.ProductionUnitName || u.Name || u.name || ''
+            return unitName.toUpperCase().includes(parsed.productionUnit?.toUpperCase() || '')
+              || (parsed.productionUnit || '').toUpperCase().includes(unitName.toUpperCase())
+          })
+          if (foundUnit) {
+            plantId = foundUnit.PlantID || foundUnit.ProductionUnitID || foundUnit.id || 1
+          }
+        } else if (productionUnits.length > 0) {
           plantId = productionUnits[0]?.PlantID || productionUnits[0]?.ProductionUnitID || 1
         }
 
@@ -234,7 +251,24 @@ export function RequestTimeline({ open, onOpenChange, requestId, requestMessage,
       const result = await getRequestHistory(requestId)
       if (result.success && result.data) {
         console.log('📋 Timeline data received:', result.data)
-        setTimeline(result.data)
+        // Map PascalCase DB columns to camelCase
+        const mapped = result.data.map((r: any): TimelineEntry => ({
+          logId: r.LogId ?? r.logId ?? 0,
+          escalationLevel: r.EscalationLevel ?? r.escalationLevel ?? 1,
+          action: r.Action ?? r.action ?? 'Created',
+          actionDate: r.ActionDate ?? r.actionDate ?? r.CreatedDate ?? new Date().toISOString(),
+          remarks: r.Remarks ?? r.remarks,
+          fromUserName: r.FromUserName ?? r.fromUserName,
+          fromUserEmail: r.FromUserEmail ?? r.fromUserEmail,
+          fromUserRole: r.FromUserRole ?? r.fromUserRole,
+          toUserName: r.ToUserName ?? r.toUserName,
+          toUserEmail: r.ToUserEmail ?? r.toUserEmail,
+          toUserRole: r.ToUserRole ?? r.toUserRole,
+          itemName: r.ItemName ?? r.itemName,
+          itemCode: r.ItemCode ?? r.itemCode,
+          itemID: r.ItemID ?? r.itemID,
+        }))
+        setTimeline(mapped)
 
         // Try to extract item details from the timeline data if not provided as props
         if (!itemName || !itemCode) {

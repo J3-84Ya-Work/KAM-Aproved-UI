@@ -302,12 +302,9 @@ export function AppSidebar() {
     // Fetch ask rate count (pending)
     const fetchAskRateCount = async () => {
       try {
-        const RATE_API_URL = process.env.NEXT_PUBLIC_RATE_API_BASE_URL || 'https://api.indusanalytics.co.in/api/raterequest'
-        const response = await fetch(`${RATE_API_URL}/all`, {
+        const response = await fetch('/api/rate-request', {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         })
 
         if (response.ok) {
@@ -337,11 +334,10 @@ export function AppSidebar() {
 
           // Count only pending requests - check multiple possible field names
           const pendingCount = askRates.filter((item: any) =>
+            item.CurrentStatus === 'Pending' ||
+            item.currentStatus === 'Pending' ||
             item.Status === 'Pending' ||
-            item.status === 'Pending' ||
-            item.STATUS === 'Pending' ||
-            item.State === 'Pending' ||
-            item.state === 'Pending'
+            item.status === 'Pending'
           ).length
 
           setAskRateCount(pendingCount)

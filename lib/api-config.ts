@@ -871,7 +871,7 @@ export async function getUsersAPI() {
       id: String(user.UserID),
       name: user.UserName || user.LoginUserName || '',
       email: user.EmailID || '',
-      department: user.RoleName || 'Purchase', // Default to Purchase if no role
+      department: user.RoleName || user.DepartmentName || user.Department || '',
       designation: user.Designation || '',
       loginUserName: user.LoginUserName || '',
       productionUnitId: user.ProductionUnitID,

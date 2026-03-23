@@ -94,12 +94,17 @@ export async function sendMessage(
       throw new Error(errorData?.error || `HTTP error! status: ${response.status}`)
     }
 
+    // Extract message IDs and conversation ID from response headers
+    const headerConversationId = response.headers.get('X-Conversation-ID')
+    const headerUserMessageId = response.headers.get('X-User-MessageID')
+    console.log('💬 Response headers - ConversationID:', headerConversationId, 'UserMessageID:', headerUserMessageId)
+
     // The API returns text directly, not JSON
     const responseText = await response.text()
     console.log('💬 Response text:', responseText)
 
     // Try to parse as JSON, otherwise return as reply text
-    let data
+    let data: any
     try {
       data = JSON.parse(responseText)
     } catch {
@@ -107,8 +112,15 @@ export async function sendMessage(
       data = { reply: responseText }
     }
 
-    // Extract conversationId from response if available
-    // The API may return it in the response
+    // If API returned a JSON string (not an object), wrap it so we can attach properties
+    if (typeof data === 'string') {
+      data = { reply: data }
+    }
+
+    // Attach header values to data
+    if (headerConversationId) data.conversationId = parseInt(headerConversationId)
+    if (headerUserMessageId) data.userMessageId = parseInt(headerUserMessageId)
+
     return {
       success: true,
       data: data,
@@ -312,6 +324,45 @@ export async function sendCostingBotMessage(payload: any, userId: string = '2', 
       success: false,
       error: error.message || 'Network error'
     }
+  }
+}
+
+/**
+ * Delete all messages after a given messageId in a conversation.
+ * Used when editing a user message — clears the backend conversation history
+ * so the AI re-processes from the edited message onward.
+ */
+export async function deleteMessagesAfter(
+  conversationId: number,
+  messageId: string | number,
+  userId?: string,
+  companyId?: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authData = getUserAuthData()
+    const uid = userId || authData?.userId || '2'
+    const cid = companyId || authData?.companyId || '2'
+
+    const response = await fetch(
+      `${DIRECT_API_BASE_URL}/delete-messages-after/${conversationId}/${messageId}`,
+      {
+        method: 'GET',
+        headers: getDirectHeaders(String(uid), String(cid)),
+      },
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null)
+      return {
+        success: false,
+        error: errorData?.message || errorData?.error || `Delete failed (${response.status})`,
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('[Chat API] Error deleting messages after:', error)
+    return { success: false, error: error.message || 'Network error' }
   }
 }
 

@@ -256,14 +256,11 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
           }
         } catch {}
 
-        // Fetch ask rate count (pending requests)
+        // Fetch ask rate count (pending requests) - only if rate API is configured
         try {
-          const RATE_API_URL = process.env.NEXT_PUBLIC_RATE_API_BASE_URL || 'https://api.indusanalytics.co.in/api/raterequest'
-          const askRateResponse = await fetch(`${RATE_API_URL}/all`, {
+          const askRateResponse = await fetch('/api/rate-request', {
             method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
           })
           if (askRateResponse.ok) {
             let data = await askRateResponse.json()
@@ -273,7 +270,8 @@ export function MobileBottomNav({ onMenuToggle }: MobileBottomNavProps = {}) {
             let askRates = Array.isArray(data) ? data : (data?.data || data?.Data || data?.requests || [])
             // Count only pending requests
             const pendingCount = askRates.filter((item: any) =>
-              item.Status === 'Pending' || item.status === 'Pending' || item.STATUS === 'Pending'
+              item.CurrentStatus === 'Pending' || item.currentStatus === 'Pending' ||
+              item.Status === 'Pending' || item.status === 'Pending'
             ).length
             setAskRateCount(pendingCount)
           }

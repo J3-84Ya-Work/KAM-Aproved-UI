@@ -8,7 +8,7 @@ import { AppHeader } from "@/components/app-header"
 import { Button } from "@/components/ui/button"
 import { MessageSquare, Send, Loader2, Mic, Check, Copy, Pencil, X, Calculator, Target } from "lucide-react"
 import { ScrollableOptionsList, ActionButtonsRow } from "@/components/ui/scrollable-options-list"
-import { getMessages, Message } from "@/lib/chat-api"
+import { getMessages, deleteMessagesAfter, Message } from "@/lib/chat-api"
 import { clientLogger } from "@/lib/logger"
 import { getCurrentUser } from "@/lib/permissions"
 import { useToast } from "@/hooks/use-toast"
@@ -210,7 +210,7 @@ function renderCostingSummary(text: string): React.ReactNode | null {
   const hasTargetPrice = targetPriceComparison != null
 
   // Build detailed breakdown rows
-  const detailedRows: { label: string; amount?: number; percent: string; highlight?: 'green' | 'red' | 'primary' }[] = []
+  const detailedRows: { label: string; note?: string; amount?: number; percent: string; highlight?: 'green' | 'red' | 'primary' }[] = []
   if (hasDetailedBreakdown) {
     const p = detailedParticulars!
     const fobPrice = p.SellingPrice_FOB?.Rs_Per_1000_Cartons || 0
@@ -220,10 +220,10 @@ function renderCostingSummary(text: string): React.ReactNode | null {
     }
     if (p.BoardCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Board Cost', amount: p.BoardCost.Rs_Per_1000_Cartons, percent: calcPct(p.BoardCost.Rs_Per_1000_Cartons) })
     if (p.MaterialCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Material Cost', amount: p.MaterialCost.Rs_Per_1000_Cartons, percent: calcPct(p.MaterialCost.Rs_Per_1000_Cartons) })
-    if (p.ToolCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Tool Cost', amount: p.ToolCost.Rs_Per_1000_Cartons, percent: calcPct(p.ToolCost.Rs_Per_1000_Cartons) })
+    if (p.ToolCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Tool Cost', note: 'Tool + Plate', amount: p.ToolCost.Rs_Per_1000_Cartons, percent: calcPct(p.ToolCost.Rs_Per_1000_Cartons) })
     if (p.CorrugationCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Corrugation Cost', amount: p.CorrugationCost.Rs_Per_1000_Cartons, percent: calcPct(p.CorrugationCost.Rs_Per_1000_Cartons) })
-    if (p.WastageCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Wastage Cost', amount: p.WastageCost.Rs_Per_1000_Cartons, percent: calcPct(p.WastageCost.Rs_Per_1000_Cartons) })
-    if (p.ConversionCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Conversion Cost', amount: p.ConversionCost.Rs_Per_1000_Cartons, percent: calcPct(p.ConversionCost.Rs_Per_1000_Cartons) })
+    if (p.WastageCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Wastage Cost', note: 'Paper + Material + Corrugation', amount: p.WastageCost.Rs_Per_1000_Cartons, percent: calcPct(p.WastageCost.Rs_Per_1000_Cartons) })
+    if (p.ConversionCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Conversion Cost', note: 'Machine + Credit + Labour + Overheads', amount: p.ConversionCost.Rs_Per_1000_Cartons, percent: calcPct(p.ConversionCost.Rs_Per_1000_Cartons) })
     if (p.ExWorksCost?.Rs_Per_1000_Cartons != null) detailedRows.push({ label: 'Ex-works Cost', amount: p.ExWorksCost.Rs_Per_1000_Cartons, percent: calcPct(p.ExWorksCost.Rs_Per_1000_Cartons), highlight: 'primary' })
     if (p.Profit?.Rs_Per_1000_Cartons != null) {
       const profitPct = p.Profit.Percent || 0
@@ -344,12 +344,13 @@ function renderCostingSummary(text: string): React.ReactNode | null {
                 <div
                   key={idx}
                   className={cn(
-                    'grid grid-cols-[1fr_auto_auto] items-baseline px-2 md:px-3 py-1.5 md:py-2 border-b border-gray-200/30 last:border-b-0',
+                    'group grid grid-cols-[1fr_auto_auto] items-baseline px-2 md:px-3 py-1.5 md:py-2 border-b border-gray-200/30 last:border-b-0',
                     row.highlight ? highlightBg[row.highlight] : ''
                   )}
                 >
                   <span className={cn('truncate text-[0.7rem] md:text-[0.8rem]', row.highlight ? cn('font-semibold', highlightText[row.highlight]) : 'text-gray-600')}>
                     {row.label}
+                    {row.note && <span className="text-[0.6rem] text-gray-400 ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">({row.note})</span>}
                   </span>
                   <span className={cn('text-right whitespace-nowrap pl-2 text-[0.7rem] md:text-[0.8rem] font-semibold tabular-nums', row.highlight ? highlightText[row.highlight] : 'text-gray-900')}>
                     {formatCurrency(row.amount)}
@@ -662,10 +663,20 @@ export default function ConversationPage() {
     setEditText("")
   }
 
-  const handleSaveEdit = (messageId: number) => {
+  const handleSaveEdit = async (messageId: number) => {
     if (!editText.trim()) return
     const idx = messages.findIndex(m => m.messageId === messageId)
     if (idx === -1) return
+
+    // Delete messages on the backend so AI context is clean
+    if (Number(conversationId) > 0) {
+      try {
+        await deleteMessagesAfter(Number(conversationId), messageId)
+      } catch (err) {
+        console.error('Failed to delete backend messages for edit:', err)
+      }
+    }
+
     setMessages(prev => prev.slice(0, idx))
     setEditingId(null)
     setEditText("")

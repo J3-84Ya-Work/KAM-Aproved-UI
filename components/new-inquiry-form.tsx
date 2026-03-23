@@ -1700,6 +1700,7 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
     if (!formData.quantity || Number(formData.quantity) === 0) errors.quantity = true
     if (!formData.salesPerson) errors.salesPerson = true
     if (!formData.plant) errors.plant = true
+    if (!formData.paymentTerms) errors.paymentTerms = true
     // UOM is now fixed to "PCS", no validation needed
     // Category is only required for detailed form (the field is only shown in detailed form)
     if (formType === 'detailed' && !formData.categoryName) errors.categoryName = true
@@ -2480,12 +2481,14 @@ export function NewInquiryForm({ editMode = false, initialData, onSaveSuccess }:
               />
             </div>
             <div className="md:col-span-2">
-              <Label htmlFor="paymentTerms">Payment Terms</Label>
+              <Label htmlFor="paymentTerms">
+                Payment Terms <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="paymentTerms"
                 value={formData.paymentTerms}
                 onChange={(e) => handleInputChange("paymentTerms", e.target.value)}
-                className="h-10"
+                className={`h-10 ${validationErrors.paymentTerms ? 'border-red-500' : ''}`}
               />
             </div>
             <div className="md:col-span-3">

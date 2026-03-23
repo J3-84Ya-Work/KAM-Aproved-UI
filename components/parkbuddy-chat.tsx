@@ -7,12 +7,12 @@
  * TargetPriceComparison card, ReactMarkdown, enhanced edit message
  */
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback, memo } from "react"
 import type React from "react"
 import { Send, Loader2, Mic, Calculator, Target, ClipboardCheck, MessageSquare, Copy, Check, Pencil, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { sendMessage } from "@/lib/chat-api"
+import { sendMessage, deleteMessagesAfter } from "@/lib/chat-api"
 import { useToast } from "@/hooks/use-toast"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -21,6 +21,7 @@ import remarkGfm from 'remark-gfm'
 
 interface Message {
   id: string
+  serverMessageId?: number
   content: string
   sender: "user" | "ai"
   timestamp: Date
@@ -40,6 +41,7 @@ interface CostingCardData {
   CustomerDetails?: {
     CustomerName?: string
     JobName?: string
+    ContentType?: string
     SheetSize?: string
     OrderQuantity?: number
     Ups?: string
@@ -206,8 +208,28 @@ function parseTargetPriceComparison(text: string): TargetPriceComparisonData | n
 function parseConfirmationSummary(text: string): ConfirmationSummaryData | null {
   const cleanText = cleanApiText(text)
 
-  if (!/\*\*[^*]+\*\*/.test(cleanText)) return null
+  // Must have bullet items with key: value pairs
   if (!/[*\u2022]\s+.+:.+/.test(cleanText)) return null
+
+  const hasBoldHeaders = /\*\*[^*]+\*\*/.test(cleanText)
+
+  // For non-bold format, verify plain section headers exist (text line followed by bullet line)
+  if (!hasBoldHeaders) {
+    const rawLines = cleanText.split('\n')
+    let foundSectionPattern = false
+    for (let i = 0; i < rawLines.length - 1; i++) {
+      const line = rawLines[i].trim()
+      if (!line || /^[*\u2022\-]\s/.test(line) || /^\d+\.\s/.test(line)) continue
+      for (let j = i + 1; j < rawLines.length; j++) {
+        const next = rawLines[j].trim()
+        if (!next) continue
+        if (/^[*\u2022\-]\s/.test(next)) foundSectionPattern = true
+        break
+      }
+      if (foundSectionPattern) break
+    }
+    if (!foundSectionPattern) return null
+  }
 
   const lines = cleanText.split('\n')
   const sections: ConfirmationSection[] = []
@@ -216,9 +238,12 @@ function parseConfirmationSummary(text: string): ConfirmationSummaryData | null 
   let reachedSections = false
   let reachedFooter = false
 
-  for (const line of lines) {
-    const trimmed = line.trim()
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
     if (!trimmed) continue
+
+    // Stop at numbered items (action buttons like "1. Confirm & Generate Costing")
+    if (/^\d+\.\s+/.test(trimmed) && reachedSections) break
 
     if (/^-{5,}$/.test(trimmed)) {
       reachedFooter = true
@@ -231,6 +256,7 @@ function parseConfirmationSummary(text: string): ConfirmationSummaryData | null 
       continue
     }
 
+    // Bold section header: **Title**
     const sectionMatch = trimmed.match(/^\*\*([^*]+)\*\*$/)
     if (sectionMatch) {
       reachedSections = true
@@ -239,6 +265,7 @@ function parseConfirmationSummary(text: string): ConfirmationSummaryData | null 
       continue
     }
 
+    // Bullet item
     const bulletMatch = trimmed.match(/^[*\u2022\-]\s+(.+)$/)
     if (bulletMatch && currentSection) {
       const colonIdx = bulletMatch[1].indexOf(':')
@@ -251,6 +278,20 @@ function parseConfirmationSummary(text: string): ConfirmationSummaryData | null 
         currentSection.rows.push({ label: bulletMatch[1], value: '', auto: false })
       }
       continue
+    }
+
+    // Plain text section header: not a bullet, not a number — next non-empty line is a bullet
+    if (!/^[*\u2022\-]\s/.test(trimmed) && !/^\d+\.\s/.test(trimmed)) {
+      let nextNonEmpty = ''
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j].trim()) { nextNonEmpty = lines[j].trim(); break }
+      }
+      if (/^[*\u2022\-]\s/.test(nextNonEmpty)) {
+        reachedSections = true
+        currentSection = { title: trimmed, rows: [] }
+        sections.push(currentSection)
+        continue
+      }
     }
 
     if (!reachedSections) {
@@ -407,7 +448,12 @@ function parseActionButtons(text: string): { bodyText: string; buttons: ActionBu
     const fieldMatchCount = buttons.filter(b => inputFieldPatterns.test(b.label)).length
     if (fieldMatchCount >= 2) return null
 
-    return { bodyText: bodyLines.join('\n').trimEnd(), buttons }
+    // If body text ends with ":" it's a selection prompt (e.g. "Select mill for X:"),
+    // not action buttons — let parseSelectableLists handle it instead
+    const bodyTrimmed = bodyLines.join('\n').trimEnd()
+    if (bodyTrimmed.trim().endsWith(':')) return null
+
+    return { bodyText: bodyTrimmed, buttons }
   }
   return null
 }
@@ -465,20 +511,20 @@ function DetailedCostSummarySection({ data }: {
     return ((amount / fobPrice) * 100).toFixed(2)
   }
 
-  const rows: { label: string; amount?: number; percent: string; highlight?: 'green' | 'red' | 'primary' }[] = []
+  const rows: { label: string; note?: string; amount?: number; percent: string; highlight?: 'green' | 'red' | 'primary' }[] = []
 
   if (p.BoardCost?.Rs_Per_1000_Cartons != null)
     rows.push({ label: 'Board Cost', amount: p.BoardCost.Rs_Per_1000_Cartons, percent: calcPercent(p.BoardCost.Rs_Per_1000_Cartons) })
   if (p.MaterialCost?.Rs_Per_1000_Cartons != null)
     rows.push({ label: 'Material Cost', amount: p.MaterialCost.Rs_Per_1000_Cartons, percent: calcPercent(p.MaterialCost.Rs_Per_1000_Cartons) })
   if (p.ToolCost?.Rs_Per_1000_Cartons != null)
-    rows.push({ label: 'Tool Cost', amount: p.ToolCost.Rs_Per_1000_Cartons, percent: calcPercent(p.ToolCost.Rs_Per_1000_Cartons) })
+    rows.push({ label: 'Tool Cost', note: 'Tool + Plate', amount: p.ToolCost.Rs_Per_1000_Cartons, percent: calcPercent(p.ToolCost.Rs_Per_1000_Cartons) })
   if (p.CorrugationCost?.Rs_Per_1000_Cartons != null)
     rows.push({ label: 'Corrugation Cost', amount: p.CorrugationCost.Rs_Per_1000_Cartons, percent: calcPercent(p.CorrugationCost.Rs_Per_1000_Cartons) })
   if (p.WastageCost?.Rs_Per_1000_Cartons != null)
-    rows.push({ label: 'Wastage Cost', amount: p.WastageCost.Rs_Per_1000_Cartons, percent: calcPercent(p.WastageCost.Rs_Per_1000_Cartons) })
+    rows.push({ label: 'Wastage Cost', note: 'Paper + Material + Corrugation', amount: p.WastageCost.Rs_Per_1000_Cartons, percent: calcPercent(p.WastageCost.Rs_Per_1000_Cartons) })
   if (p.ConversionCost?.Rs_Per_1000_Cartons != null)
-    rows.push({ label: 'Conversion Cost', amount: p.ConversionCost.Rs_Per_1000_Cartons, percent: calcPercent(p.ConversionCost.Rs_Per_1000_Cartons) })
+    rows.push({ label: 'Conversion Cost', note: 'Machine + Credit + Labour + Overheads', amount: p.ConversionCost.Rs_Per_1000_Cartons, percent: calcPercent(p.ConversionCost.Rs_Per_1000_Cartons) })
   if (p.ExWorksCost?.Rs_Per_1000_Cartons != null)
     rows.push({ label: 'Ex-works Cost', amount: p.ExWorksCost.Rs_Per_1000_Cartons, percent: calcPercent(p.ExWorksCost.Rs_Per_1000_Cartons), highlight: 'primary' })
   if (p.Profit?.Rs_Per_1000_Cartons != null) {
@@ -521,12 +567,13 @@ function DetailedCostSummarySection({ data }: {
           <div
             key={idx}
             className={cn(
-              'grid grid-cols-[1fr_auto_auto] items-baseline px-2 md:px-3 py-1.5 md:py-2 border-b border-gray-200/30 last:border-b-0',
+              'group grid grid-cols-[1fr_auto_auto] items-baseline px-2 md:px-3 py-1.5 md:py-2 border-b border-gray-200/30 last:border-b-0',
               row.highlight ? highlightBg[row.highlight] : ''
             )}
           >
             <span className={cn('truncate text-[0.7rem] md:text-[0.8rem]', row.highlight ? cn('font-semibold', highlightText[row.highlight]) : 'text-gray-600')}>
               {row.label}
+              {row.note && <span className="text-[0.6rem] text-gray-400 ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">({row.note})</span>}
             </span>
             <span className={cn('text-right whitespace-nowrap pl-2 text-[0.7rem] md:text-[0.8rem] font-semibold tabular-nums', row.highlight ? highlightText[row.highlight] : 'text-gray-900')}>
               {formatCurrency(row.amount)}
@@ -543,13 +590,13 @@ function DetailedCostSummarySection({ data }: {
 
 // ─── Costing Card ────────────────────────────────────────────────────────────
 
-function CostingCard({ data, timestamp }: { data: CostingCardData; timestamp?: Date }) {
+const CostingCard = memo(function CostingCard({ data, timestamp }: { data: CostingCardData; timestamp?: Date }) {
   const customer = data.CustomerDetails || {}
   const costs = data.CostStructurePer1000 || {}
   const pct = data.PercentageBreakup || {}
   const profitMarginPct = data.ProfitMarginPercent
 
-  const contentName = data.ContentName || customer.JobName || null
+  const contentName = data.ContentName || customer.ContentType || null
 
   const formattedTimestamp = (timestamp || new Date()).toLocaleString('en-IN', {
     day: '2-digit',
@@ -757,7 +804,10 @@ function CostingCard({ data, timestamp }: { data: CostingCardData; timestamp?: D
         </div>
       )}
 
-      {data.afterJson && !(data.NextStep && data.afterJson.includes(data.NextStep)) && (
+      {data.afterJson && !(data.NextStep && (() => {
+        const norm = (s: string) => s.replace(/[\u2014\u2013]+/g, '--').replace(/-+/g, '-').trim()
+        return norm(data.afterJson!).includes(norm(data.NextStep!)) || norm(data.NextStep!).includes(norm(data.afterJson!))
+      })()) && (
         <div className="px-4 md:px-5 py-3 md:py-3.5 bg-gray-50/80 border-t border-gray-200/50 text-xs md:text-sm text-gray-600 text-center leading-relaxed"
           dangerouslySetInnerHTML={{
             __html: data.afterJson
@@ -768,11 +818,11 @@ function CostingCard({ data, timestamp }: { data: CostingCardData; timestamp?: D
       )}
     </div>
   )
-}
+})
 
 // ─── Target Price Comparison Card (standalone) ───────────────────────────────
 
-function TargetPriceComparisonCard({ data }: { data: TargetPriceComparisonData }) {
+const TargetPriceComparisonCard = memo(function TargetPriceComparisonCard({ data }: { data: TargetPriceComparisonData }) {
   const customer = data.CustomerDetails || {}
   const diff = data.DifferencePer1000 || 0
   const originalCost = data.OriginalCostPer1000 || 0
@@ -912,11 +962,11 @@ function TargetPriceComparisonCard({ data }: { data: TargetPriceComparisonData }
       )}
     </div>
   )
-}
+})
 
 // ─── Confirmation Summary Card ───────────────────────────────────────────────
 
-function ConfirmationSummaryCard({ data }: { data: ConfirmationSummaryData }) {
+const ConfirmationSummaryCard = memo(function ConfirmationSummaryCard({ data }: { data: ConfirmationSummaryData }) {
   const contentName = (() => {
     for (const section of data.sections) {
       for (const row of section.rows) {
@@ -986,11 +1036,11 @@ function ConfirmationSummaryCard({ data }: { data: ConfirmationSummaryData }) {
       )}
     </div>
   )
-}
+})
 
 // ─── Inline Markdown (ReactMarkdown-based text rendering) ────────────────────
 
-function InlineMarkdown({ text }: { text: string }) {
+const InlineMarkdown = memo(function InlineMarkdown({ text }: { text: string }) {
   if (!text) return null
   // Encode spaces in markdown image URLs so ReactMarkdown can parse them
   const processed = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
@@ -1039,7 +1089,7 @@ function InlineMarkdown({ text }: { text: string }) {
       </ReactMarkdown>
     </div>
   )
-}
+})
 
 // ─── Dropdown Selector (searchable list) ────────────────────────────────────
 
@@ -1209,16 +1259,16 @@ export function ParkBuddyChat({ initialMessage }: ParkBuddyChatProps) {
   const isFirstMessageSent = useRef(false)
   const recognitionRef = useRef<any>(null)
   const { toast } = useToast()
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+  }, [])
 
-  const autoResizeTextarea = () => {
+  const autoResizeTextarea = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 150) + 'px'
-  }
+  }, [])
 
   useEffect(() => {
     scrollToBottom()
@@ -1264,7 +1314,7 @@ export function ParkBuddyChat({ initialMessage }: ParkBuddyChatProps) {
     }
   }, [])
 
-  const handleVoiceInput = () => {
+  const handleVoiceInput = useCallback(() => {
     if (!recognitionRef.current) {
       toast({
         title: "Not supported",
@@ -1290,43 +1340,61 @@ export function ParkBuddyChat({ initialMessage }: ParkBuddyChatProps) {
         })
       }
     }
-  }
+  }, [isListening, toast])
 
   // Copy message to clipboard
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
-  const handleCopy = (text: string, messageId: string) => {
+  const handleCopy = useCallback((text: string, messageId: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedId(messageId)
       setTimeout(() => setCopiedId(null), 2000)
     })
-  }
+  }, [])
 
   // Edit message — deletes all messages after the edited one and resends
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState("")
   const pendingEditResend = useRef<string | null>(null)
 
-  const handleStartEdit = (message: Message) => {
+  const handleStartEdit = useCallback((message: Message) => {
     setEditingId(message.id)
     setEditText(message.content)
-  }
+  }, [])
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditingId(null)
     setEditText("")
-  }
+  }, [])
 
-  const handleSaveEdit = (messageId: string) => {
+  const handleSaveEdit = async (messageId: string) => {
     if (!editText.trim()) return
 
     const msgIndex = messages.findIndex(m => m.id === messageId)
     if (msgIndex === -1) return
 
+    const editedMessage = messages[msgIndex]
+
+    // Delete messages after the edited one on the backend using server message ID
+    if (conversationId && editedMessage.serverMessageId) {
+      console.log(`📝 Edit: deleting messages after serverMessageId=${editedMessage.serverMessageId} in conversation=${conversationId}`)
+      try {
+        const result = await deleteMessagesAfter(conversationId, editedMessage.serverMessageId)
+        console.log('📝 Delete result:', result)
+        if (!result.success) {
+          console.error('Failed to delete messages on server:', result.error)
+        }
+      } catch (err) {
+        console.error('Failed to delete messages on server:', err)
+      }
+    } else {
+      console.warn('📝 Edit: no serverMessageId found for message, skipping backend delete. conversationId:', conversationId, 'serverMessageId:', editedMessage.serverMessageId)
+    }
+
     // Store the text to resend after state update
     pendingEditResend.current = editText.trim()
 
-    // Remove this message and all messages after it
+    // Remove this message and all messages after it (client-side)
     setMessages(prev => prev.slice(0, msgIndex))
 
     // Reset edit state
@@ -1343,7 +1411,7 @@ export function ParkBuddyChat({ initialMessage }: ParkBuddyChatProps) {
     }
   }, [messages, isLoading])
 
-  const handleSendMessage = async (messageContent?: string) => {
+  const handleSendMessage = useCallback(async (messageContent?: string) => {
     const textToSend = messageContent || input
     if (!textToSend.trim() || isLoading) return
 
@@ -1378,13 +1446,19 @@ export function ParkBuddyChat({ initialMessage }: ParkBuddyChatProps) {
         isFirstMessageSent.current = true
       }
 
-      if (response.data?.conversationId) {
-        setConversationId(response.data.conversationId)
+      // Extract conversationId from response (check all case variants)
+      const d = response.data || {}
+      const respConvId = d.conversationId || d.ConversationId || d.ConversationID || d.conversation_id
+
+      if (respConvId) {
+        console.log('💬 Got conversationId from response:', respConvId)
+        setConversationId(respConvId)
       }
+
 
       const messageContent = typeof response.data === 'string'
         ? response.data
-        : (response.data?.reply || response.data?.message || response.data?.text || response.reply || response.message || response.text || response.content || "I apologize, but I couldn't process that request.")
+        : (d.reply || d.message || d.text || d.Reply || d.Message || response.reply || response.message || response.text || response.content || "I apologize, but I couldn't process that request.")
 
       const aiMessageId = `ai-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
       const aiMessage: Message = {
@@ -1398,6 +1472,17 @@ export function ParkBuddyChat({ initialMessage }: ParkBuddyChatProps) {
       }
 
       setMessages((prev) => [...prev, aiMessage])
+
+      // Set server message ID on the user message from response headers
+      const serverUserMsgId = d.userMessageId
+      if (serverUserMsgId) {
+        console.log('💬 Setting serverMessageId on user message:', serverUserMsgId)
+        setMessages(prev => prev.map(m =>
+          m.id === userMessageId ? { ...m, serverMessageId: serverUserMsgId } : m
+        ))
+      } else {
+        console.warn('💬 No userMessageId in response headers, edit-delete will not work for this message')
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -1407,18 +1492,18 @@ export function ParkBuddyChat({ initialMessage }: ParkBuddyChatProps) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [input, isLoading, conversationId, toast])
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSendMessage()
     }
-  }
+  }, [handleSendMessage])
 
-  const handleSelectItem = (item: SelectableItem) => {
+  const handleSelectItem = useCallback((item: SelectableItem) => {
     handleSendMessage(item.name)
-  }
+  }, [handleSendMessage])
 
   const renderMessage = (message: Message) => {
     if (message.sender === "user") {
@@ -1520,10 +1605,29 @@ export function ParkBuddyChat({ initialMessage }: ParkBuddyChatProps) {
     // Try to parse as confirmation summary card
     const confirmData = parseConfirmationSummary(message.content)
     if (confirmData) {
+      const confirmActionData = parseActionButtons(message.content)
       return (
         <div key={message.id} className="flex mb-6 group">
           <div className="w-full md:max-w-[90%] lg:max-w-[85%]">
             <ConfirmationSummaryCard data={confirmData} />
+            {confirmActionData && confirmActionData.buttons.length > 0 && (
+              <div className="flex gap-2 flex-wrap mt-3">
+                {confirmActionData.buttons.map((btn) => (
+                  <button
+                    key={btn.num}
+                    onClick={() => handleSendMessage(btn.label)}
+                    className={cn(
+                      "flex-1 min-w-[120px] px-4 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 shadow-sm",
+                      btn.label.toLowerCase().includes('confirm')
+                        ? "bg-[#005180] text-white hover:bg-[#004570]"
+                        : "bg-white text-gray-700 border border-gray-300 hover:border-[#005180] hover:text-[#005180]"
+                    )}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {copyButton}
         </div>
